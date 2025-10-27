@@ -10,11 +10,34 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+    <!-- Вставка спрайта — можно и через include на сервере -->
+  <div style="display:none">
+    <?php include 'assets/sprite/sprite.svg'; ?>
+  </div>
     <!-- ================================================
          Header
          ================================================ -->
     <header class="header">
-        <h1>🖥️ Веб-приложение для виртуального шкафа</h1>
+        <div class="header-left">
+           <h1>🖥️ Веб-приложение для виртуального шкафа</h1>
+           <p>Новый проект</p>
+        </div>
+        <div class="header-center">
+        </div>
+        <div class="header-right">
+            <button class="button-header">
+                <svg class="icon" width="24" height="24"><use href="#icon-save"></use></svg>
+                Кнопка</button>
+            <button class="button-header">
+                
+                Кнопка</button>
+            <button class="button-header">
+                
+                Кнопка</button>
+            <button class="button-header">
+                
+                Кнопка</button>
+        </div>    
     </header>
 
     <!-- ================================================
@@ -24,7 +47,7 @@
         <!-- ================================================
              Left Panel: Cabinet Info & Equipment Catalog
              ================================================ -->
-        <aside class="panel">
+        <aside class="panel-left">
             <!-- Cabinet Information -->
             <div class="cabinet-info">
                 <h2 class="panel-title">📋 Информация о шкафе</h2>
@@ -41,7 +64,7 @@
         <!-- ================================================
              Center Panel: Cabinet Visualization
              ================================================ -->
-        <section class="panel">
+        <section class="panel-center">
             <h2 class="panel-title">🏢 Визуализация шкафа</h2>
             <p style="color: var(--color-text-muted); margin-bottom: 1rem; font-size: 0.9rem;">
                 Перетащите оборудование из каталога в нужную позицию шкафа
@@ -54,7 +77,7 @@
         <!-- ================================================
              Right Panel: Parameters
              ================================================ -->
-        <aside class="panel">
+        <aside class="panel-right">
             <h2 class="panel-title">📊 Итоговые параметры</h2>
             <div id="parameters" class="parameters-grid"></div>
         </aside>
@@ -70,5 +93,3 @@
     <script src="js/app.js"></script>
 </body>
 </html>
-
-<p>Test</p>
