@@ -36,34 +36,14 @@ body {
    Header
    ================================================ */
 .header {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr; /* три колонки */
-  align-items: center;
   background: var(--bg-secondary);
   padding: 1.5rem 2rem;
-  border-bottom: 1px solid var(--border-color);
-  width: 100vw;
+  border-bottom: 2px solid var(--border-color);
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
-/* Содержимое в трёх колонках */
-.header-left {
-  justify-self: start;
-}
-
-.header-center {
-  justify-self: center;
-  text-align: center;
-}
-
-.header-right {
-  justify-self: end;
-  display: flex;
-  gap: 1rem; /* если будут иконки или кнопки */
-}
-
 .header h1 {
-  font-size: 1.0rem;
+  font-size: 1.75rem;
   font-weight: 700;
   background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
   -webkit-background-clip: text;
@@ -76,7 +56,7 @@ body {
    ================================================ */
 .container {
   display: grid;
-  grid-template-columns: 0.5fr 2fr 0.5fr;
+  grid-template-columns: 1fr 2fr 1fr;
   gap: 0;                     /* Убираем промежутки между колонками */
   padding: 0;                 /* Убираем внутренние отступы контейнера */
   width: 100vw;               /* Контейнер растягивается на всю ширину окна */
@@ -87,37 +67,13 @@ body {
 /* ================================================
    Cards & Panels
    ================================================ */
-
-.panel-left {
+.panel {
   background: var(--bg-secondary);
-  border-top: none;
-  border-right: none;
-  border-bottom: 1px solid var(--border-color);
-  border-left: none;
-  border-radius: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
   padding: 1.5rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
-.panel-center {
-  background: var(--bg-secondary);
-  border-top: none;
-  border-right: 1px solid var(--border-color);
-  border-bottom: 1px solid var(--border-color);
-  border-left: 1px solid var(--border-color);
-  border-radius: 0;
-  padding: 1.5rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-.panel-right {
-  background: var(--bg-secondary);
-  border-top: 0px solid var(--border-color);
-  border-right: none;
-  border-bottom: 1px solid var(--border-color);
-  border-left: none;
-  border-radius: 0;
-  padding: 1.5rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  }
 
 .panel-title {
   font-size: 1.25rem;
@@ -260,56 +216,6 @@ body {
   padding: 1rem;
 }
 
-/* 3D viewport: responsive full-width inside its panel */
-#cabinet-3d-container {
-  width: 100%;
-  /* Use viewport-relative height but constrain with min/max for usability */
-  height: min(70vh, 800px);
-  min-height: 360px;
-  max-height: 900px;
-  background: #f0f0f0;
-  border: 1px solid #ccc;
-  box-sizing: border-box;
-}
-
-/* Ensure the Three.js canvas fills the container */
-#cabinet-3d-container canvas {
-  width: 100% !important;
-  height: 100% !important;
-  display: block;
-}
-
-/* Also allow applying same styles via class "cabinet-3d" */
-.cabinet-3d {
-  width: 100%;
-  height: min(70vh, 800px);
-  min-height: 360px;
-  max-height: 900px;
-  background: #f0f0f0;
-  border: 1px solid #ccc;
-  box-sizing: border-box;
-}
-
-.cabinet-3d canvas {
-  width: 100% !important;
-  height: 100% !important;
-  display: block;
-}
-
-@media (max-width: 1200px) {
-  #cabinet-3d-container {
-    height: min(60vh, 700px);
-    min-height: 320px;
-  }
-}
-
-@media (max-width: 768px) {
-  #cabinet-3d-container {
-    height: 50vh;
-    min-height: 260px;
-  }
-}
-
 .cabinet-grid {
   display: flex;
   flex-direction: column-reverse;
@@ -321,7 +227,7 @@ body {
   border-radius: 4px;
 }
 
-/* .cabinet-unit {
+.cabinet-unit {
   display: flex;
   align-items: center;
   min-height: 20px;
@@ -331,45 +237,45 @@ body {
   padding: 0.25rem 0.5rem;
   transition: all 0.2s ease;
   position: relative;
-} */
+}
 
-/* .cabinet-unit.empty:hover {
+.cabinet-unit.empty:hover {
   background: rgba(59, 130, 246, 0.1);
   border-color: var(--color-primary);
-} */
+}
 
-/* .cabinet-unit.drag-over {
+.cabinet-unit.drag-over {
   background: rgba(59, 130, 246, 0.2);
   border-color: var(--color-primary);
   box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
-} */
+}
 
-/* .cabinet-unit.occupied {
+.cabinet-unit.occupied {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(139, 92, 246, 0.3));
   border-color: var(--color-primary);
   cursor: pointer;
   padding: 0.5rem;
-} */
+}
 
-/* .cabinet-unit.occupied:hover {
+.cabinet-unit.occupied:hover {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.5), rgba(139, 92, 246, 0.5));
-} */
+}
 
-/* .unit-number {
+.unit-number {
   font-size: 0.7rem;
   color: var(--color-text-muted);
   min-width: 25px;
   font-weight: 600;
-} */
+}
 
-/* .unit-equipment {
+.unit-equipment {
   flex: 1;
   font-size: 0.85rem;
   font-weight: 500;
   color: var(--color-text);
-} */
+}
 
-/* .remove-btn {
+.remove-btn {
   background: var(--color-danger);
   color: white;
   border: none;
@@ -382,7 +288,7 @@ body {
 
 .remove-btn:hover {
   background: #dc2626;
-} */
+}
 
 /* ================================================
    Parameters Panel
@@ -478,58 +384,4 @@ body {
 
 .hidden {
   display: none !important;
-}
-/* ================================================
-   Buttons
-   ================================================ */
-.button-header {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.3rem 1.5rem;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
-  color: #ffffff;
-  font-weight: 600;
-  font-size: 0.95rem;
-  letter-spacing: 0.3px;
-  text-transform: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-}
-
-/* При наведении — лёгкое свечение и повышение контраста */
-.button-header:hover {
-  background: linear-gradient(135deg, var(--color-secondary), var(--color-primary));
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
-  transform: translateY(-1px);
-}
-
-/* Активное состояние */
-.button-header:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-/* Отключённое состояние */
-.button-header:disabled,
-.button-header.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: none;
-  transform: none;
-}
-
-.icon {
-  width: 18px;
-  height: 18px;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }

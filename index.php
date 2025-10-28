@@ -39,7 +39,6 @@
                 Кнопка</button>
         </div>    
     </header>
-
     <!-- ================================================
          Main Container
          ================================================ -->
@@ -70,7 +69,7 @@
                 Перетащите оборудование из каталога в нужную позицию шкафа
             </p>
             <div class="cabinet-container">
-                <div id="cabinet-grid" class="cabinet-grid"></div>
+                <div id="cabinet-3d-container" class="cabinet-3d" aria-label="3D cabinet viewport"></div>
             </div>
         </section>
 
@@ -88,8 +87,8 @@
          ================================================ -->
     <!-- Данные оборудования -->
     <script src="js/data.js"></script>
-
+    
     <!-- Основное приложение -->
-    <script src="js/app.js"></script>
+    <script type="module" src="js/app.js"></script>
 </body>
 </html>
