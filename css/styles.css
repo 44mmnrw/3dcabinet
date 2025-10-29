@@ -353,69 +353,6 @@ body {
   border-radius: 4px;
 }
 
-/* .cabinet-unit {
-  display: flex;
-  align-items: center;
-  min-height: 20px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 3px;
-  padding: 0.25rem 0.5rem;
-  transition: all 0.2s ease;
-  position: relative;
-} */
-
-/* .cabinet-unit.empty:hover {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: var(--color-primary);
-} */
-
-/* .cabinet-unit.drag-over {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: var(--color-primary);
-  box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
-} */
-
-/* .cabinet-unit.occupied {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(139, 92, 246, 0.3));
-  border-color: var(--color-primary);
-  cursor: pointer;
-  padding: 0.5rem;
-} */
-
-/* .cabinet-unit.occupied:hover {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.5), rgba(139, 92, 246, 0.5));
-} */
-
-/* .unit-number {
-  font-size: 0.7rem;
-  color: var(--color-text-muted);
-  min-width: 25px;
-  font-weight: 600;
-} */
-
-/* .unit-equipment {
-  flex: 1;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--color-text);
-} */
-
-/* .remove-btn {
-  background: var(--color-danger);
-  color: white;
-  border: none;
-  padding: 0.25rem 0.5rem;
-  border-radius: 3px;
-  font-size: 0.7rem;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.remove-btn:hover {
-  background: #dc2626;
-} */
-
 /* ================================================
    Parameters Panel
    ================================================ */
