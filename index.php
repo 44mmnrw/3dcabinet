@@ -1,94 +1,61 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Конфигуратор серверного шкафа 3Cabinet - виртуальное проектирование размещения оборудования">
-    <title>Веб-приложение для виртуального шкафа</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="3Cabinet — онлайн-конфигуратор серверного шкафа" />
+    <title>3Cabinet — Конфигуратор</title>
 
-    <!-- Подключение CSS -->
-    <link rel="stylesheet" href="css/styles.css">
-</head>
-<body>
-    <!-- Вставка спрайта — можно и через include на сервере -->
-  <div style="display:none">
-    <?php include 'assets/sprite/sprite.svg'; ?>
-  </div>
-    <!-- ================================================
-         Header
-         ================================================ -->
+    <!-- <link rel="preload" href="fonts/InterVariable.woff2" as="font" type="font/woff2"> -->
+    <link rel="preload" href="fonts/InterVariable-Italic.woff2" as="font" type="font/woff2">
+
+    <link rel="stylesheet" href="css/reset.css">
+    <link rel="stylesheet" href="css/styles.css" />
+    <!-- стиль перенесен в css/styles.css -->
+    </head>
+<body class="body">
+    <!-- Опционально: инлайн-спрайт, чтобы не грузить внешний файл и улучшить совместимость -->
+    <div hidden aria-hidden="true">
+        <?php /* Вставит содержимое assets/sprite/sprite.svg в DOM */ include __DIR__ . '/assets/sprite/sprite.svg'; ?>
+    </div>
     <header class="header">
-        <div class="header-left">
-           <h1>🖥️ Веб-приложение для виртуального шкафа</h1>
-           <p>Новый проект</p>
-        </div>
-        <div class="header-center">
-        </div>
-        <div class="header-right">
-            <button class="button-header">
-                <svg class="icon" width="24" height="24"><use href="#icon-save"></use></svg>
-                Кнопка</button>
-            <button class="button-header">
-                
-                Кнопка</button>
-            <button class="button-header">
-                
-                Кнопка</button>
-            <button class="button-header">
-                
-                Кнопка</button>
+        <div class="container">
+            <div class="header-block">
+                <div class="header-logo">   
+                  <a href="/" class="logo-hover-left logo-hover-right logo-hover-digits">
+                    <svg class="icon-logo-box-left" width="40" height="40" role="img">
+                      <use href="#icon-logo-box-left" xlink:href="#icon-logo-box-left"></use>
+                    </svg>
+                    <svg class="icon-logo-box-right" width="40" height="40" role="img">
+                      <use href="#icon-logo-box-right" xlink:href="#icon-logo-box-right"></use>
+                    </svg>
+                    <svg class="icon-logo-digits" width="70" height="70" role="img">
+                      <use href="#icon-logo-digits" xlink:href="#icon-logo-digits"></use>
+                    </svg>
+                    </a>
+                </div>
+                <nav class="header-nav">
+                    <ul class="header-nav-list">
+                        <li class="header-nav-item"><a class="header-nav-link" href="/">Конфигуратор</a></li>
+                        <li class="header-nav-item"><a class="header-nav-link" href="/">Возможности</a></li>
+                        <li class="header-nav-item"><a class="header-nav-link" href="/">Документация</a></li>
+                        <li class="header-nav-item"><a class="header-nav-link" href="/">Поддержка</a></li>
+                    </ul>
+                </nav>
+                <div class="header-actions">
+                    <button class="button white-button" type="button">Войти</button>
+                    <button class="button blue-button" type="button">Создать проект</button>
+                </div>
+            </div>
         </div>    
     </header>
-    <!-- ================================================
-         Main Container
-         ================================================ -->
-    <main class="container">
-        <!-- ================================================
-             Left Panel: Cabinet Info & Equipment Catalog
-             ================================================ -->
-        <aside class="panel-left">
-            <!-- Cabinet Information -->
-            <div class="cabinet-info">
-                <h2 class="panel-title">📋 Информация о шкафе</h2>
-                <div id="cabinet-info"></div>
-            </div>
-
-            <!-- Equipment Catalog -->
-            <div class="equipment-catalog">
-                <h2 class="panel-title">🔧 Каталог оборудования</h2>
-                <div id="equipment-grid" class="equipment-grid"></div>
-            </div>
-        </aside>
-
-        <!-- ================================================
-             Center Panel: Cabinet Visualization
-             ================================================ -->
-        <section class="panel-center">
-            <h2 class="panel-title">🏢 Визуализация шкафа</h2>
-            <p style="color: var(--color-text-muted); margin-bottom: 1rem; font-size: 0.9rem;">
-                Перетащите оборудование из каталога в нужную позицию шкафа
-            </p>
-            <div class="cabinet-container">
-                <div id="cabinet-3d-container" class="cabinet-3d" aria-label="3D cabinet viewport"></div>
-            </div>
-        </section>
-
-        <!-- ================================================
-             Right Panel: Parameters
-             ================================================ -->
-        <aside class="panel-right">
-            <h2 class="panel-title">📊 Итоговые параметры</h2>
-            <div id="parameters" class="parameters-grid"></div>
-        </aside>
+    <main class="main">
+        <div class="container">
+            <h1 class="main-title">Конфигуратор серверного шкафа</h1>
+            <p class="main-description">С помощью 3Cabinet вы можете легко спроектировать свой идеальный серверный шкаф.</p>
+            <button class="button blue-button" type="button">Начать конфигурацию</button>
+        </div>
     </main>
 
-    <!-- ================================================
-         Scripts
-         ================================================ -->
-    <!-- Данные оборудования -->
-    <script src="js/data.js"></script>
-    
-    <!-- Основное приложение -->
-    <script type="module" src="js/app.js"></script>
 </body>
 </html>

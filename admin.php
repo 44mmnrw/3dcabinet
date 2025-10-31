@@ -104,8 +104,7 @@ $action = $_GET['action'] ?? '';
 <body>
     <h1>Административная часть</h1>
     <p><a href="admin.php?logout=1">Выйти из админки</a></p>
-    <button onclick="location.href='admin.php?action=list_equipment'">Показать оборудование</button>
-    <button onclick="location.href='admin.php?action=add_equipment_form'">Добавить оборудование</button>
+    <button onclick="location.href='admin.php?action=list_equipment'">Оборудование</button>
     <button onclick="location.href='admin.php?action=list_categories'">Категории</button>
     <button onclick="location.href='admin.php?action=list_manufacturers'">Производители</button>
 
@@ -150,6 +149,7 @@ switch ($action) {
         $equipment = $pdo->query($query)->fetchAll();
         
         echo '<h2>Список оборудования</h2>';
+        echo '<button onclick="location.href=\'admin.php?action=add_equipment_form\'">Добавить оборудование</button>';
         echo '<table>';
         echo '<thead><tr>
             <th>ID</th>
