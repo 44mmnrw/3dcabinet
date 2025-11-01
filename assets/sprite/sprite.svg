@@ -1,4 +1,6 @@
-<svg><defs/><symbol id="icon-logo-box-left" viewBox="0 0 81 112">
+<svg><defs/><symbol id="icon-check-list" viewBox="0 0 24 24">
+  <path d="M6 13L10 17L18 7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</symbol><symbol id="icon-logo-box-left" viewBox="0 0 81 112">
 <path d="M0 103.76V111.42H80.4299V92.1599L0 96.12V103.76Z" fill="black"/>
 <path d="M0 80.96V88.63L80.4299 84.6699V64.0699L0 73.2899V80.96Z" fill="black"/>
 <path d="M0 58.1599V65.7999L80.4299 56.58V37.3199L0 50.5V58.1599Z" fill="black"/>
