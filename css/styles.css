@@ -12,7 +12,7 @@
     
   
 
-  /* НАЧАЛО */
+  /* =======================          НАЧАЛО        =========================== */
 
 /* Подключаем шрифты — вариативный Inter (roman + italic) */
 @font-face {
@@ -46,6 +46,7 @@
   --color-blue: #6C5CE7;
   --color-blue-dark: #5F52D1;
   --color-white: #FFFFFF;
+  --color-background-2: #F8F9FA;;
   --color-dark: #2D3436;
   --color-gray: #636E72;
   --color-light-gray: #E1E8ED;
@@ -150,6 +151,19 @@ h2, h3, h4, h5, h6 {
   background-color: var(--color-blue-dark);
 }
 
+/* Неактивная кнопка (серая) */
+.disabled-button {
+  background-color: #B2BEC3 !important;
+  border-color: #B2BEC3 !important;
+  color: var(--color-white) !important;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.disabled-button:hover {
+  background-color: #B2BEC3 !important;
+}
+
 .header {
   width: 100%;
   position: sticky;
@@ -172,27 +186,44 @@ h2, h3, h4, h5, h6 {
   }
 
 .header-logo {
-  display: grid; /* контейнер под логотип */
-  grid-auto-flow: column;
+  display: inline-flex; /* используем flex вместо grid для более жесткого контроля */
   align-items: center;
   padding: 8px 20px;
+  flex-shrink: 0; /* запрет на сжатие логотипа */
+  min-width: 150px; /* минимальная ширина для защиты от сжатия */
 }
 /* Жестко склеиваем части логотипа в одну линию */
 .header-logo a {
-  display: inline-grid;        /* выкладываем части логотипа по столбцам */
-  grid-auto-flow: column;      /* в ряд */
+  display: inline-flex;        /* используем flex для абсолютного контроля */
   align-items: center;
   gap: 0;                      /* без зазоров между частями */
   white-space: nowrap;         /* защита от переносов */
+  flex-shrink: 0;              /* запрет на сжатие ссылки */
+  line-height: 0;              /* убираем межстрочный интервал */
 }
 .header-logo svg {
   display: block; /* исключаем межэлементные пробелы в инлайне */
-  flex: 0 0 auto; /* не сжимать/не растягивать */
+  flex-shrink: 0; /* запрет на сжатие SVG */
   transition: fill var(--transition-duration), color var(--transition-duration);
+  min-width: auto; /* сохраняем оригинальные размеры */
+  min-height: auto;
 }
-/* Сдвигаем правую часть ближе к левой */
+
+/* Фиксируем размеры каждой части логотипа */
+.header-logo .icon-logo-box-left {
+  width: 40px;
+  height: 40px;
+}
+
 .header-logo .icon-logo-box-right {
-  margin-left: -17.7px; /* при необходимости подберите -2px…-8px */
+  width: 40px;
+  height: 40px;
+  margin-left: -17.7px; /* сдвигаем правую часть ближе к левой */
+}
+
+.header-logo .icon-logo-digits {
+  width: 70px;
+  height: 70px;
 }
 
 .header-actions {
@@ -273,33 +304,359 @@ h2, h3, h4, h5, h6 {
 .first-section {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr)); /* 12-колоночная сетка */
-  column-gap: var(--section-gap-x);
+  column-gap: var(--section-gap-x); /* 🔧 НАСТРОЙКА ОТСТУПА: измените значение переменной --section-gap-x в :root (строка 56) или укажите здесь конкретное значение, например: column-gap: 4rem; */
   row-gap: 2rem;
   padding: clamp(3rem, 5.9375vw, 5.9375rem) clamp(1.5rem, 9.75vw, 9.75rem) 0;
+  align-items: center; /* Вертикальное центрирование элементов */
 }
 
 .intro {
-  grid-column: 1 / span 5; /* левая половина */
+  grid-column: 1 / span 6; /* левая половина - 6 колонок */
+  justify-self: center; /* горизонтальное центрирование внутри своей области */
+  align-self: center; /* вертикальное центрирование */
+  padding-right: 12em; /* 🔧 ВНУТРЕННИЙ ОТСТУП: измените значение для увеличения/уменьшения отступа внутри блока (например: 1rem, 2rem, 3rem, 4rem) */
 }
 
 .selection {
-  grid-column: 8 / span 5; /* правая половина */
+  grid-column: 7 / span 6; /* правая половина - 6 колонок */
+  justify-self: center; /* горизонтальное центрирование внутри своей области */
+  align-self: center; /* вертикальное центрирование */
 }
 
 /* Вторая секция: адаптивная сетка карточек/панелей */
 .second-section {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-  padding: 2.5rem clamp(1.5rem, 9.75vw, 9.75rem) 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3rem;
+  padding: 4rem clamp(1.5rem, 9.75vw, 9.75rem);
+  background-color: var(--color-background-2);
+  
+  /* Расширяем на всю ширину экрана */
+  width: 100vw;
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
 }
 
-/* Третья секция: можно использовать как 3-колоночный блок фич */
-.third-section {
+.second-section-header {
+  text-align: center;
+  max-width: 800px;
+}
+
+.section-title {
+  color: var(--color-dark);
+  font-family: var(--font-family);
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: var(--font-weight-700);
+  line-height: 1.2;
+  margin: 0;
+}
+
+.steps-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 2rem;
-  padding: 2.5rem clamp(1.5rem, 9.75vw, 9.75rem) 3rem;
+  width: 100%;
+  max-width: var(--container-width);
+  padding: 0 clamp(1.5rem, 5vw, 3rem);
+}
+
+.step-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2rem 1.5rem;
+  background: var(--color-white);
+  border-radius: var(--border-radius-16);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  position: relative;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.step-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(108, 92, 231, 0.15);
+}
+
+.step-number {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background-color: var(--color-blue);
+  color: var(--color-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: var(--font-weight-600);
+  font-family: var(--font-family);
+  margin-bottom: 1rem;
+}
+
+.step-icon {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.step-icon svg {
+  width: 64px;
+  height: 64px;
+  color: var(--color-blue);
+  fill: none;
+}
+
+.step-title {
+  color: var(--color-dark);
+  font-family: var(--font-family);
+  font-size: 20px;
+  font-weight: var(--font-weight-600);
+  line-height: 1.4;
+  margin: 0 0 0.75rem 0;
+}
+
+.step-description {
+  color: var(--color-gray);
+  font-family: var(--font-family);
+  font-size: 15px;
+  font-weight: var(--font-weight-400);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Третья секция: промо-баннер */
+.third-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3rem;
+  padding: 4rem clamp(1.5rem, 9.75vw, 9.75rem);
+  width: 100vw;
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
+}
+
+.third-section-header {
+  text-align: center;
+  max-width: 800px;
+}
+
+.section-description {
+  color: var(--color-gray);
+  font-family: var(--font-family);
+  font-size: clamp(1rem, 2vw, 1.125rem);
+  font-weight: var(--font-weight-400);
+  line-height: 1.6;
+  margin: 1rem 0 0 0;
+}
+
+.promo-banner-wrapper {
+  width: 100%;
+  max-width: var(--container-width);
+  padding: 0 clamp(1.5rem, 5vw, 3rem);
+  margin: 0 auto;
+}
+
+.promo-banner {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border-radius: var(--border-radius-16);
+  min-height: 400px;
+  height: 100%;
+  align-items: stretch;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08),
+              0 2px 8px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.promo-banner-left,
+.promo-banner-center,
+.promo-banner-right {
+  display: flex;
+  flex-direction: column;
+  height: 100%;  /* ⭐ Заполняет всю доступную высоту */
+  align-items: stretch;
+  justify-content: flex-start;
+  background-color: var(--color-background-2);
+  padding: 0;
+}
+
+.banner-left-content {
+  border-radius: 14px;
+  border: 1px solid #F3E8FF;
+  background: linear-gradient(135deg, #FAF5FF 0%, #EFF6FF 100%);
+  padding: clamp(1.5rem, 2vw, 2rem);
+  margin: clamp(1.5rem, 2vw, 2rem) 0 clamp(1.5rem, 2vw, 2rem) clamp(1.5rem, 2vw, 2rem);
+}
+
+.promo-banner-heading {
+  color: var(--color-dark);
+  font-family: var(--font-family);
+  font-size: 18px;
+  font-weight: var(--font-weight-600);
+  line-height: 1.4;
+  margin: 0 0 16px 0;
+  text-align: left;
+}
+
+.equipment-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 80px;
+  background: #FFF;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  padding: 0 25px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.10), 0 1px 2px -1px rgba(0, 0, 0, 0.10);
+}
+
+.equipment-item:last-child {
+  margin-bottom: 0;
+}
+
+.equipment-icon {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  justify-content: center;
+  align-items: center;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #C27AFF 0%, #9810FA 100%); 
+}
+
+.equipment-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-grow: 1;
+}
+
+.equipment-info {
+  width: 154.984px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  background: #E5E7EB;
+}
+
+.equipment-action {
+  width: 103.328px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  background: #F3F4F6;
+}
+
+.icon-wrapper {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  opacity: 0.3;
+  background: #FFF;
+}
+
+.banner-right-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex-grow: 1;
+  border-radius: 14px;
+  border: 1px solid #DBEAFE;
+  background: linear-gradient(135deg, #EFF6FF 0%, #F0FDFA 100%);
+  padding: clamp(1.5rem, 2vw, 2rem);
+  margin: clamp(1.5rem, 2vw, 2rem) clamp(1.5rem, 2vw, 2rem) clamp(1.5rem, 2vw, 2rem) 0;
+}
+
+.banner-right-content .promo-banner-heading {
+  margin: 0 0 0 0;
+}
+
+.parameter-item {
+display: flex;
+min-height: 62px;
+padding: 12px 12px 12px 12px;
+flex-direction: column;
+align-items: flex-start;
+gap: 8px;
+flex-shrink: 0;
+align-self: stretch;
+border-radius: 10px;
+background: #FFF;
+box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.10), 0 1px 2px -1px rgba(0, 0, 0, 0.10);
+}
+
+.parameter-item p {
+  margin-bottom: 0; /* убираем нижний отступ */
+}
+
+/* Новый контейнер для заголовка и процентов */
+.parameter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.parameter-header p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: var(--font-weight-400);
+  color: var(--color-dark);
+}
+
+/* Прогресс-бар параметры в баннере */
+.mini-progress-bar {
+    width: 100%;
+    height: 10px;
+    background: #EDF1F7;
+    border-radius: 5px;
+    overflow: hidden;
+    position: relative;
+}
+
+.mini-progress-fill {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 0.5s ease;
+}
+
+/* Блок с процентами - теперь на одной линии с текстом */
+.progress-value {
+    font-size: 12px;
+    font-weight: var(--font-weight-600);
+    color: var(--color-gray);
+    transition: color 0.5s ease;
+    white-space: nowrap;
+    margin-left: 12px; /* отступ от текста параметра */
+}
+
+/* При наведении на весь контейнер parameter-item изменяем цвет текста */
+.parameter-item:hover .progress-value {
+    color: var(--color-blue);
+}
+
+/* Убираем дублирующие правила с !important - они конфликтуют с JS */
+
+.mini-progress-fill.power {
+  background: linear-gradient(90deg, #8F53FF 0%, #5F87FF 100%);
+}
+
+.mini-progress-fill.weight {
+  background: linear-gradient(90deg, #FFC107 0%, #FF9800 100%);
+}
+
+.mini-progress-fill.heat {
+  background: linear-gradient(90deg, #FF6080 0%, #FFB38A 100%);
 }
 
 .intro-list ul {
@@ -430,7 +787,7 @@ h2, h3, h4, h5, h6 {
   min-width: 220px;
   min-height: 180px;
   cursor: pointer;
-  transition: border 0.3s ease, /*Управление скоростью и плавностью подниятия кнопок*/
+  transition: border 0.3s ease, /*Управление скоростью и плавностью поднятия кнопок*/
               background 0.3s ease, 
               transform 0.3s ease,
               box-shadow 0.3s ease;
@@ -570,6 +927,32 @@ h2, h3, h4, h5, h6 {
   opacity: 1;
 }
 
+/* Активная карточка (выбранная) */
+.select-card.active {
+  background: #F5F3FF;
+  border-color: var(--color-blue);
+}
+
+.select-card.active .content {
+  background: #F5F3FF;
+}
+
+.select-card.active .select-card-title {
+  color: var(--color-dark);
+}
+
+.select-card.active .select-card-desc {
+  color: var(--color-gray);
+}
+
+.select-card.active .icon-decoration {
+  stroke: #7b6ef6;
+}
+
+.select-card.active .icon-select svg {
+  color: #636E72;
+}
+
 /* Фокус и hover состояния для лучшей доступности */
 .select-card:hover,
 .select-card:focus-within {
@@ -593,84 +976,465 @@ h2, h3, h4, h5, h6 {
   fill: none;
 }
 
+/* Скрытый блок */
+.hidden {
+  display: none !important;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 0.3s ease, max-height 0.3s ease;
+}
 
+/* Видимый блок */
+.visible {
+  display: grid !important;
+  opacity: 1;
+  max-height: 500px;
+  transition: opacity 0.3s ease, max-height 0.3s ease;
+}
 
+/* ============================================================================
+   АДАПТИВНАЯ ВЕРСТКА ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ 2025
+   ============================================================================ */
 
+/* Планшеты и небольшие ноутбуки (768px - 1024px) */
+@media (max-width: 1024px) {
+  .first-section {
+    grid-template-columns: 1fr; /* Одна колонка */
+    padding: 2rem 1.5rem 0;
+    row-gap: 3rem;
+  }
 
+  .intro,
+  .selection {
+    grid-column: 1 / -1; /* На всю ширину */
+    max-width: 100%;
+    padding: 1.5rem;
+  }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* Мобильная вёрстка на Grid */
-@media (max-width: 768px) {
-  /* Шапка: раскладка через именованные области */
   .header-block {
     grid-template-columns: 1fr auto;
     grid-template-areas:
       "logo actions"
       "nav nav";
-    row-gap: 8px;
-    height: auto; /* чтобы высота подстраивалась под две строки */
+    row-gap: 1rem;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
   }
-  .header-logo { grid-area: logo; }
-  .header-actions { grid-area: actions; justify-self: end; }
-  .header-nav { grid-area: nav; }
-  .header-nav-list { justify-content: start; overflow-x: auto; }
+
+  .header-logo { 
+    grid-area: logo;
+    padding: 0;
+    flex-shrink: 0;
+  }
+  
+  .header-logo a {
+    flex-shrink: 0;
+  }
+  
+  .header-logo svg {
+    flex-shrink: 0;
+  }
+  
+  .header-actions { grid-area: actions; }
+  .header-nav { 
+    grid-area: nav;
+    margin: 0;
+  }
+
+  .header-nav-list {
+    column-gap: 1.5rem;
+    overflow-x: auto;
+  }
+}
+
+/* Средние планшеты (до 900px) - дополнительное масштабирование логотипа */
+@media (max-width: 900px) {
+  .header-logo {
+    transform: scale(0.95);
+    transform-origin: left center;
+    padding: 8px 10px; /* уменьшаем padding */
+  }
+  
+  /* Уменьшаем размеры частей логотипа */
+  .header-logo .icon-logo-box-left {
+    width: 38px;
+    height: 38px;
+  }
+
+  .header-logo .icon-logo-box-right {
+    width: 38px;
+    height: 38px;
+    margin-left: -17px;
+  }
+
+  .header-logo .icon-logo-digits {
+    width: 66px;
+    height: 66px;
+  }
+}
+
+/* Большие смартфоны (до 768px) - iPhone 14 Pro Max, Samsung Galaxy S24 Ultra */
+@media (max-width: 768px) {
+  :root {
+    --section-gap-x: 1.5rem;
+  }
+
+  body {
+    font-size: 14px;
+  }
+
+  .main-title {
+    font-size: clamp(1.75rem, 5vw, 2.5rem);
+    line-height: 1.2;
+  }
+
+  .main-description {
+    font-size: clamp(0.95rem, 2vw, 1.1rem);
+  }
 
   .first-section {
-    grid-template-columns: 1fr; /* одна колонка */
+    padding: 2rem 1rem 0;
     row-gap: 2rem;
-    padding: 3rem 1.5rem 0;
   }
 
   .intro,
   .selection {
-    grid-column: 1 / -1; /* на всю ширину */
+    padding: 1.25rem;
   }
 
-
-  /* Отступы в последующих секциях компактнее на мобилке */
-  .second-section {
-    padding: 2rem 1.5rem 0;
-    gap: 1.25rem;
+  .selection {
+    width: 100%;
+    max-width: 100%;
   }
+
+  .buttons-container {
+    grid-template-columns: 1fr; /* Одна колонка для кнопок */
+    gap: 1rem;
+  }
+
+  .select-card {
+    min-width: 100%;
+    padding: 20px 16px 16px;
+  }
+
+  .selection-title {
+    font-size: 24px;
+    line-height: 36px;
+  }
+
+  .selection-title2 {
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  .header-block {
+    height: auto;
+    padding: 1rem;
+  }
+
+  .header-logo {
+    padding: 0;
+  }
+  
+  /* Уменьшаем размеры частей логотипа для больших смартфонов */
+  .header-logo .icon-logo-box-left {
+    width: 36px;
+    height: 36px;
+  }
+
+  .header-logo .icon-logo-box-right {
+    width: 36px;
+    height: 36px;
+    margin-left: -16px;
+  }
+
+  .header-logo .icon-logo-digits {
+    width: 63px;
+    height: 63px;
+  }
+
+  .header-nav-list {
+    font-size: 14px;
+    column-gap: 1rem;
+  }
+
+  .header-actions {
+    column-gap: 8px;
+  }
+
+  .button {
+    padding: 6px 12px;
+    height: 36px;
+    font-size: 13px;
+  }
+
+  .second-section,
   .third-section {
-    padding: 2rem 1.5rem 2.5rem;
+    padding: 2rem 1rem;
+    gap: 1rem;
+  }
+  
+  .steps-container {
+    grid-template-columns: repeat(2, 1fr);
     gap: 1.5rem;
   }
+  
+  .step-card {
+    padding: 1.5rem 1rem;
+  }
 }
 
-/* Узкие экраны: компактнее отступы, кнопки в одну колонку */
-@media (max-width: 600px) {
+/* Стандартные смартфоны (до 430px) - iPhone 15 Pro, iPhone 16, Samsung Galaxy S24 */
+@media (max-width: 430px) {
+  .main-title {
+    font-size: 1.75rem;
+  }
+
+  .intro-list li {
+    font-size: 0.9rem;
+    padding-left: 1.8em;
+  }
+
   .selection {
+    padding: 1.5rem 1rem;
+    row-gap: 20px;
+  }
+
+  .selection-title {
+    font-size: 20px;
+    line-height: 30px;
+  }
+
+  .selection-description {
+    font-size: 14px;
+    line-height: 21px;
+  }
+
+  .select-card {
+    padding: 16px 12px 14px;
+    min-height: 160px;
+  }
+
+  .select-card-title {
+    font-size: 18px;
+  }
+
+  .select-card-desc {
+    font-size: 13px;
+  }
+
+  .icon-select {
+    width: 56px;
+    height: 56px;
+    margin-bottom: 14px;
+  }
+
+  .icon-select svg {
+    width: 56px;
+    height: 56px;
+  }
+
+  .custom-radio {
+    width: 20px;
+    height: 20px;
+    top: 16px;
+    right: 16px;
+  }
+
+  .progress-bar {
+    width: 100%;
+  }
+
+  .header-nav-list {
+    column-gap: 0.75rem;
+    font-size: 13px;
+  }
+
+  /* Уменьшаем размеры частей логотипа для стандартных смартфонов */
+  .header-logo .icon-logo-box-left {
+    width: 32px;
+    height: 32px;
+  }
+
+  .header-logo .icon-logo-box-right {
+    width: 32px;
+    height: 32px;
+    margin-left: -14px;
+  }
+
+  .header-logo .icon-logo-digits {
+    width: 56px;
+    height: 56px;
+  }
+
+  .button {
+    font-size: 12px;
+    padding: 5px 10px;
+    height: 32px;
+  }
+  
+  .steps-container {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+  
+  .step-icon {
+    width: 64px;
+    height: 64px;
+  }
+  
+  .step-icon svg {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .third-section {
     padding: 2rem 1rem;
   }
-  .buttons-container {
-    grid-template-columns: 1fr; /* одна колонка на мобилке */
-    gap: 20px;
-  }
-  .selection-button {
-    max-width: 100%; /* на мобилке кнопки шире */
+  
+  .promo-banner {
+    grid-template-columns: 1fr;
+    padding: 2.5rem 1.5rem;
+    min-height: auto;
   }
 }
+
+/* Компактные смартфоны (до 375px) - iPhone SE, iPhone 13 mini */
+@media (max-width: 375px) {
+  .first-section {
+    padding: 1.5rem 0.75rem 0;
+  }
+
+  .intro,
+  .selection {
+    padding: 1rem 0.75rem;
+  }
+
+  .main-title {
+    font-size: 1.5rem;
+  }
+
+  .selection-title {
+    font-size: 18px;
+    line-height: 27px;
+  }
+
+  .buttons-container {
+    gap: 0.75rem;
+  }
+
+  .select-card {
+    padding: 14px 10px 12px;
+    min-height: 150px;
+  }
+
+  .select-card-title {
+    font-size: 16px;
+  }
+
+  .select-card-desc {
+    font-size: 12px;
+  }
+
+  .icon-select {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 12px;
+  }
+
+  .icon-select svg {
+    width: 48px;
+    height: 48px;
+  }
+
+  .header-block {
+    padding: 0.75rem;
+  }
+
+  /* Уменьшаем размеры частей логотипа для компактных смартфонов */
+  .header-logo .icon-logo-box-left {
+    width: 28px;
+    height: 28px;
+  }
+
+  .header-logo .icon-logo-box-right {
+    width: 28px;
+    height: 28px;
+    margin-left: -12px;
+  }
+
+  .header-logo .icon-logo-digits {
+    width: 49px;
+    height: 49px;
+  }
+
+  .header-nav-list {
+    column-gap: 0.5rem;
+    font-size: 12px;
+  }
+
+  .header-actions {
+    flex-direction: column;
+    row-gap: 6px;
+  }
+
+  .button {
+    font-size: 11px;
+    padding: 4px 8px;
+    height: 28px;
+    white-space: nowrap;
+  }
+  
+  .promo-banner {
+    grid-template-columns: 1fr;
+    padding: 2rem 1rem;
+    min-height: auto;
+  }
+}
+
+/* Горизонтальная ориентация для мобильных */
+@media (max-height: 600px) and (orientation: landscape) {
+  .first-section {
+    padding: 1rem;
+  }
+
+  .intro,
+  .selection {
+    padding: 1rem;
+  }
+
+  .header {
+    position: relative;
+  }
+
+  .main-title {
+    font-size: 1.5rem;
+  }
+
+  .buttons-container {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .select-card {
+    min-height: 140px;
+    padding: 12px;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

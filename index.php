@@ -69,16 +69,14 @@
                 <div class="selection">
                     <h2 class="selection-title">Начнем с основных<br> параметров</h2>
                     <p class="selection-description">Ответьте на 2 вопроса, и мы подберем оптимальный шкаф</p>
-                    <div class="step-info" id="step-label">
-                        Шаг 1 из 2
-                    </div>
+                    <div class="step-info" id="step-label"></div> <!--Проверить при устнановке на сервер как отрабатывает selectoion.js-->
                     <div class="progress-bar">
                         <div class="progress-fill" id="progress-fill"></div>
                     </div>
                     <h3 class="selection-title2">Место установки шкафа</h3>
-                        <div class="buttons-container">
+                        <div class="buttons-container" id="location-container">
                             <label class="select-card">
-                                    <input type="radio" name="location" checked>
+                                    <input type="radio" name="location">
                                     <span class="custom-radio">
                                         <svg class="checkmark-icon" viewBox="0 0 16 16" width="14" height="14"><use xlink:href="#icon-check-list"></use></svg>
                                     </span>
@@ -93,7 +91,7 @@
                                     </div>
                             </label>
                             <label class="select-card">
-                                    <input type="radio" name="location" checked>
+                                    <input type="radio" name="location">
                                     <span class="custom-radio">
                                         <svg class="checkmark-icon" viewBox="0 0 16 16" width="14" height="14"><use xlink:href="#icon-check-list"></use></svg>
                                     </span>
@@ -107,10 +105,10 @@
                                         <div class="select-card-desc">Дождь, снег, гроза</div>
                                     </div>
                             </label></div>
-                            <h3 class="selection-title2">Тип установки</h3>
-                            <div class="buttons-container">
+                            <h3 class="selection-title2" id="installation-title">Тип установки</h3>
+                            <div class="buttons-container hidden" id="installation-container">
                             <label class="select-card">
-                                    <input type="radio" name="location" checked>
+                                    <input type="radio" name="installation">
                                     <span class="custom-radio">
                                         <svg class="checkmark-icon" viewBox="0 0 16 16" width="14" height="14"><use xlink:href="#icon-check-list"></use></svg>
                                     </span>
@@ -125,7 +123,7 @@
                                     </div>
                             </label>
                             <label class="select-card">
-                                <input type="radio" name="location" value="indoor" checked>
+                                <input type="radio" name="installation" value="wall">
                                 
                                 <span class="custom-radio">
                                     <svg class="checkmark-icon" viewBox="0 0 16 16" width="14" height="14"><use xlink:href="#icon-check-list"></use></svg>
@@ -140,11 +138,131 @@
                                 </div>
                             </label>
                         </div>
-                        <button class="button blue-button" type="button">Перейти к конфигурированию →</button>
+                        <button class="button blue-button disabled-button" type="button" id="continue-button" disabled>Перейти к конфигурированию →</button>
                 </div>
-            </section>
+             </section>
              <section class="second-section">
+                <div class="second-section-header">
+                    <h2 class="section-title">Четыре простых шага до готового проекта</h2>
+                </div>
+                <div class="steps-container">
+                    <div class="step-card">
+                        <div class="step-number">1</div>
+                        <div class="step-icon">
+                            <svg role="img"><use xlink:href="#icon-cloud"></use></svg>
+                        </div>
+                        <h3 class="step-title">Укажите параметры</h3>
+                        <p class="step-description">Выберите тип шкафа, место установки и основные характеристики оборудования</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-number">2</div>
+                        <div class="step-icon">
+                            <svg role="img"><use xlink:href="#icon-cloud"></use></svg>
+                        </div>
+                        <h3 class="step-title">Укажите параметры</h3>
+                        <p class="step-description">Выберите тип шкафа, место установки и основные характеристики оборудования</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-number">3</div>
+                        <div class="step-icon">
+                            <svg role="img"><use xlink:href="#icon-cloud"></use></svg>
+                        </div>
+                        <h3 class="step-title">Укажите параметры</h3>
+                        <p class="step-description">Выберите тип шкафа, место установки и основные характеристики оборудования</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-number">4</div>
+                        <div class="step-icon">
+                            <svg role="img"><use xlink:href="#icon-cloud"></use></svg>
+                        </div>
+                        <h3 class="step-title">Укажите параметры</h3>
+                        <p class="step-description">Выберите тип шкафа, место установки и основные характеристики оборудования</p>
+                    </div>
+                </div>
              </section>
              <section class="third-section">
+                <div class="third-section-header">
+                    <h2 class="section-title">Интуитивный интерфейс конфигурирования</h2>
+                    <p class="section-description">Drag-and-drop размещение оборудования с автоматической проверкой совместимости</p>
+                </div>
+                <div class="promo-banner-wrapper">
+                    <div class="promo-banner">
+                        <div class="promo-banner-left">
+                            <div class="banner-left-content">
+                                <h4 class="promo-banner-heading">Каталог оборудования</h4>
+                                <div class="equipment-item">
+                                    <div class="equipment-icon">
+                                        <div class="icon-wrapper"></div>
+                                    </div>
+                                    <div class="equipment-details">
+                                        <div class="equipment-info"></div>
+                                        <div class="equipment-action"></div>
+                                    </div>
+                                </div>
+                                <div class="equipment-item">
+                                    <div class="equipment-icon">
+                                        <div class="icon-wrapper"></div>
+                                    </div>
+                                    <div class="equipment-details">
+                                        <div class="equipment-info"></div>
+                                        <div class="equipment-action"></div>
+                                    </div>
+                                </div>
+                                <div class="equipment-item">
+                                    <div class="equipment-icon">
+                                        <div class="icon-wrapper"></div>
+                                    </div>
+                                    <div class="equipment-details">
+                                        <div class="equipment-info"></div>
+                                        <div class="equipment-action"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="promo-banner-center">
+                            <div class="banner-center-content">                                
+                            </div>
+                        </div>
+                        <div class="promo-banner-right">
+                            <div class="banner-right-content">
+                                <h4 class="promo-banner-heading">Параметры</h4>                                                                                            
+                                        <div class="parameter-item" data-progress-start="15" data-progress-end="65">
+    <div class="parameter-header">
+        <p>Энергопотребление</p>
+        <span class="progress-value">15%</span>
+    </div>
+    <div class="mini-progress-bar">
+        <div class="mini-progress-fill power"></div>
+    </div>
+</div>
+<div class="parameter-item" data-progress-start="20" data-progress-end="75">
+    <div class="parameter-header">
+        <p>Масса оборудования</p>
+        <span class="progress-value">20%</span>
+    </div>
+    <div class="mini-progress-bar">
+        <div class="mini-progress-fill weight"></div>
+    </div>
+</div>
+<div class="parameter-item" data-progress-start="10" data-progress-end="55">
+    <div class="parameter-header">
+        <p>Тепловыделение</p>
+        <span class="progress-value">10%</span>
+    </div>
+    <div class="mini-progress-bar">
+        <div class="mini-progress-fill heat"></div>
+    </div>
+</div>
+                                    </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
              </section> 
         </div>
+    </main>
+
+    <script src="js/selection.js"></script>
+    <script src="js/progress-animation.js"></script>
+</body>
+</html>
