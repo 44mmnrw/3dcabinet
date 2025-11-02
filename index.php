@@ -12,10 +12,9 @@
     <link rel="stylesheet" href="css/reset.css">
     <link rel="stylesheet" href="css/styles.css">
         </head>
-<body class="body">
-    <!-- Опционально: инлайн-спрайт, чтобы не грузить внешний файл и улучшить совместимость -->
+<body class="body">    
     <div hidden aria-hidden="true">
-        <?php include __DIR__ . '/assets/sprite/sprite.svg'; ?> <!-- Вставит содержимое assets/sprite/sprite.svg в DOM -->
+        <?php include __DIR__ . '/assets/sprite/sprite.svg'; ?> <!-- Загурзка иконок assets/sprite/sprite.svg в DOM -->
     </div>
     <header class="header">
         <div class="container">
@@ -85,12 +84,12 @@
                                     </span>
                                     <div class="content">
                                         <div class="icon-select">
-                                        <svg role="img"><use xlink:href="#icon-street"></use></svg>
+                                        <svg role="img"><use xlink:href="#icon-house"></use></svg>
                                             <rect class="icon-decoration"/>
                                         </svg>
                                         </div>
-                                        <div class="title">В помещении</div>
-                                        <div class="desc">Серверная, ЦОД, офис</div>
+                                        <div class="select-card-title">В помещении</div>
+                                        <div class="select-card-desc">Серверная, ЦОД, офис</div>
                                     </div>
                             </label>
                             <label class="select-card">
@@ -100,27 +99,29 @@
                                     </span>
                                     <div class="content">
                                         <div class="icon-select">
-                                        <svg role="img"><use xlink:href="#icon-street"></use></svg>
+                                        <svg role="img"><use xlink:href="#icon-cloud"></use></svg>
                                             <rect class="icon-decoration"/>
                                         </svg>
                                         </div>
-                                        <div class="title">В помещении</div>
-                                        <div class="desc">Серверная, ЦОД, офис</div>
+                                        <div class="select-card-title">На улице</div>
+                                        <div class="select-card-desc">Дождь, снег, гроза</div>
                                     </div>
-                            </label>
+                            </label></div>
+                            <h3 class="selection-title2">Тип установки</h3>
+                            <div class="buttons-container">
                             <label class="select-card">
                                     <input type="radio" name="location" checked>
-                                    <span class="custom-radio">           <!--   Анимация галки -->
+                                    <span class="custom-radio">
                                         <svg class="checkmark-icon" viewBox="0 0 16 16" width="14" height="14"><use xlink:href="#icon-check-list"></use></svg>
                                     </span>
                                     <div class="content">
                                         <div class="icon-select">
-                                        <svg role="img"><use xlink:href="#icon-street"></use></svg>
+                                        <svg role="img"><use xlink:href="#icon-box"></use></svg>
                                             <rect class="icon-decoration"/>
                                         </svg>
                                         </div>
-                                        <div class="title">В помещении</div>
-                                        <div class="desc">Серверная, ЦОД, офис</div>
+                                        <div class="select-card-title">Напольный</div>
+                                        <div class="select-card-desc">Стационарная установка</div>
                                     </div>
                             </label>
                             <label class="select-card">
@@ -132,13 +133,14 @@
                                 
                                 <div class="content">
                                     <div class="icon-select">
-                                        <svg role="img" width="40" height="40"><use xlink:href="#icon-street"></use></svg>
+                                        <svg role="img" width="40" height="40"><use xlink:href="#icon-on-wall"></use></svg>
                                     </div>
-                                    <div class="title">В помещении</div>
-                                    <div class="desc">Серверная, ЦОД, офис</div>
+                                    <div class="select-card-title">Настенный</div>
+                                    <div class="select-card-desc">Крепление на стене или опоре</div>
                                 </div>
                             </label>
                         </div>
+                        <button class="button blue-button" type="button">Перейти к конфигурированию →</button>
                 </div>
             </section>
              <section class="second-section">

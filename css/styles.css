@@ -446,7 +446,7 @@ h2, h3, h4, h5, h6 {
 .select-card:hover {
   transform: translateY(-8px);  /* Поднимает кнопку на 8px вверх */
   box-shadow: 0 12px 24px rgba(123, 110, 246, 0.25);  /* Усиленная тень для эффекта объёма */
-  border: 2px solid #7b6ef6;  /* Опционально: граница становится фиолетовой */
+  border: 2px solid var(--color-blue-dark);  /* Опционально: граница становится фиолетовой */
 }
 
 /* ========== СТИЛИ ДЛЯ ГАЛКИ ИЗ СПРАЙТА ========== */
@@ -471,7 +471,7 @@ h2, h3, h4, h5, h6 {
 .select-card input[type="radio"]:checked ~ .custom-radio .checkmark-icon {
   color: var(--color-white);                               /* Цвет галки белый */
   opacity: 1;                                    /* Галка становится видимой */
-  animation: drawCheckmarkPulse 0.4s ease forwards;  /* Анимация рисования + пульс за 0.6 сек */
+  animation: drawCheckmarkPulse 0.6s ease forwards;  /* Анимация рисования + пульс за 0.6 сек */
 }
 
 /* ========== АНИМАЦИЯ РИСОВАНИЯ ГАЛКИ С ПУЛЬСИРОВАНИЕМ ========== */
@@ -544,18 +544,20 @@ h2, h3, h4, h5, h6 {
   stroke-width: 2;
   fill: none;
 }
-.title {
-  color: #34305C;
+.select-card-title {
+  color: var(--color-dark);
   font-family: var(--font-family);
   font-size: 20px;
   font-weight: var(--font-weight-600);
   margin-bottom: 6px;
+  text-align: center;
 }
-.desc {
-  color: #9491ae;
+.select-card-desc {
+  color: var(--color-gray);
   font-family: var(--font-family);
   font-size: 15px;
   font-weight: var(--font-weight-400);
+  text-align: center;
 }
 
 /* Выбранное состояние: рамка и фон карточки, кружок выделен, галочка показана */
@@ -575,8 +577,8 @@ h2, h3, h4, h5, h6 {
 }
 
 .icon-select {
-  width: 48px;              /* Ширина блока-иконки */
-  height: 48px;             /* Высота блока-иконки */
+  width: 64px;              /* Ширина блока-иконки */
+  height: 64px;             /* Высота блока-иконки */
   display: flex;
   align-items: center;      /* Вертикально по центру */
   justify-content: center;  /* Горизонтально по центру */
@@ -584,9 +586,11 @@ h2, h3, h4, h5, h6 {
 }
 
 .icon-select svg {
-  width: 40px;              /* Размер самой SVG */
-  height: 40px;
+  width: 64px;              /* Размер самой SVG */
+  height: 64px;
   display: block;
+  color: #636E72;
+  fill: none;
 }
 
 
