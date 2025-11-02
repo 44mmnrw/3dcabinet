@@ -1,0 +1,11 @@
+[2025-10-29 14:29:36] SQLSTATE[42S22]: Column not found: 1054 Unknown column 'e.category' in 'on clause' in file: C:\laragon\www\3dcabinet\admin.php on line: 141
+[2025-10-29 14:29:48] SQLSTATE[42S22]: Column not found: 1054 Unknown column 'e.category' in 'on clause' in file: C:\laragon\www\3dcabinet\admin.php on line: 141
+[2025-10-29 14:29:53] SQLSTATE[42S22]: Column not found: 1054 Unknown column 'e.category' in 'on clause' in file: C:\laragon\www\3dcabinet\admin.php on line: 141
+[2025-10-29 14:29:56] SQLSTATE[42S22]: Column not found: 1054 Unknown column 'e.category' in 'on clause' in file: C:\laragon\www\3dcabinet\admin.php on line: 141
+[2025-10-29 14:29:56] SQLSTATE[42S22]: Column not found: 1054 Unknown column 'e.category' in 'on clause' in file: C:\laragon\www\3dcabinet\admin.php on line: 141
+[2025-10-29 14:30:06] SQLSTATE[42S22]: Column not found: 1054 Unknown column 'e.category' in 'on clause' in file: C:\laragon\www\3dcabinet\admin.php on line: 141
+[2025-10-29 14:49:18] SQLSTATE[42S22]: Column not found: 1054 Unknown column 'e.category' in 'on clause' in file: C:\laragon\www\3dcabinet\admin.php on line: 141
+[2025-10-29 14:50:35] SQLSTATE[42S22]: Column not found: 1054 Unknown column 'e.category' in 'on clause' in file: C:\laragon\www\3dcabinet\admin.php on line: 141
+[2025-10-29 15:05:56] SQLSTATE[42S22]: Column not found: 1054 Unknown column 'e.category' in 'on clause' in file: C:\laragon\www\3dcabinet\admin.php on line: 141
+[2025-10-29 15:13:24] SQLSTATE[42S22]: Column not found: 1054 Unknown column 'updated_at' in 'field list' in file: C:\laragon\www\3dcabinet\admin.php on line: 266
+[2025-10-29 15:19:48] SQLSTATE[42S22]: Column not found: 1054 Unknown column 'category' in 'field list' in file: C:\laragon\www\3dcabinet\admin.php on line: 122
