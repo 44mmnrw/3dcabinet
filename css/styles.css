@@ -78,8 +78,34 @@
   --logo-digits-hover: #000000;
 
   /* Определяем управляемый горизонтальный отступ между колонками */
-  --section-gap-x: clamp(1rem, 4vw, 4rem);    
+  --section-gap-x: clamp(1rem, 4vw, 4rem);
+  
+  /* === ОСНОВНОЙ КОРПУС ШКАФА === */
+  --cabinet-right-side: #1E88E5;        /* Правая боковая грань (синяя) */
+  --cabinet-top-side: #64B5F6;          /* Верхняя грань (светло-синяя) */
+  --cabinet-left-side: #EEEEEE;         /* Левая передняя грань (светло-серая) */
+  
+  /* === ВНУТРЕННЯЯ ПАНЕЛЬ === */
+  --cabinet-inner-panel: #37474F;       /* Темная внутренняя панель/дверь */
+  
+  /* === СЕРВЕРНЫЕ БЛОКИ (горизонтальные полосы) === */
+  --cabinet-server-slots: #607D8B;      /* Горизонтальные полосы серверных блоков */
+  
+  /* === ИНДИКАТОРЫ СТАТУСА (большие кружки слева) === */
+  --indicator-success: #4CAF50;         /* Зеленый - система работает нормально */
+  --indicator-warning: #DDDD23;         /* Желтый - предупреждение */
+  --indicator-error: #E62929;           /* Красный - ошибка/авария */
+  
+  /* === МАЛЫЕ ИНДИКАТОРЫ (точки справа) === */
+  --indicator-small: #263238;           /* Темные малые индикаторы */
+  --indicator-small-opacity: 0.4;       /* Прозрачность малых индикаторов */
+  
+  /* === ОБВОДКА === */
+  --cabinet-stroke: black;              /* Цвет обводки всех элементов */
+  --cabinet-stroke-width: 4;            /* Толщина обводки */
 }
+
+/* =================== ОСНОВНЫЕ БАЗОВЫЕ ТЕГИ =================== */
 
 body {
   min-height: 100%;
@@ -164,6 +190,7 @@ h2, h3, h4, h5, h6 {
   background-color: #B2BEC3 !important;
 }
 
+/* =================== HEADER, NAV, ЛОГОТИП =================== */
 .header {
   width: 100%;
   position: sticky;
@@ -440,7 +467,8 @@ h2, h3, h4, h5, h6 {
   margin-right: calc(-50vw + 50%);
 }
 
-.third-section-header {
+.third-section-header,
+.fourth-section-header {
   text-align: center;
   max-width: 800px;
 }
@@ -464,7 +492,8 @@ h2, h3, h4, h5, h6 {
 .promo-banner {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0;
+  gap: 1rem; /* заменил 16px на 1rem для лучшей адаптивности */
+  background-color: var(--color-background-2); /* Промежутки будут этого цвета */
   border-radius: var(--border-radius-16);
   min-height: 400px;
   height: 100%;
@@ -475,7 +504,6 @@ h2, h3, h4, h5, h6 {
 }
 
 .promo-banner-left,
-.promo-banner-center,
 .promo-banner-right {
   display: flex;
   flex-direction: column;
@@ -486,7 +514,24 @@ h2, h3, h4, h5, h6 {
   padding: 0;
 }
 
+/* Новое правило для центрирования содержимого в средней колонке промо-баннера */
+.promo-banner-center {
+  display: flex;
+  flex-direction: column;
+  height: 100%;  /* ⭐ Заполняет всю доступную высоту */
+  align-items: stretch;
+  justify-content: flex-start;
+  background-color: var(--color-background-2);
+  padding: 0;
+  width: 100%; /* растянуть на всю ширину */
+}
+
+
 .banner-left-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex-grow: 1;
   border-radius: 14px;
   border: 1px solid #F3E8FF;
   background: linear-gradient(135deg, #FAF5FF 0%, #EFF6FF 100%);
@@ -564,6 +609,25 @@ h2, h3, h4, h5, h6 {
   background: #FFF;
 }
 
+.banner-center-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex-grow: 1;
+  border-radius: 14px;
+  border: 1px solid #DBEAFE;
+  background: linear-gradient(135deg, #EFF6FF 0%, #F0FDFA 100%);
+  padding: clamp(1.5rem, 2vw, 2rem);
+  margin: clamp(1.5rem, 2vw, 2rem) 0 clamp(1.5rem, 2vw, 2rem) 0;
+}
+
+.banner-center-content > div {
+  margin-top: auto;  /* Оттолкнуть вниз */
+  margin-bottom: auto; /* И вверх, чтобы центрировать вертикально */
+  background-color: #def;
+  padding: 20px;
+}
+
 .banner-right-content {
   display: flex;
   flex-direction: column;
@@ -630,7 +694,7 @@ box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.10), 0 1px 2px -1px rgba(0, 0, 0, 0.10);
     transition: width 0.5s ease;
 }
 
-/* Блок с процентами - теперь на одной линии с текстом */
+/* Блок с процентами - теперь на одной линии с текстом параметра */
 .progress-value {
     font-size: 12px;
     font-weight: var(--font-weight-600);
@@ -658,6 +722,102 @@ box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.10), 0 1px 2px -1px rgba(0, 0, 0, 0.10);
 .mini-progress-fill.heat {
   background: linear-gradient(90deg, #FF6080 0%, #FFB38A 100%);
 }
+
+
+/* ============================================
+   Раскрашивание шкафа в SVG
+   ============================================ */
+
+/* Применение цветов к path'ам в sprite.svg */
+
+/* Правая грань (1-й path) */
+#icon-cabinet > path:nth-child(1) {
+  fill: var(--cabinet-right-side) !important;
+}
+
+/* Верхняя грань (2-й path) */
+#icon-cabinet > path:nth-child(2) {
+  fill: var(--cabinet-top-side) !important;
+}
+
+/* Левая грань (3-й path) */
+#icon-cabinet > path:nth-child(3) {
+  fill: var(--cabinet-left-side) !important;
+}
+
+/* Внутренняя панель (4-й path) */
+#icon-cabinet > path:nth-child(4) {
+  fill: var(--cabinet-inner-panel) !important;
+}
+
+.cabinet {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cabinet svg {
+  width: 250px;
+  height: 250px;
+  filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.6))  /* сильная тень снизу */
+          drop-shadow(4px 0 6px rgba(0, 0, 0, 0.2)); /* мягкая тень справа */ /*Добавляем тень к шкафу*/
+}
+
+/* Серверные блоки (5-13 path) */
+#icon-cabinet > path:nth-child(1) { fill: var(--cabinet-right-side) !important; }
+#icon-cabinet > path:nth-child(2) { fill: var(--cabinet-top-side) !important; }
+#icon-cabinet > path:nth-child(3) { fill: var(--cabinet-left-side) !important; }
+#icon-cabinet > path:nth-child(4) { fill: var(--cabinet-inner-panel) !important; }
+#icon-cabinet > path:nth-child(5),
+#icon-cabinet > path:nth-child(6),
+#icon-cabinet > path:nth-child(7),
+#icon-cabinet > path:nth-child(8),
+#icon-cabinet > path:nth-child(9),
+#icon-cabinet > path:nth-child(10),
+#icon-cabinet > path:nth-child(11),
+#icon-cabinet > path:nth-child(12),
+#icon-cabinet > path:nth-child(13) { fill: var(--cabinet-server-slots) !important; }
+
+/* Большие зелёные кружки */
+#icon-cabinet > path:nth-child(14),
+#icon-cabinet > path:nth-child(18),
+#icon-cabinet > path:nth-child(22),
+#icon-cabinet > path:nth-child(26),
+#icon-cabinet > path:nth-child(28),
+#icon-cabinet > path:nth-child(31) { fill: var(--indicator-success) !important; }
+
+/* Малые чёрные индикаторы справа */
+#icon-cabinet > path:nth-child(15),
+#icon-cabinet > path:nth-child(16),
+#icon-cabinet > path:nth-child(17),
+#icon-cabinet > path:nth-child(19),
+#icon-cabinet > path:nth-child(20),
+#icon-cabinet > path:nth-child(21),
+#icon-cabinet > path:nth-child(32),
+#icon-cabinet > path:nth-child(33),
+#icon-cabinet > path:nth-child(34) { fill: var(--indicator-small) !important; opacity: var(--indicator-small-opacity) !important; }
+
+/* Остальные большие кружки (если добавишь новые) */
+#icon-cabinet > path:nth-child(23) { fill: var(--indicator-success) !important; }  /* 4-й зелёный */
+#icon-cabinet > path:nth-child(24) { fill: var(--indicator-warning) !important; }  /* 5-й жёлтый */
+#icon-cabinet > path:nth-child(25) { fill: var(--indicator-error) !important; }  /* 6-й красный */
+#icon-cabinet > path:nth-child(26) { fill: var(--indicator-error) !important; }  /* 7-й красный */
+#icon-cabinet > path:nth-child(27) { fill: var(--indicator-warning) !important; }  /* 8-й жёлтый */
+#icon-cabinet > path:nth-child(28) { fill: var(--indicator-success) !important; }  /* 9-й зелёный */
+
+/* Красные кружки ошибок */
+#icon-cabinet > path:nth-child(29) { fill: var(--indicator-error) !important; }
+#icon-cabinet > path:nth-child(30) { fill: var(--indicator-error) !important; }
+
+#icon-cabinet > path:nth-child(31) { fill: var(--indicator-success) !important; }
+
+/* Малые чёрные индикаторы справа (нижние) */
+#icon-cabinet > path:nth-child(32),
+#icon-cabinet > path:nth-child(33),
+#icon-cabinet > path:nth-child(34) { fill: var(--indicator-small) !important; opacity: var(--indicator-small-opacity) !important; }
+
+
+
 
 .intro-list ul {
     list-style: none;
@@ -991,6 +1151,20 @@ box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.10), 0 1px 2px -1px rgba(0, 0, 0, 0.10);
   opacity: 1;
   max-height: 500px;
   transition: opacity 0.3s ease, max-height 0.3s ease;
+}
+
+.fourth-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3rem;
+  padding: 4rem clamp(1.5rem, 9.75vw, 9.75rem);
+  background-color: var(--color-background-2);
+  
+  /* Расширяем на всю ширину экрана */
+  width: 100vw;
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
 }
 
 /* ============================================================================
@@ -1348,8 +1522,20 @@ box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.10), 0 1px 2px -1px rgba(0, 0, 0, 0.10);
     height: 48px;
   }
 
-  .header-block {
-    padding: 0.75rem;
+  .custom-radio {
+    width: 20px;
+    height: 20px;
+    top: 16px;
+    right: 16px;
+  }
+
+  .progress-bar {
+    width: 100%;
+  }
+
+  .header-nav-list {
+    column-gap: 0.5rem;
+    font-size: 12px;
   }
 
   /* Уменьшаем размеры частей логотипа для компактных смартфонов */
@@ -1367,11 +1553,6 @@ box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.10), 0 1px 2px -1px rgba(0, 0, 0, 0.10);
   .header-logo .icon-logo-digits {
     width: 49px;
     height: 49px;
-  }
-
-  .header-nav-list {
-    column-gap: 0.5rem;
-    font-size: 12px;
   }
 
   .header-actions {
@@ -1422,6 +1603,7 @@ box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.10), 0 1px 2px -1px rgba(0, 0, 0, 0.10);
     padding: 12px;
   }
 }
+
 
 
 
