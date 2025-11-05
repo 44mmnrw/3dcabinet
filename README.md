@@ -1,11 +1,128 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 3Cabinet — Конфигуратор серверных шкафов
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Веб-приложение на Laravel 11 для виртуального проектирования размещения оборудования в серверном шкафу с 3D-визуализацией на Three.js.
+
+## 🚀 Быстрый старт
+
+### Локальная разработка (Laragon)
+
+```powershell
+# 1. Запустить миграции
+php artisan migrate
+
+# 2. Заполнить БД тестовыми данными
+php artisan db:seed --class=EquipmentSeeder
+
+# 3. Запустить сервер
+php artisan serve
+
+# Приложение доступно на http://localhost:8000
+```
+
+Подробнее: [QUICKSTART.md](QUICKSTART.md)
+
+### Production deployment
+
+**Для Timeweb Cloud** 🔥: **[TIMEWEB_DEPLOYMENT.md](TIMEWEB_DEPLOYMENT.md)** — пошаговая инструкция от создания сервера до SSL
+
+**Общая инструкция**:
+```bash
+# 1. Настроить .env (см. .env.production.example)
+# 2. Установить зависимости
+composer install --no-dev --optimize-autoloader
+
+# 3. Сгенерировать ключ и применить миграции
+php artisan key:generate
+php artisan migrate --force
+
+# 4. Настроить права и кэш
+chmod -R 775 storage bootstrap/cache
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+```
+
+Подробнее: **[DEPLOYMENT.md](DEPLOYMENT.md)** 📦  
+Другие хостинги: **[HOSTING_SETUP.md](HOSTING_SETUP.md)**
+
+## 📁 Структура проекта
+
+```
+3dcabinet/
+├── app/Http/Controllers/     # Контроллеры (Landing, Configurator, Admin)
+├── resources/views/          # Blade-шаблоны
+│   ├── layouts/              # Мастер-шаблон app.blade.php
+│   ├── partials/             # Header, Footer, SVG-спрайт
+│   ├── landing/              # Главная страница
+│   ├── configurator/         # 3D-конфигуратор
+│   └── admin/                # Админ-панель
+├── public/                   # Публичные файлы
+│   ├── js/                   # JavaScript (Three.js, app.js, data.js)
+│   ├── css/                  # Стили (styles.css, reset.css)
+│   ├── assets/               # SVG-спрайт и иконки
+│   └── fonts/                # Inter Variable
+├── database/
+│   ├── migrations/           # Таблицы: projects, equipment, configurations
+│   └── seeders/              # EquipmentSeeder
+└── routes/web.php            # Роуты приложения
+```
+
+## 🎯 Основные URL
+
+| URL | Описание | Контроллер |
+|-----|----------|------------|
+| `/` | Landing с формой выбора | `LandingController` |
+| `/app` | 3D-конфигуратор | `ConfiguratorController` |
+| `/admin` | Админ-панель | `AdminController` |
+
+## 🛠️ Технологии
+
+- **Backend**: Laravel 11 (PHP 8.3+, Blade, Eloquent ORM)
+- **Frontend**: Vanilla JS + Three.js r167 (ES6 modules, без build-процесса)
+- **База данных**: MySQL (через Laragon)
+- **Стили**: CSS с переменными (без препроцессоров)
+- **SVG**: Автоматическая сборка спрайта через `npm run build:icons`
+
+## 📚 Документация
+
+- **[QUICKSTART.md](QUICKSTART.md)** — Быстрый старт (3 шага)
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** — Деплой на production-хостинг 🔥
+- **[3DCABINET_README.md](3DCABINET_README.md)** — Подробная документация
+- **[LARAGON_SETUP.md](LARAGON_SETUP.md)** — Настройка Laragon
+- **[VHOST_SETUP.md](VHOST_SETUP.md)** — Виртуальные хосты
+- **[.github/copilot-instructions.md](.github/copilot-instructions.md)** — Инструкции для AI-агентов
+
+## 🔧 Полезные команды
+
+```powershell
+# Разработка
+php artisan serve                # Запустить сервер
+php artisan migrate              # Применить миграции
+php artisan db:seed              # Заполнить БД
+php artisan route:list           # Список роутов
+
+# SVG-спрайт
+npm run build:icons              # Сгенерировать спрайт
+npm run icons:watch              # Наблюдение за изменениями
+
+# Production
+php artisan config:cache         # Кэшировать конфигурацию
+php artisan route:cache          # Кэшировать роуты
+php artisan view:cache           # Кэшировать views
+```
+
+## ⚙️ Требования
+
+- PHP 8.2+ (рекомендуется 8.3)
+- MySQL 5.7+ или MariaDB 10.3+
+- Composer
+- Node.js 18+ (для сборки SVG-спрайта)
+
+## 📝 Лицензия
+
+MIT License
+
+---
 
 ## About Laravel
 
