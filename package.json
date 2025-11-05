@@ -1,0 +1,27 @@
+{
+  "name": "3dcabinet",
+  "version": "1.0.0",
+  "description": "Веб-приложение для виртуального проектирования размещения оборудования в серверном шкафу.",
+  "type": "module",
+  "scripts": {
+    "build:icons": "node build-icons.mjs",
+    "icons:watch": "chokidar \"public/assets/icons/**/*.svg\" -c \"node build-icons.mjs\"",
+    "icons:dev": "npm run build:icons && npm run icons:watch"
+  },
+  "devDependencies": {
+    "chokidar-cli": "^3.0.0",
+    "glob": "^11.0.0",
+    "svgstore": "^3.0.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/44mmnrw/3dcabinet.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/44mmnrw/3dcabinet/issues"
+  },
+  "homepage": "https://github.com/44mmnrw/3dcabinet#readme"
+}
