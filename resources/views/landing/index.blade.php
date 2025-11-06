@@ -4,8 +4,8 @@
 @section('meta_description', 'Интеллектуальная система подбора и конфигурирования шкафного оборудования с 3D-визуализацией')
 
 @push('scripts')
-    <script src="{{ asset('js/data.js') }}"></script>
     <script src="{{ asset('js/selection.js') }}"></script>
+    <script src="{{ asset('js/progress-animation.js') }}"></script>
 @endpush
 
 @section('content')
