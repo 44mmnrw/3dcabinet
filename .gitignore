@@ -20,9 +20,11 @@
 /storage/*.key
 /storage/pail
 /vendor
+/tools
 Homestead.json
 Homestead.yaml
 Thumbs.db
+TIMEWEB_DEPLOYMENT.md
 
 # --- Laravel caches & storage ---
 # Ignore compiled/cache files generated at runtime
