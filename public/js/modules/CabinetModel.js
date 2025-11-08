@@ -3,8 +3,8 @@
  * Загружает GLTF-модель, управляет дверцей, оборудованием, материалами
  */
 
-import * as THREE from '../three.module.js';
-import { GLTFLoader } from '../GLTFLoader.js';
+import * as THREE from '../libs/three.module.js';
+import { GLTFLoader } from '../libs/GLTFLoader.js';
 
 export class CabinetModel {
     constructor(modelPath, config = {}) {

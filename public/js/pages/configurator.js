@@ -3,10 +3,10 @@
  * Объединяет все компоненты: сцену, шкафы, взаимодействие
  */
 
-import { SceneManager } from './modules/SceneManager.js';
-import { CabinetModel } from './modules/CabinetModel.js';
-import { CabinetManager } from './modules/CabinetManager.js';
-import { InteractionController } from './modules/InteractionController.js';
+import { SceneManager } from '../modules/SceneManager.js';
+import { CabinetModel } from '../modules/CabinetModel.js';
+import { CabinetManager } from '../modules/CabinetManager.js';
+import { InteractionController } from '../modules/InteractionController.js';
 
 class CabinetConfigurator {
     constructor(containerSelector) {

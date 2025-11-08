@@ -6,7 +6,26 @@
   "scripts": {
     "build:icons": "node build-icons.mjs",
     "icons:watch": "chokidar \"public/assets/icons/**/*.svg\" -c \"node build-icons.mjs\"",
-    "icons:dev": "npm run build:icons && npm run icons:watch"
+    "icons:dev": "npm run build:icons && npm run icons:watch",
+    "build:three": "node build-three.mjs",
+    "postinstall": "npm run build:three"
+  },
+  "dependencies": {
+    "@tweenjs/tween.js": "^25.0.0",
+    "camera-controls": "^3.1.0",
+    "cannon-es": "^0.20.0",
+    "draco3d": "^1.5.7",
+    "file-saver": "^2.0.5",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.3",
+    "ktx-parse": "^1.1.0",
+    "lil-gui": "^0.21.0",
+    "postprocessing": "^6.37.8",
+    "stats.js": "^0.17.0",
+    "sweetalert2": "^11.26.3",
+    "three": "^0.169.0",
+    "three-mesh-bvh": "^0.9.2",
+    "troika-three-text": "^0.52.4"
   },
   "devDependencies": {
     "chokidar-cli": "^3.0.0",

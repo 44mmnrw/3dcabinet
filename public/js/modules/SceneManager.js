@@ -3,8 +3,8 @@
  * Создает комнату, освещение, камеру, рендерер
  */
 
-import * as THREE from '../three.module.js';
-import { OrbitControls } from '../OrbitControls.js';
+import * as THREE from '../libs/three.module.js';
+import { OrbitControls } from '../libs/OrbitControls.js';
 
 export class SceneManager {
     constructor(containerElement) {

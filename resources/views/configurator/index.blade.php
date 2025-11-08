@@ -8,7 +8,8 @@
 @endpush
 
 @push('scripts')
-    <script type="module" src="{{ asset('js/configurator.js') }}"></script>
+    {{-- Главный модуль конфигуратора --}}
+    <script type="module" src="{{ asset('js/pages/configurator.js') }}"></script>
 @endpush
 
 @section('content')
