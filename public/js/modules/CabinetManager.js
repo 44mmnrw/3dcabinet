@@ -301,11 +301,11 @@ export class CabinetManager {
         return true;
     }
     
-    rotateCabinet(cabinetId, angle) {
+    rotateCabinet(cabinetId, angle, animate = true) {
         const cabinet = this.cabinets.get(cabinetId);
         if (!cabinet) return false;
         
-        cabinet.setRotation(angle);
+        cabinet.setRotation(angle, animate);
         return true;
     }
     

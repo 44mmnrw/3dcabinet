@@ -5,6 +5,8 @@
 
 import * as THREE from '../libs/three.module.js';
 import { OrbitControls } from '../libs/OrbitControls.js';
+import { tweenGroup } from './CabinetModel.js';
+// Stats.js — UMD-модуль, загружается динамически в initStats()
 
 export class SceneManager {
     constructor(containerElement) {
@@ -14,6 +16,7 @@ export class SceneManager {
         this.renderer = null;
         this.controls = null;
         this.animationId = null;
+        this.stats = null; // FPS монитор
         
         // Параметры комнаты (мм)
         this.roomWidth = 5000;
@@ -57,8 +60,13 @@ export class SceneManager {
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-        this.container.innerHTML = ''; // Очистить placeholder
-        this.container.appendChild(this.renderer.domElement);
+        
+        // Добавляем canvas в начало контейнера (перед кнопками управления)
+        if (this.container.firstChild) {
+            this.container.insertBefore(this.renderer.domElement, this.container.firstChild);
+        } else {
+            this.container.appendChild(this.renderer.domElement);
+        }
         
         // Управление камерой (как в Blender)
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -72,9 +80,12 @@ export class SceneManager {
         this.controls.enableRotate = true;       // Средняя кнопка = вращение
         
         // Настройки как в Blender:
+        // ЛКМ = выбор/drag моделей (управляется InteractionController)
+        // Средняя кнопка = вращение камеры
+        // ПКМ = панорамирование камеры
         this.controls.mouseButtons = {
-            LEFT: THREE.MOUSE.ROTATE,    // ЛКМ = вращение (или средняя в Blender)
-            MIDDLE: THREE.MOUSE.DOLLY,   // Средняя = зум
+            LEFT: null,                  // ЛКМ освобождена для drag моделей
+            MIDDLE: THREE.MOUSE.ROTATE,  // Средняя = вращение (как в Blender)
             RIGHT: THREE.MOUSE.PAN       // ПКМ = панорамирование
         };
         
@@ -99,6 +110,9 @@ export class SceneManager {
         
         // Добавляем подписи к осям для лучшей визуализации
         this.createAxisLabels();
+        
+        // Stats.js — FPS монитор (для отладки производительности)
+        this.initStats();
         
         // Обработчик resize
         this.resizeHandler = this.onWindowResize.bind(this);
@@ -309,10 +323,49 @@ export class SceneManager {
         this.renderer.setSize(width, height);
     }
     
+    async initStats() {
+        // Создать FPS монитор (только если включен режим отладки)
+        const debugMode = new URLSearchParams(window.location.search).has('debug');
+        
+        if (debugMode) {
+            // Динамическая загрузка Stats.js (UMD-модуль)
+            const script = document.createElement('script');
+            script.src = '/js/libs/stats.min.js';
+            script.onload = () => {
+                if (window.Stats) {
+                    this.stats = new window.Stats();
+                    this.stats.showPanel(0); // 0: fps, 1: ms, 2: mb
+                    this.stats.dom.style.position = 'absolute';
+                    this.stats.dom.style.top = '10px';
+                    this.stats.dom.style.left = '10px';
+                    this.stats.dom.style.zIndex = '9999';
+                    this.container.appendChild(this.stats.dom);
+                    console.log('📊 Stats.js активирован (?debug в URL для отображения)');
+                } else {
+                    console.error('Stats.js загружен, но window.Stats не найден');
+                }
+            };
+            script.onerror = () => {
+                console.error('Не удалось загрузить Stats.js');
+            };
+            document.head.appendChild(script);
+        }
+    }
+    
     animate() {
         this.animationId = requestAnimationFrame(this.animate.bind(this));
+        
+        // Обновить Stats.js (если включен)
+        if (this.stats) this.stats.begin();
+        
+        // Обновить TWEEN анимации шкафов (двери, движение и т.д.)
+        tweenGroup.update();
+        
         this.controls.update();
         this.renderer.render(this.scene, this.camera);
+        
+        // Завершить измерение Stats.js
+        if (this.stats) this.stats.end();
     }
     
     addToScene(object) {
@@ -377,6 +430,156 @@ export class SceneManager {
         const desiredMaxDistance = Math.max(diagonal * 2, 50000);
         if (desiredMaxDistance > this.controls.maxDistance) {
             this.controls.maxDistance = desiredMaxDistance;
+        }
+    }
+    
+    /**
+     * Вращение камеры вокруг сцены
+     * @param {string} direction - 'up', 'down', 'left', 'right'
+     */
+    rotateCamera(direction) {
+        const rotationSpeed = 0.3; // радианы
+        const currentAzimuth = this.controls.getAzimuthalAngle();
+        const currentPolar = this.controls.getPolarAngle();
+        
+        switch(direction) {
+            case 'up':
+                // Вращение вверх (уменьшить polar angle)
+                const newPolarUp = Math.max(currentPolar - rotationSpeed, 0.1);
+                this.animateCameraRotation(currentAzimuth, newPolarUp);
+                break;
+                
+            case 'down':
+                // Вращение вниз (увеличить polar angle)
+                const newPolarDown = Math.min(currentPolar + rotationSpeed, Math.PI - 0.1);
+                this.animateCameraRotation(currentAzimuth, newPolarDown);
+                break;
+                
+            case 'left':
+                // Вращение влево (увеличить azimuthal angle)
+                this.animateCameraRotation(currentAzimuth + rotationSpeed, currentPolar);
+                break;
+                
+            case 'right':
+                // Вращение вправо (уменьшить azimuthal angle)
+                this.animateCameraRotation(currentAzimuth - rotationSpeed, currentPolar);
+                break;
+        }
+    }
+    
+    /**
+     * Плавная анимация вращения камеры
+     */
+    animateCameraRotation(targetAzimuth, targetPolar) {
+        const duration = 300; // мс
+        const startAzimuth = this.controls.getAzimuthalAngle();
+        const startPolar = this.controls.getPolarAngle();
+        const startTime = Date.now();
+        
+        const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            // Easing: ease-out cubic
+            const eased = 1 - Math.pow(1 - progress, 3);
+            
+            // Интерполяция углов
+            const currentAzimuth = startAzimuth + (targetAzimuth - startAzimuth) * eased;
+            const currentPolar = startPolar + (targetPolar - startPolar) * eased;
+            
+            // Вычислить новую позицию камеры
+            const radius = this.camera.position.distanceTo(this.controls.target);
+            const x = radius * Math.sin(currentPolar) * Math.sin(currentAzimuth);
+            const y = radius * Math.cos(currentPolar);
+            const z = radius * Math.sin(currentPolar) * Math.cos(currentAzimuth);
+            
+            this.camera.position.set(
+                this.controls.target.x + x,
+                this.controls.target.y + y,
+                this.controls.target.z + z
+            );
+            this.camera.lookAt(this.controls.target);
+            
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            }
+        };
+        
+        animate();
+    }
+    
+    /**
+     * Зум камеры
+     * @param {string} direction - 'in' или 'out'
+     */
+    zoomCamera(direction) {
+        const zoomSpeed = 0.15; // 15% от текущего расстояния
+        const currentDistance = this.camera.position.distanceTo(this.controls.target);
+        
+        let targetDistance;
+        if (direction === 'in') {
+            targetDistance = currentDistance * (1 - zoomSpeed);
+            targetDistance = Math.max(targetDistance, this.controls.minDistance);
+        } else {
+            targetDistance = currentDistance * (1 + zoomSpeed);
+            targetDistance = Math.min(targetDistance, this.controls.maxDistance);
+        }
+        
+        this.animateCameraZoom(targetDistance);
+    }
+    
+    /**
+     * Плавная анимация зума
+     */
+    animateCameraZoom(targetDistance) {
+        const duration = 200; // мс
+        const startDistance = this.camera.position.distanceTo(this.controls.target);
+        const startTime = Date.now();
+        
+        const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            // Easing: ease-out quad
+            const eased = 1 - Math.pow(1 - progress, 2);
+            
+            const currentDistance = startDistance + (targetDistance - startDistance) * eased;
+            
+            // Вычислить направление от target к камере
+            const direction = new THREE.Vector3()
+                .subVectors(this.camera.position, this.controls.target)
+                .normalize();
+            
+            // Установить новую позицию камеры
+            this.camera.position.copy(this.controls.target).add(direction.multiplyScalar(currentDistance));
+            
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            }
+        };
+        
+        animate();
+    }
+    
+    /**
+     * Сброс камеры в исходное положение
+     */
+    resetCamera() {
+        // Используем автофокус на все объекты сцены
+        const allObjects = this.scene.children.filter(child => 
+            child.userData.isCabinet || child.type === 'Group'
+        );
+        
+        if (allObjects.length > 0) {
+            this.focusOnObject(allObjects[0]); // Фокус на первый шкаф
+        } else {
+            // Если шкафов нет, возвращаем дефолтную позицию
+            const defaultDistance = 2000;
+            const defaultPolar = Math.PI / 3; // 60 градусов
+            const defaultAzimuth = Math.PI / 4; // 45 градусов
+            
+            this.animateCameraRotation(defaultAzimuth, defaultPolar);
+            this.animateCameraZoom(defaultDistance);
         }
     }
     

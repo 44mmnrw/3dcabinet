@@ -5,6 +5,10 @@
 
 import * as THREE from '../libs/three.module.js';
 import { GLTFLoader } from '../libs/GLTFLoader.js';
+import { Tween, Easing, Group } from '../libs/tween.esm.js';
+
+// Создаём глобальную группу для всех TWEEN-анимаций шкафов
+const tweenGroup = new Group();
 
 export class CabinetModel {
     constructor(modelPath, config = {}) {
@@ -61,6 +65,11 @@ export class CabinetModel {
                     this.model = gltf.scene;
                     this.model.userData.cabinetId = this.id;
                     this.model.userData.isCabinet = true;
+                    
+                    // ВАЖНО: Установить cabinetId на всех дочерних объектах для raycasting
+                    this.model.traverse((child) => {
+                        child.userData.cabinetId = this.id;
+                    });
                     
                     console.log(`  Узлов в сцене: ${gltf.scene.children.length}`);
                     console.log(`  Корневые узлы:`, gltf.scene.children.map(c => c.name));
@@ -169,6 +178,9 @@ export class CabinetModel {
                     console.log(`  Bounding box Min: (${checkBox.min.x.toFixed(1)}, ${checkBox.min.y.toFixed(1)}, ${checkBox.min.z.toFixed(1)})`);
                     console.log(`  Bounding box Max: (${checkBox.max.x.toFixed(1)}, ${checkBox.max.y.toFixed(1)}, ${checkBox.max.z.toFixed(1)})`);
                     console.log(`  ===================================\n`);
+                    
+                    // === ОПТИМИЗАЦИЯ: BVH для ускорения raycasting ===
+                    this.optimizeGeometry();
                     
                     // Создать рамку выбора (невидимую по умолчанию)
                     this.createSelectionBox();
@@ -408,11 +420,45 @@ export class CabinetModel {
         }
     }
     
-    setRotation(angleRadians) {
-        this.rotation = angleRadians;
-        if (this.model) {
-            this.model.rotation.y = angleRadians;
+    setRotation(angleRadians, animate = false) {
+        if (!animate) {
+            // Мгновенный поворот
+            this.rotation = angleRadians;
+            if (this.model) {
+                this.model.rotation.y = angleRadians;
+            }
+        } else {
+            // Плавный поворот через TWEEN
+            this.animateRotation(angleRadians);
         }
+    }
+    
+    animateRotation(targetRotation) {
+        if (!this.model) return;
+        
+        const startRotation = this.model.rotation.y;
+        const duration = 400; // мс
+        
+        console.log(`\n🔄 ===== ПОВОРОТ ШКАФА =====`);
+        console.log(`  Начальный угол: ${(startRotation * 180 / Math.PI).toFixed(1)}°`);
+        console.log(`  Целевой угол: ${(targetRotation * 180 / Math.PI).toFixed(1)}°`);
+        console.log(`  Изменение: ${((targetRotation - startRotation) * 180 / Math.PI).toFixed(1)}°`);
+        console.log(`============================\n`);
+        
+        // Используем TWEEN для плавной анимации с явной группой
+        new Tween(this.model.rotation, tweenGroup)
+            .to({ y: targetRotation }, duration)
+            .easing(Easing.Cubic.InOut) // Плавное ускорение и замедление
+            .onUpdate(() => {
+                // Обновляем внутреннее значение rotation
+                this.rotation = this.model.rotation.y;
+                this.model.updateMatrixWorld(true);
+            })
+            .onComplete(() => {
+                this.rotation = targetRotation;
+                console.log(`  ✅ Поворот завершён: ${(this.rotation * 180 / Math.PI).toFixed(1)}°\n`);
+            })
+            .start();
     }
     
     /**
@@ -511,24 +557,16 @@ export class CabinetModel {
     
     animateDoor(targetRotation, axis = 'y') {
         const startRotation = this.door.rotation[axis];
-        const duration = 500; // мс
-        const startTime = performance.now();
+        const duration = 600; // мс
         
-        const animate = (currentTime) => {
-            const elapsed = currentTime - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            
-            // Easing (easeInOutQuad)
-            const eased = progress < 0.5
-                ? 2 * progress * progress
-                : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-            
-            this.door.rotation[axis] = startRotation + (targetRotation - startRotation) * eased;
-            this.door.updateMatrixWorld(true);
-            
-            if (progress < 1) {
-                requestAnimationFrame(animate);
-            } else {
+        // Используем TWEEN для плавной анимации с явной группой
+        new Tween(this.door.rotation, tweenGroup)
+            .to({ [axis]: targetRotation }, duration)
+            .easing(Easing.Cubic.InOut) // Плавное ускорение и замедление
+            .onUpdate(() => {
+                this.door.updateMatrixWorld(true);
+            })
+            .onComplete(() => {
                 console.log(`\n  ✅ ===== АНИМАЦИЯ ЗАВЕРШЕНА =====`);
                 console.log(`  Целевая ось: ${axis.toUpperCase()}`);
                 console.log(`  Финальные углы двери:`);
@@ -537,10 +575,8 @@ export class CabinetModel {
                 console.log(`    Z: ${this.door.rotation.z.toFixed(4)} рад (${(this.door.rotation.z * 180 / Math.PI).toFixed(1)}°)`);
                 console.log(`  Порядок вращения: ${this.door.rotation.order}`);
                 console.log(`  ================================\n`);
-            }
-        };
-        
-        requestAnimationFrame(animate);
+            })
+            .start();
     }
     
     setSelected(selected) {
@@ -601,6 +637,10 @@ export class CabinetModel {
         if (this.model) {
             this.model.traverse((child) => {
                 if (child.isMesh) {
+                    // Удалить BVH перед удалением геометрии
+                    if (child.geometry.boundsTree) {
+                        child.geometry.disposeBoundsTree();
+                    }
                     child.geometry.dispose();
                     if (Array.isArray(child.material)) {
                         child.material.forEach(mat => mat.dispose());
@@ -611,4 +651,30 @@ export class CabinetModel {
             });
         }
     }
+    
+    /**
+     * Оптимизация геометрии для ускорения raycasting через BVH
+     * Строит Bounding Volume Hierarchy для всех мешей модели
+     */
+    optimizeGeometry() {
+        let meshCount = 0;
+        let optimizedCount = 0;
+        
+        this.model.traverse((child) => {
+            if (child.isMesh && child.geometry) {
+                meshCount++;
+                
+                // Построить BVH дерево для геометрии
+                if (typeof child.geometry.computeBoundsTree === 'function') {
+                    child.geometry.computeBoundsTree();
+                    optimizedCount++;
+                }
+            }
+        });
+        
+        console.log(`  🚀 BVH оптимизация: ${optimizedCount}/${meshCount} мешей (ускорение raycasting в 10-100x)`);
+    }
 }
+
+// Экспортируем группу для обновления в SceneManager
+export { tweenGroup };
