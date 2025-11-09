@@ -17,27 +17,35 @@ export class CabinetManager {
     }
     
     async addCabinet(cabinetModel) {
+        console.log('🏢 CabinetManager.addCabinet() вызван для:', cabinetModel.id);
+        
         // Дождаться загрузки модели
+        console.log('  ⏳ Ожидание загрузки модели...');
         await cabinetModel.loadPromise;
+        console.log('  ✅ Модель загружена');
         
         // Проверить коллизии и найти свободное место
+        console.log('  🔍 Поиск свободного места...');
         const validPosition = this.findValidPosition(cabinetModel);
         
         if (!validPosition) {
-            console.warn('Не удалось найти место для шкафа');
+            console.warn('❌ Не удалось найти место для шкафа');
             return false;
         }
+        console.log('  📍 Найдена позиция:', validPosition);
         
         cabinetModel.setPosition(validPosition);
         
         // Добавить в коллекцию
         this.cabinets.set(cabinetModel.id, cabinetModel);
+        console.log('  💾 Добавлено в коллекцию, всего шкафов:', this.cabinets.size);
         
         // Добавить на сцену
+        console.log('  🎬 Добавление на сцену...');
         this.sceneManager.addToScene(cabinetModel.model);
+        console.log('  ✅ Шкаф добавлен на сцену');
         
-        console.log(`✅ Шкаф добавлен: ${cabinetModel.config.name} в позицию (${validPosition.x}, ${validPosition.y}, ${validPosition.z})`);
-        
+        console.log('✅✅ CabinetManager.addCabinet() ЗАВЕРШЁН ✅✅');
         return true;
     }
     
@@ -62,7 +70,6 @@ export class CabinetManager {
         
         // Если это первый шкаф — просто разместить в центре без проверок
         if (this.cabinets.size === 0) {
-            console.log(`  Первый шкаф, размещаю в центре без collision detection`);
             if (type === 'floor') {
                 return new THREE.Vector3(0, 0, 0);
             } else {
@@ -269,7 +276,6 @@ export class CabinetManager {
         if (cabinet) {
             cabinet.setSelected(true);
             this.selectedCabinet = cabinet;
-            console.log(`Выбран шкаф: ${cabinet.config.name}`);
             return cabinet;
         }
         

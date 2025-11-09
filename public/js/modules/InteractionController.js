@@ -48,8 +48,6 @@ export class InteractionController {
         
         // Создать плоскость для drag (пол)
         this.dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-        
-        console.log('✅ InteractionController инициализирован');
     }
     
     updateMousePosition(event) {
@@ -80,10 +78,12 @@ export class InteractionController {
         
         if (intersects.length > 0) {
             // Найти cabinetId из userData
-            const cabinetId = intersects[0].object.userData.cabinetId;
+            const hitObject = intersects[0].object;
+            const cabinetId = hitObject.userData.cabinetId;
             if (cabinetId) {
                 this.cabinetManager.selectCabinet(cabinetId);
-                this.onCabinetSelected(cabinetId);
+                // Передаём также ссылку на конкретный меш для более точной подсветки
+                this.onCabinetSelected(cabinetId, hitObject);
             }
         } else {
             // Клик по пустому месту — снять выбор
@@ -93,7 +93,6 @@ export class InteractionController {
     }
     
     onDoubleClick(event) {
-        console.log('🖱️ Double-click event triggered');
         this.updateMousePosition(event);
         this.raycaster.setFromCamera(this.mouse, this.sceneManager.camera);
         
@@ -108,25 +107,15 @@ export class InteractionController {
             }
         });
         
-        console.log(`  Мешей для проверки: ${allMeshes.length}`);
         const intersects = this.raycaster.intersectObjects(allMeshes, false);
-        console.log(`  Пересечений найдено: ${intersects.length}`);
         
         if (intersects.length > 0) {
             const cabinetId = intersects[0].object.userData.cabinetId;
-            console.log(`  cabinetId из userData:`, cabinetId);
             const cabinet = this.cabinetManager.getCabinetById(cabinetId);
-            console.log(`  Cabinet найден:`, !!cabinet);
             
             if (cabinet) {
-                console.log(`  Вызов toggleDoor для шкафа ${cabinet.config.name}`);
-                console.log(`  Дверца существует:`, !!cabinet.door);
-                // Двойной клик — открыть/закрыть дверцу
                 cabinet.toggleDoor(true);
-                console.log(`🚪 Дверца ${cabinet.isDoorOpen ? 'открыта' : 'закрыта'}`);
             }
-        } else {
-            console.log('  ❌ Клик мимо модели');
         }
     }
     
@@ -160,7 +149,6 @@ export class InteractionController {
             
             if (event.shiftKey) {
                 // РЕЖИМ: Перетаскивание шкафа (Shift + Click)
-                console.log('🚚 Режим перетаскивания (Shift + Click)');
                 this.startDrag(cabinet, intersects[0].point);
                 
                 // Отключить OrbitControls на время drag
@@ -174,23 +162,16 @@ export class InteractionController {
                 
                 if (hitObject.userData.isEquipment) {
                     // Клик по оборудованию
-                    console.log('🔧 Выбрано оборудование:', hitObject.userData.equipmentId);
-                    this.selectEquipment(cabinet, hitObject.userData.equipmentId);
-                    
+                    this.selectEquipment(cabinet, hitObject.userData.equipmentId, hitObject);
                 } else if (hitObject.userData.isDoor) {
                     // Клик по двери
-                    console.log('🚪 Выбрана дверь шкафа:', cabinet.config.name);
-                    this.selectDoor(cabinet);
-                    
+                    this.selectDoor(cabinet, hitObject);
                 } else if (hitObject.userData.isDinRail) {
                     // Клик по DIN-рейке
-                    console.log('📏 Выбрана DIN-рейка:', hitObject.name);
                     this.selectDinRail(cabinet, hitObject);
-                    
                 } else {
                     // Клик по корпусу шкафа — выбрать весь шкаф
-                    console.log('📦 Выбран шкаф:', cabinet.config.name);
-                    this.selectCabinet(cabinet);
+                    this.selectCabinet(cabinet, hitObject);
                 }
             }
         }
@@ -199,24 +180,24 @@ export class InteractionController {
     /**
      * Выбрать оборудование
      */
-    selectEquipment(cabinet, equipmentId) {
+    selectEquipment(cabinet, equipmentId, mesh = null) {
         this.cabinetManager.selectCabinet(cabinet.id);
         
         // Вызвать callback с информацией об оборудовании
         if (this.onEquipmentSelected) {
-            this.onEquipmentSelected(cabinet.id, equipmentId);
+            this.onEquipmentSelected(cabinet.id, equipmentId, mesh);
         }
     }
     
     /**
      * Выбрать дверь
      */
-    selectDoor(cabinet) {
+    selectDoor(cabinet, mesh = null) {
         this.cabinetManager.selectCabinet(cabinet.id);
         
         // Вызвать callback для отображения UI двери
         if (this.onDoorSelected) {
-            this.onDoorSelected(cabinet.id);
+            this.onDoorSelected(cabinet.id, mesh);
         }
     }
     
@@ -228,19 +209,19 @@ export class InteractionController {
         
         // Вызвать callback для работы с рейкой
         if (this.onDinRailSelected) {
-            this.onDinRailSelected(cabinet.id, railObject);
+            this.onDinRailSelected(cabinet.id, railObject, railObject);
         }
     }
     
     /**
      * Выбрать шкаф целиком
      */
-    selectCabinet(cabinet) {
+    selectCabinet(cabinet, mesh = null) {
         this.cabinetManager.selectCabinet(cabinet.id);
         
         // Вызвать существующий callback
         if (this.onCabinetSelected) {
-            this.onCabinetSelected(cabinet.id);
+            this.onCabinetSelected(cabinet.id, mesh);
         }
     }
     
@@ -337,12 +318,9 @@ export class InteractionController {
         
         // Вычислить offset (смещение клика от центра шкафа)
         this.dragOffset.copy(clickPoint).sub(cabinet.model.position);
-        
-        console.log(`🖐️ Начато перетаскивание: ${cabinet.config.name}`);
     }
     
     stopDrag() {
-        console.log(`✋ Перетаскивание завершено`);
         this.isDragging = false;
         this.draggedCabinet = null;
     }
@@ -368,14 +346,12 @@ export class InteractionController {
                 // Повернуть на 90°
                 const newRotation = selectedCabinet.rotation + Math.PI / 2;
                 this.cabinetManager.rotateCabinet(selectedCabinet.id, newRotation);
-                console.log('🔄 Шкаф повернут на 90°');
                 break;
                 
             case 'o':
             case 'O':
                 // Открыть/закрыть дверцу
                 selectedCabinet.toggleDoor(true);
-                console.log(`🚪 Дверца ${selectedCabinet.isDoorOpen ? 'открыта' : 'закрыта'}`);
                 break;
                 
             case 'Escape':
@@ -440,13 +416,11 @@ export class InteractionController {
         if (cabinet.isSelected && cabinet.selectionBox) {
             cabinet.selectionBox.visible = true;
         }
-        console.log(`🔍 Масштаб шкафа: ${newScale.toFixed(2)}× (низ зафиксирован на Y=${bottomYBefore.toFixed(1)})`);
     }
 
     // Callback-методы (переопределяются извне)
     onCabinetSelected(cabinetId) {
         // Вызывается при выборе шкафа
-        console.log(`📦 Выбран шкаф: ${cabinetId}`);
     }
     
     onCabinetDeselected() {

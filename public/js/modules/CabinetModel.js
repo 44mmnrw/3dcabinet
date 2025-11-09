@@ -19,7 +19,8 @@ export class CabinetModel {
             height: config.height || 500,  // мм
             depth: config.depth || 240,    // мм
             name: config.name || 'Cabinet',
-            color: config.color || 0xD7D9D6 // RAL 7035 (светло-серый)
+            color: config.color || 0x2196f3,  // Основной цвет (fallback)
+            colorScheme: config.colorScheme || null  // Цветовая схема для частей модели
         };
         
         this.id = this.generateId();
@@ -46,6 +47,9 @@ export class CabinetModel {
         
         // Промис загрузки
         this.loadPromise = this.load();
+        
+        // Добавить текстурную схему
+        this.textureScheme = config.textureScheme || null;
     }
     
     generateId() {
@@ -53,28 +57,21 @@ export class CabinetModel {
     }
     
     async load() {
+        console.log('🔄 CabinetModel.load() начат для:', this.modelPath);
         return new Promise((resolve, reject) => {
-            console.log(`  Начало загрузки: ${this.modelPath}`);
-            
             this.loader.load(
                 this.modelPath,
-                (gltf) => {
-                    console.log(`  ✓ GLTF загружен успешно`);
-                    
-                    this.gltf = gltf;
+                async (gltf) => {  // ✅ Добавьте async здесь
+                    console.log('✅ GLTF загружен успешно:', this.modelPath);
                     this.model = gltf.scene;
                     this.model.userData.cabinetId = this.id;
                     this.model.userData.isCabinet = true;
+                    console.log('  📦 Модель создана, ID:', this.id);
                     
                     // ВАЖНО: Установить cabinetId на всех дочерних объектах для raycasting
                     this.model.traverse((child) => {
                         child.userData.cabinetId = this.id;
                     });
-                    
-                    console.log(`  Узлов в сцене: ${gltf.scene.children.length}`);
-                    console.log(`  Корневые узлы:`, gltf.scene.children.map(c => c.name));
-                    console.log(`  Полный список узлов:`);
-                    this.getAllNodeNames().forEach(name => console.log(`    • ${name}`));
                     
                     // ВАЖНО: Проверяем масштаб модели и центрируем
                     const initialBox = new THREE.Box3().setFromObject(this.model);
@@ -82,10 +79,8 @@ export class CabinetModel {
                     const initialCenter = new THREE.Vector3();
                     initialBox.getSize(initialSize);
                     initialBox.getCenter(initialCenter);
-                    
-                    console.log(`  Исходный размер: ${initialSize.x.toFixed(2)} × ${initialSize.y.toFixed(2)} × ${initialSize.z.toFixed(2)}`);
-                    console.log(`  Исходный центр: (${initialCenter.x.toFixed(2)}, ${initialCenter.y.toFixed(2)}, ${initialCenter.z.toFixed(2)})`);
-                    
+                    console.log('  📏 Исходные размеры модели:', initialSize);
+                    console.log('  📍 Исходный центр:', initialCenter);
                     // === МАСШТАБИРОВАНИЕ МОДЕЛИ ===
                     const expectedSize = new THREE.Vector3(
                         this.config.width,
@@ -99,9 +94,10 @@ export class CabinetModel {
                         scaleFactor = expectedDiagonal / initialDiagonal;
                     }
                     scaleFactor = THREE.MathUtils.clamp(scaleFactor, 0.01, 2000);
+                    console.log('  🔢 Вычисленный scaleFactor:', scaleFactor);
                     this.model.scale.set(scaleFactor, scaleFactor, scaleFactor);
                     this.model.updateMatrixWorld(true);
-                    console.log(`  ✓ Применён масштаб: ${scaleFactor.toFixed(3)}× (ожидаемые размеры ${expectedSize.x}×${expectedSize.y}×${expectedSize.z} мм)`);
+                    console.log('  ✅ Масштаб применен:', this.model.scale);
 
                     // Принудительно сбрасываем масштаб всех дочерних объектов
                     this.model.traverse(child => {
@@ -120,20 +116,14 @@ export class CabinetModel {
                     // НЕ сдвигаем позицию модели! Pivot как в GLB
                     this.model.updateMatrixWorld(true);
 
-                    console.log(`  📐 После масштаба:`);
-                    console.log(`    Размер: ${scaledSize.x.toFixed(0)} × ${scaledSize.y.toFixed(0)} × ${scaledSize.z.toFixed(0)} мм`);
-                    console.log(`    Центр: (${scaledCenter.x.toFixed(1)}, ${scaledCenter.y.toFixed(1)}, ${scaledCenter.z.toFixed(1)})`);
-                    console.log(`    Min: (${scaledBox.min.x.toFixed(1)}, ${scaledBox.min.y.toFixed(1)}, ${scaledBox.min.z.toFixed(1)})`);
-                    console.log(`    Max: (${scaledBox.max.x.toFixed(1)}, ${scaledBox.max.y.toFixed(1)}, ${scaledBox.max.z.toFixed(1)})`);
-                    
                     // Сохранить смещение для установки пики
                     this.pivotOffset.set(-scaledCenter.x, -scaledBox.min.y, -scaledCenter.z);
 
                     // Центрировать по X и Z, оставить Y на полу (минимум = 0)
                     this.model.position.copy(this.pivotOffset);
                     this.model.updateMatrixWorld(true);
-                    
-                    console.log(`  ✓ Модель отцентрирована: позиция (${this.model.position.x.toFixed(1)}, ${this.model.position.y.toFixed(1)}, ${this.model.position.z.toFixed(1)})`);
+                    console.log('  📍 Позиция модели установлена:', this.model.position);
+                    console.log('  🎯 PivotOffset:', this.pivotOffset);
                     
                     // Включить тени для всех mesh
                     let meshCount = 0;
@@ -145,59 +135,81 @@ export class CabinetModel {
                             meshCount++;
                         }
                     });
-                    console.log(`  Mesh-объектов: ${meshCount}`);
+                    console.log(`  🔢 Найдено mesh-объектов: ${meshCount}`);
+                    
+                    // Принудительно заменить материал для всех основных mesh
+                    console.log(`🎨 Перекраска модели в цвет:`, this.config.color.toString(16));
+                    this.model.traverse((child) => {
+                        if (child.isMesh) {
+                            console.log(`  Mesh: ${child.name}, материал:`, child.material?.type, 'map:', !!child.material?.map);
+                            if (Array.isArray(child.material)) {
+                                child.material.forEach(mat => mat.dispose());
+                            } else if (child.material) {
+                                child.material.dispose();
+                            }
+                            child.material = new THREE.MeshStandardMaterial({
+                                color: this.config.color,
+                                metalness: 0.3,
+                                roughness: 0.7,
+                                map: null // Сбросить текстуру
+                            });
+                            child.material.needsUpdate = true;
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                        }
+                    });
                     
                     // Найти дверцу (по имени объекта в GLTF) - СНАЧАЛА помечаем части
+                    console.log('🔍 Поиск дверцы...');
                     this.findDoor();
+                    console.log('  Дверца найдена:', !!this.door);
                     
                     // Найти DIN-рейки
+                    console.log('🔍 Поиск DIN-реек...');
                     this.findDinRails();
+                    console.log('  DIN-рейки найдены:', this.dinRails.length);
                     
-                    // Раскраска отдельных частей (единственный способ)
+                    // Раскраска отдельных частей по цветовой схеме (если передана)
+                    console.log('🎨 Применение цветовой схемы...');
                     this.applyPartColors();
+                    console.log('  ✅ Цветовая схема применена');
                     
                     // Вычислить bounding box ПОСЛЕ всех трансформаций
+                    console.log('📦 Вычисление bounding box...');
                     this.updateBoundingBox();
-                    
-                    // === ФИНАЛЬНАЯ ПРОВЕРКА ===
-                    const checkBox = new THREE.Box3().setFromObject(this.model);
-                    const checkCenter = new THREE.Vector3();
-                    const checkSize = new THREE.Vector3();
-                    checkBox.getCenter(checkCenter);
-                    checkBox.getSize(checkSize);
-                    
-                    console.log(`\n  🔍 === ФИНАЛЬНАЯ ПРОВЕРКА МОДЕЛИ ===`);
-                    console.log(`  Position:`, this.model.position);
-                    console.log(`  Scale:`, this.model.scale);
-                    console.log(`  Rotation:`, this.model.rotation);
-                    console.log(`  Visible:`, this.model.visible);
-                    console.log(`  Parent:`, this.model.parent ? this.model.parent.type : 'null');
-                    console.log(`  Children count:`, this.model.children.length);
-                    console.log(`  Финальный размер: ${checkSize.x.toFixed(0)} × ${checkSize.y.toFixed(0)} × ${checkSize.z.toFixed(0)} мм`);
-                    console.log(`  Финальный центр: (${checkCenter.x.toFixed(1)}, ${checkCenter.y.toFixed(1)}, ${checkCenter.z.toFixed(1)})`);
-                    console.log(`  Bounding box Min: (${checkBox.min.x.toFixed(1)}, ${checkBox.min.y.toFixed(1)}, ${checkBox.min.z.toFixed(1)})`);
-                    console.log(`  Bounding box Max: (${checkBox.max.x.toFixed(1)}, ${checkBox.max.y.toFixed(1)}, ${checkBox.max.z.toFixed(1)})`);
-                    console.log(`  ===================================\n`);
+                    console.log('  BBox:', this.boundingBox);
                     
                     // === ОПТИМИЗАЦИЯ: BVH для ускорения raycasting ===
+                    console.log('⚡ Оптимизация геометрии (BVH)...');
                     this.optimizeGeometry();
                     
                     // Создать рамку выбора (невидимую по умолчанию)
+                    console.log('🔲 Создание рамки выбора...');
                     this.createSelectionBox();
                     
                     // Установить начальную позицию
+                    console.log('📍 Установка начальной позиции:', this.position);
                     this.setPosition(this.position);
                     
-                    console.log(`✅ Модель загружена: ${this.config.name} (${this.id})`);
+                    // ✅ Применить текстуры (если указаны)
+                    if (this.textureScheme) {
+                        console.log('🖼️ Применение текстур...');
+                        try {
+                            await this.applyTextures(this.model);
+                            console.log('  ✅ Текстуры применены');
+                        } catch (e) {
+                            console.error('❌ Ошибка применения текстур:', e);
+                            // Продолжаем работу даже если текстуры не загрузились
+                        }
+                    } else {
+                        console.log('ℹ️ Текстурная схема не задана, пропускаем');
+                    }
+                    
+                    console.log('✅✅✅ CabinetModel.load() ЗАВЕРШЁН УСПЕШНО ✅✅✅');
                     resolve(this);
                 },
                 (progress) => {
-                    if (progress.total > 0) {
-                        const percent = (progress.loaded / progress.total * 100).toFixed(0);
-                        console.log(`  Загрузка ${this.config.name}: ${percent}%`);
-                    } else {
-                        console.log(`  Загружено байт: ${progress.loaded}`);
-                    }
+                    // Опционально: показ прогресса загрузки
                 },
                 (error) => {
                     console.error(`❌ Ошибка загрузки модели ${this.modelPath}:`, error);
@@ -212,42 +224,49 @@ export class CabinetModel {
     applyPartColors() {
         if (!this.model) return;
 
-        const partColorMap = [
-            { keyword: 'body', color: new THREE.Color(0xD7D9D6) }, // светло-серый
-            { keyword: 'door', color: new THREE.Color(0xD7D9D6) }, // светло-серый
-            { keyword: 'panel', color: new THREE.Color(0xD7D9D6) } // светло-серый
+        // Если colorScheme не передана, используем config.color для всех частей
+        if (!this.config.colorScheme) {
+            console.log('⚠️ ColorScheme не задана, используется единый цвет:', this.config.color);
+            return;
+        }
+
+        const scheme = this.config.colorScheme;
+        
+        // Карта соответствия: ключевое слово в имени mesh → ключ в colorScheme
+        const partMapping = [
+            { keywords: ['body', 'корпус'], colorKey: 'body' },
+            { keywords: ['door', 'дверь', 'дверца'], colorKey: 'door' },
+            { keywords: ['panel', 'панель'], colorKey: 'panel' },
+            { keywords: ['insulation_frame', 'изоляция_рамка'], colorKey: 'insulationFrame' },
+            { keywords: ['insulation', 'изоляция'], colorKey: 'insulation' },
+            { keywords: ['din_rail', 'din', 'rail', 'рейка'], colorKey: 'dinRail' }
         ];
 
         this.model.traverse((child) => {
-            if (!child.isMesh || !child.material || !child.name) return;
+            if (!child.isMesh || !child.name) return;
 
             const lowerName = child.name.toLowerCase();
-            const match = partColorMap.find(entry => lowerName.includes(entry.keyword));
-            if (!match) return;
-
-            // Клонируем материал, чтобы не затронуть другие mesh с общим материалом
-            if (Array.isArray(child.material)) {
-                child.material = child.material.map(mat => {
-                    const clonedMat = mat.clone();
-                    if (clonedMat.color) {
-                        clonedMat.color.copy(match.color);
-                    }
-                    // Убираем прозрачность
-                    clonedMat.transparent = false;
-                    clonedMat.opacity = 1.0;
-                    clonedMat.needsUpdate = true;
-                    return clonedMat;
-                });
-            } else {
-                child.material = child.material.clone();
-                if (child.material.color) {
-                    child.material.color.copy(match.color);
+            let colorToUse = scheme.default;  // Цвет по умолчанию
+            
+            // Ищем совпадение по ключевым словам
+            for (const mapping of partMapping) {
+                if (mapping.keywords.some(kw => lowerName.includes(kw))) {
+                    colorToUse = scheme[mapping.colorKey] || scheme.default;
+                    console.log(`🎨 ${child.name} → ${mapping.colorKey} (${colorToUse.toString(16)})`);
+                    break;
                 }
-                // Убираем прозрачность
-                child.material.transparent = false;
-                child.material.opacity = 1.0;
-                child.material.needsUpdate = true;
             }
+
+            // Создаём новый материал с нужным цветом
+            child.material = new THREE.MeshStandardMaterial({
+                color: colorToUse,
+                metalness: 0.3,
+                roughness: 0.7,
+                map: null,
+                transparent: false,
+                opacity: 1.0
+            });
+            child.material.needsUpdate = true;
         });
     }
     
@@ -260,49 +279,14 @@ export class CabinetModel {
             if (doorNames.some(name => childNameLower.includes(name.toLowerCase()))) {
                 this.door = child;
                 this.door.userData.isDoor = true;
-                console.log(`  ✓ Найдена дверца: "${child.name}" (тип: ${child.type})`);
                 
                 // Сохранить исходные углы поворота (КОПИРУЕМ ЗНАЧЕНИЯ, а не ссылку!)
                 this.doorInitialRotation = {
                     x: child.rotation.x,
                     y: child.rotation.y,
                     z: child.rotation.z,
-                    order: child.rotation.order // Порядок вращения (XYZ, YXZ, etc.)
+                    order: child.rotation.order
                 };
-                console.log(`    Исходный поворот дверцы:`, this.doorInitialRotation);
-                console.log(`    X: ${child.rotation.x.toFixed(4)} (${(child.rotation.x * 180 / Math.PI).toFixed(1)}°)`);
-                console.log(`    Y: ${child.rotation.y.toFixed(4)} (${(child.rotation.y * 180 / Math.PI).toFixed(1)}°)`);
-                console.log(`    Z: ${child.rotation.z.toFixed(4)} (${(child.rotation.z * 180 / Math.PI).toFixed(1)}°)`);
-                console.log(`    Порядок вращения: ${child.rotation.order}`);
-                
-                // Вычислить bounding box двери для определения положения петель
-                const doorBox = new THREE.Box3().setFromObject(this.door);
-                const doorSize = new THREE.Vector3();
-                const doorCenter = new THREE.Vector3();
-                doorBox.getSize(doorSize);
-                doorBox.getCenter(doorCenter);
-                
-                console.log(`    Размер двери: ${doorSize.x.toFixed(1)} × ${doorSize.y.toFixed(1)} × ${doorSize.z.toFixed(1)} мм`);
-                console.log(`    Текущий центр двери (pivot): (${doorCenter.x.toFixed(1)}, ${doorCenter.y.toFixed(1)}, ${doorCenter.z.toFixed(1)})`);
-                console.log(`    Min двери: (${doorBox.min.x.toFixed(1)}, ${doorBox.min.y.toFixed(1)}, ${doorBox.min.z.toFixed(1)})`);
-                console.log(`    Max двери: (${doorBox.max.x.toFixed(1)}, ${doorBox.max.y.toFixed(1)}, ${doorBox.max.z.toFixed(1)})`);
-                
-                // Определить возможные позиции петель (4 края двери)
-                console.log(`\n    � Возможные позиции петель (для вращения вокруг оси Y):`);
-                console.log(`      Левый край:   X = ${doorBox.min.x.toFixed(1)} (петли слева)`);
-                console.log(`      Правый край:  X = ${doorBox.max.x.toFixed(1)} (петли справа)`);
-                console.log(`      Передний край: Z = ${doorBox.min.z.toFixed(1)} (петли спереди)`);
-                console.log(`      Задний край:   Z = ${doorBox.max.z.toFixed(1)} (петли сзади)`);
-                
-                console.log(`\n    💡 РЕШЕНИЯ для правильного pivot point:`);
-                console.log(`      1️⃣  BLENDER (рекомендуется):`);
-                console.log(`         • Выберите дверь → Object Mode`);
-                console.log(`         • Set Origin → Origin to Geometry`);
-                console.log(`         • Переместите Origin к краю с петлями (G+X или G+Z)`);
-                console.log(`         • Экспортируйте GLB заново`);
-                console.log(`      2️⃣  THREE.JS (workaround):`);
-                console.log(`         • Вызовите: cabinet.fixDoorPivot('left') // или 'right', 'front', 'back'`);
-                console.log(`         • Это обернёт дверь в Group и сместит позицию\n`);
             }
         });
         
@@ -321,14 +305,11 @@ export class CabinetModel {
             if (railNames.some(name => childNameLower.includes(name.toLowerCase()))) {
                 this.dinRails.push(child);
                 child.userData.isDinRail = true;
-                console.log(`  ✓ Найдена DIN-рейка: "${child.name}" (тип: ${child.type})`);
             }
         });
         
         if (this.dinRails.length === 0) {
-            console.warn(`  ⚠ DIN-рейки не найдены в модели ${this.config.name}`);
-        } else {
-            console.log(`  Всего DIN-реек: ${this.dinRails.length}`);
+            console.warn(`DIN-рейки не найдены в модели ${this.config.name}`);
         }
     }
     
@@ -343,18 +324,6 @@ export class CabinetModel {
     updateBoundingBox() {
         const box = new THREE.Box3().setFromObject(this.model);
         this.boundingBox = box;
-        
-        // Размеры
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        const center = new THREE.Vector3();
-        box.getCenter(center);
-        
-        console.log(`  Размеры модели: ${size.x.toFixed(0)} × ${size.y.toFixed(0)} × ${size.z.toFixed(0)} мм`);
-        console.log(`  Центр модели: (${center.x.toFixed(1)}, ${center.y.toFixed(1)}, ${center.z.toFixed(1)})`);
-        console.log(`  Min: (${box.min.x.toFixed(1)}, ${box.min.y.toFixed(1)}, ${box.min.z.toFixed(1)})`);
-        console.log(`  Max: (${box.max.x.toFixed(1)}, ${box.max.y.toFixed(1)}, ${box.max.z.toFixed(1)})`);
-        console.log(`  Масштаб модели:`, this.model.scale);
     }
     
     createSelectionBox() {
@@ -439,12 +408,6 @@ export class CabinetModel {
         const startRotation = this.model.rotation.y;
         const duration = 400; // мс
         
-        console.log(`\n🔄 ===== ПОВОРОТ ШКАФА =====`);
-        console.log(`  Начальный угол: ${(startRotation * 180 / Math.PI).toFixed(1)}°`);
-        console.log(`  Целевой угол: ${(targetRotation * 180 / Math.PI).toFixed(1)}°`);
-        console.log(`  Изменение: ${((targetRotation - startRotation) * 180 / Math.PI).toFixed(1)}°`);
-        console.log(`============================\n`);
-        
         // Используем TWEEN для плавной анимации с явной группой
         new Tween(this.model.rotation, tweenGroup)
             .to({ y: targetRotation }, duration)
@@ -456,7 +419,6 @@ export class CabinetModel {
             })
             .onComplete(() => {
                 this.rotation = targetRotation;
-                console.log(`  ✅ Поворот завершён: ${(this.rotation * 180 / Math.PI).toFixed(1)}°\n`);
             })
             .start();
     }
@@ -538,15 +500,6 @@ export class CabinetModel {
         const baseRotation = this.doorInitialRotation[ROTATION_AXIS];
         const targetRotation = this.isDoorOpen ? baseRotation - Math.PI / 2 : baseRotation; // Минус для открытия в другую сторону
         
-        console.log(`\n🚪 ===== ОТКРЫТИЕ/ЗАКРЫТИЕ ДВЕРИ =====`);
-        console.log(`  Состояние: ${this.isDoorOpen ? 'ОТКРЫВАЕТСЯ' : 'ЗАКРЫВАЕТСЯ'}`);
-        console.log(`  Ось вращения: ${ROTATION_AXIS.toUpperCase()}`);
-        console.log(`  Текущий угол ${ROTATION_AXIS.toUpperCase()}: ${(this.door.rotation[ROTATION_AXIS] * 180 / Math.PI).toFixed(1)}°`);
-        console.log(`  Базовый угол: ${(baseRotation * 180 / Math.PI).toFixed(1)}°`);
-        console.log(`  Целевой угол: ${(targetRotation * 180 / Math.PI).toFixed(1)}°`);
-        console.log(`  Изменение: ${((targetRotation - this.door.rotation[ROTATION_AXIS]) * 180 / Math.PI).toFixed(1)}°`);
-        console.log(`=======================================\n`);
-        
         if (animate) {
             this.animateDoor(targetRotation, ROTATION_AXIS);
         } else {
@@ -565,16 +518,6 @@ export class CabinetModel {
             .easing(Easing.Cubic.InOut) // Плавное ускорение и замедление
             .onUpdate(() => {
                 this.door.updateMatrixWorld(true);
-            })
-            .onComplete(() => {
-                console.log(`\n  ✅ ===== АНИМАЦИЯ ЗАВЕРШЕНА =====`);
-                console.log(`  Целевая ось: ${axis.toUpperCase()}`);
-                console.log(`  Финальные углы двери:`);
-                console.log(`    X: ${this.door.rotation.x.toFixed(4)} рад (${(this.door.rotation.x * 180 / Math.PI).toFixed(1)}°)`);
-                console.log(`    Y: ${this.door.rotation.y.toFixed(4)} рад (${(this.door.rotation.y * 180 / Math.PI).toFixed(1)}°)`);
-                console.log(`    Z: ${this.door.rotation.z.toFixed(4)} рад (${(this.door.rotation.z * 180 / Math.PI).toFixed(1)}°)`);
-                console.log(`  Порядок вращения: ${this.door.rotation.order}`);
-                console.log(`  ================================\n`);
             })
             .start();
     }
@@ -671,8 +614,107 @@ export class CabinetModel {
                 }
             }
         });
+    }
+    
+    /**
+     * Применить текстуры к меш-объектам
+     * @param {THREE.Object3D} model 
+     */
+    async applyTextures(model) {
+        if (!this.textureScheme) return;
         
-        console.log(`  🚀 BVH оптимизация: ${optimizedCount}/${meshCount} мешей (ускорение raycasting в 10-100x)`);
+        const sceneManager = window.configurator?.sceneManager;
+        if (!sceneManager) {
+            console.warn('SceneManager недоступен для загрузки текстур');
+            return;
+        }
+        
+        // Загрузить все текстуры параллельно
+        const texturePromises = {};
+        for (const [partName, texturePath] of Object.entries(this.textureScheme)) {
+            if (texturePath && typeof texturePath === 'string') {
+                texturePromises[partName] = sceneManager.loadPBRTextures(texturePath);
+            }
+        }
+        
+        const loadedTextures = {};
+        for (const [partName, promise] of Object.entries(texturePromises)) {
+            try {
+                loadedTextures[partName] = await promise;
+            } catch (e) {
+                console.error(`Не удалось загрузить текстуры для ${partName}:`, e);
+            }
+        }
+        
+        // Применить текстуры к мешам
+        model.traverse((child) => {
+            if (child.isMesh && child.name) {
+                const partName = this.getPartNameFromMesh(child);
+                const textures = loadedTextures[partName];
+                
+                if (textures && Object.keys(textures).length > 0) {
+                    this.applyTexturesToMaterial(child.material, textures);
+                    console.log(`✅ Текстуры применены к ${child.name}`);
+                }
+            }
+        });
+    }
+    
+    /**
+     * Применить текстуры к материалу
+     * @param {THREE.Material} material 
+     * @param {Object} textures 
+     */
+    applyTexturesToMaterial(material, textures) {
+        if (Array.isArray(material)) {
+            material.forEach(mat => this.applyTexturesToMaterial(mat, textures));
+            return;
+        }
+        
+        // Применить карты к материалу
+        if (textures.map) {
+            material.map = textures.map;
+        }
+        
+        if (textures.normalMap) {
+            material.normalMap = textures.normalMap;
+            material.normalScale = new THREE.Vector2(1, 1);
+        }
+        
+        if (textures.roughnessMap) {
+            material.roughnessMap = textures.roughnessMap;
+            material.roughness = 1.0;
+        }
+        
+        if (textures.aoMap) {
+            material.aoMap = textures.aoMap;
+            material.aoMapIntensity = 1.0;
+            
+            // UV2 для aoMap
+            if (material.geometry && !material.geometry.attributes.uv2) {
+                material.geometry.attributes.uv2 = material.geometry.attributes.uv;
+            }
+        }
+        
+        material.needsUpdate = true;
+    }
+    
+    /**
+     * Определить название части по имени меша
+     * @param {THREE.Mesh} mesh 
+     * @returns {string}
+     */
+    getPartNameFromMesh(mesh) {
+        const name = mesh.name.toUpperCase();
+        
+        if (name.includes('BODY')) return 'body';
+        if (name.includes('DOOR')) return 'door';
+        if (name.includes('PANEL')) return 'panel';
+        if (name.includes('INSULATION') && !name.includes('FRAME')) return 'insulation';
+        if (name.includes('INSULATION_FRAME')) return 'insulationFrame';
+        if (name.includes('DIN_RAIL')) return 'dinRail';
+        
+        return 'default';
     }
 }
 

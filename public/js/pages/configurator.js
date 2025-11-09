@@ -1,3 +1,6 @@
+// ====== ОТЛАДКА: логи загрузки модуля ======
+console.log('🔄 configurator.js начал загрузку');
+
 /**
  * 3D Конфигуратор шкафов — Главный модуль приложения
  * Объединяет все компоненты: сцену, шкафы, взаимодействие
@@ -7,6 +10,7 @@ import { SceneManager } from '../modules/SceneManager.js';
 import { CabinetModel } from '../modules/CabinetModel.js';
 import { CabinetManager } from '../modules/CabinetManager.js';
 import { InteractionController } from '../modules/InteractionController.js';
+import { createFresnelOutline } from '../modules/ShaderUtils.js';
 
 class CabinetConfigurator {
     constructor(containerSelector) {
@@ -22,12 +26,32 @@ class CabinetConfigurator {
         this.cabinetManager = null;
         this.interactionController = null;
         
+        // ====== ЦВЕТОВАЯ СХЕМА ШКАФОВ ======
+        this.cabinetColorScheme = {
+            default: 0x673831,
+            body: 0x673831,
+            door: 0x673831,
+            panel: 0x673831,
+            insulation: 0xE8E8E8,
+            insulationFrame: 0xC0C0C0,
+            dinRail: 0xA8A8A8
+        };
+        
+        // Подсветка выбора (Fresnel)
+        this.selectedMesh = null;
+        this.selectedOutline = null;
+        this.highlightOptions = { 
+            color: 0x8b5cf6,
+            intensity: 8.0,
+            power: 1.5,
+            opacity: 1.0, 
+            scaleMultiplier: 1.05
+        };
+        
         this.init();
     }
     
     async init() {
-        console.log('🚀 Инициализация 3D Конфигуратора...');
-        
         // Инициализация сцены
         this.sceneManager = new SceneManager(this.container);
         
@@ -49,33 +73,10 @@ class CabinetConfigurator {
         // Настроить контролы камеры
         this.setupCameraControls();
         
-        // Экспортировать API в window для доступа из консоли
+        // Экспортировать API в window
         window.configurator = this;
         
-        // Проверка доступности
-        console.log('🌐 window.configurator установлен:', !!window.configurator);
-        console.log('  toggleDoor доступен:', typeof window.configurator.toggleDoor === 'function');
-        
-        console.log('\n✅ 3D Конфигуратор готов к работе');
-        console.log('\n💡 Доступные команды:');
-        console.log('  - configurator.addCabinet(type) — добавить шкаф');
-        console.log('  - configurator.removeCabinet(id) — удалить шкаф');
-        console.log('  - configurator.getCabinets() — список шкафов');
-        console.log('\n🖱️  Управление мышью:');
-        console.log('  - Click — выбрать объект (шкаф/дверь/оборудование)');
-        console.log('  - Shift + Drag — перетащить шкаф');
-        console.log('  - Double Click — открыть/закрыть дверцу');
-        console.log('  - Middle Button — вращать камеру');
-        console.log('  - Right Button — панорама камеры');
-        console.log('  - Wheel — зум модели');
-        console.log('\n⌨️  Горячие клавиши:');
-        console.log('  - Shift — режим перетаскивания (зажать перед кликом)');
-        console.log('  - R — повернуть шкаф на 90°');
-        console.log('  - O — открыть/закрыть дверцу');
-        console.log('  - Delete — удалить выбранный шкаф');
-        console.log('  - Стрелки — вращать камеру');
-        console.log('  - PageUp/Down — зум камеры');
-        console.log('  - Home — сбросить камеру');
+        console.log('✅ 3D Конфигуратор готов к работе');
     }
     
     setupCameraControls() {
@@ -148,85 +149,83 @@ class CabinetConfigurator {
                     break;
             }
         });
-        
-        console.log('🎥 Контролы камеры настроены');
-        console.log('  ⌨️  Клавиши: Стрелки (вращение), PageUp/Down (зум), Home (сброс)');
     }
     
     setupCallbacks() {
         // Callback при выборе шкафа
-        this.interactionController.onCabinetSelected = (cabinetId) => {
+        this.interactionController.onCabinetSelected = (cabinetId, mesh) => {
             const cabinet = this.cabinetManager.getCabinetById(cabinetId);
+            // Подсветить конкретный меш или главный меш шкафа
+            this.setSelectedForCabinet(cabinet, mesh);
             this.updateUI(cabinet);
         };
         
         // Callback при снятии выбора
         this.interactionController.onCabinetDeselected = () => {
+            this.clearSelectionHighlight();
             this.clearUI();
         };
         
         // Callback при выборе двери
-        this.interactionController.onDoorSelected = (cabinetId) => {
+        this.interactionController.onDoorSelected = (cabinetId, mesh) => {
             const cabinet = this.cabinetManager.getCabinetById(cabinetId);
-            console.log('🚪 UI для двери:', cabinet.config.name);
+            this.setSelectedForDoor(cabinet, mesh);
             this.updateUI(cabinet, 'door');
         };
         
         // Callback при выборе оборудования
-        this.interactionController.onEquipmentSelected = (cabinetId, equipmentId) => {
+        this.interactionController.onEquipmentSelected = (cabinetId, equipmentId, mesh) => {
             const cabinet = this.cabinetManager.getCabinetById(cabinetId);
-            console.log('🔧 UI для оборудования:', equipmentId);
+            this.setSelectedForEquipment(cabinet, equipmentId, mesh);
             this.updateUI(cabinet, 'equipment', equipmentId);
         };
         
         // Callback при выборе DIN-рейки
         this.interactionController.onDinRailSelected = (cabinetId, railObject) => {
             const cabinet = this.cabinetManager.getCabinetById(cabinetId);
-            console.log('📏 UI для DIN-рейки:', railObject.name);
+            this.setSelectedMesh(railObject);
             this.updateUI(cabinet, 'rail', railObject);
         };
     }
     
     async loadTestCabinet() {
-        console.log('📦 Загрузка тестового шкафа...');
+        console.log('🚀🚀🚀 loadTestCabinet() НАЧАТ 🚀🚀🚀');
         
-        // Путь к GLB-модели tsh_700_500_240
         const modelPath = '/assets/models/thermocabinets/tsh_700_500_240/tsh_700_500_240.glb';
+        console.log('📁 Путь к модели:', modelPath);
         
-        console.log(`  Путь к модели: ${modelPath}`);
-        
-        // Создать модель шкафа
+        console.log('🏗️ Создание CabinetModel...');
         const cabinet = new CabinetModel(modelPath, {
             type: 'floor',
-            width: 700,   // мм (реальные размеры модели)
-            height: 500,  // мм
-            depth: 240,   // мм
+            width: 700,
+            height: 500,
+            depth: 240,
             name: 'TSH 700×500×240',
-            color: 0xd0d0d0
+            color: this.cabinetColorScheme.default,
+            colorScheme: this.cabinetColorScheme
         });
+        console.log('✅ CabinetModel создан, ID:', cabinet.id);
         
-        // Добавить на сцену
         try {
+            console.log('⏳ Вызов cabinetManager.addCabinet()...');
             await this.cabinetManager.addCabinet(cabinet);
-            console.log('✅ Тестовый шкаф успешно загружен');
+            console.log('✅ cabinetManager.addCabinet() завершён');
             
-            // Автоматически выбрать шкаф и показать UI
+            console.log('🎯 Выбор шкафа...');
             this.cabinetManager.selectCabinet(cabinet.id);
+            
+            console.log('🖥️ Обновление UI...');
             this.updateUI(cabinet);
             
-            // Автоматически сфокусировать камеру на шкаф
+            console.log('📷 Фокусировка камеры на объект...');
             this.sceneManager.focusOnObject(cabinet.model);
             
-            // Финальная проверка рендеринга
-            console.log(`\n  🎬 === ПРОВЕРКА РЕНДЕРИНГА ===`);
-            console.log(`  Canvas размер: ${this.sceneManager.renderer.domElement.width} × ${this.sceneManager.renderer.domElement.height}`);
-            console.log(`  Scene children:`, this.sceneManager.scene.children.length);
-            console.log(`  Модель в сцене:`, this.sceneManager.scene.children.includes(cabinet.model));
-            console.log(`  Renderer info:`, this.sceneManager.renderer.info);
-            console.log(`  ============================\n`);
-            
+            console.log('✅✅✅ loadTestCabinet() ЗАВЕРШЁН УСПЕШНО ✅✅✅');
         } catch (error) {
-            console.error('❌ Ошибка загрузки тестового шкафа:', error);
+            console.error('❌❌❌ ОШИБКА в loadTestCabinet() ❌❌❌');
+            console.error('  Тип ошибки:', error.constructor.name);
+            console.error('  Сообщение:', error.message);
+            console.error('  Stack trace:', error.stack);
             console.error('  Проверьте, что файл существует:');
             console.error('  - public/assets/models/thermocabinets/tsh_700_500_240/tsh_700_500_240.glb');
         }
@@ -241,7 +240,8 @@ class CabinetConfigurator {
             height: 500,
             depth: 240,
             name: `TSH ${type === 'wall' ? 'настенный' : 'напольный'}`,
-            color: type === 'wall' ? 0xd0d0d0 : 0xe0e0e0
+            color: this.cabinetColorScheme.default,
+            colorScheme: this.cabinetColorScheme
         });
         
         await this.cabinetManager.addCabinet(cabinet);
@@ -249,6 +249,10 @@ class CabinetConfigurator {
     }
     
     removeCabinet(cabinetId) {
+        // Если удаляем выделенный — очищаем подсветку
+        if (this.selectedMesh && this.selectedMesh.userData && this.selectedMesh.userData.cabinetId === cabinetId) {
+            this.clearSelectionHighlight();
+        }
         return this.cabinetManager.removeCabinet(cabinetId);
     }
     
@@ -297,8 +301,6 @@ class CabinetConfigurator {
                 <div style="background: #fff3cd; padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.9rem; color: #856404;">
                     <strong>💡 Подсказка:</strong> Зажмите <kbd style="background: #fff; padding: 2px 6px; border: 1px solid #ddd; border-radius: 3px;">Shift</kbd> и перетащите шкаф
                 </div>
-                    <p style="margin: 0.5rem 0;"><strong>Дверца:</strong> ${cabinet.isDoorOpen ? '🟢 Открыта' : '🔴 Закрыта'}</p>
-                    <p style="margin: 0.5rem 0;"><strong>Оборудование:</strong> ${cabinet.equipment.length} шт.</p>
                 
                 <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;">
                     <button 
@@ -440,17 +442,12 @@ class CabinetConfigurator {
     }
     
     toggleDoor(cabinetId) {
-        console.log('🔘 toggleDoor вызван, cabinetId:', cabinetId);
         const cabinet = this.cabinetManager.getCabinetById(cabinetId);
-        console.log('  Cabinet найден:', !!cabinet);
         if (cabinet) {
-            console.log('  Дверца существует:', !!cabinet.door);
-            console.log('  Текущее состояние isDoorOpen:', cabinet.isDoorOpen);
             cabinet.toggleDoor(true);
-            console.log('  Новое состояние isDoorOpen:', cabinet.isDoorOpen);
             this.updateUI(cabinet, 'door');
         } else {
-            console.error('  ❌ Cabinet не найден по ID:', cabinetId);
+            console.error('Cabinet не найден по ID:', cabinetId);
         }
     }
     
@@ -469,13 +466,152 @@ class CabinetConfigurator {
             cabinet.setColor(color);
         }
     }
+
+    /**
+     * Изменить текстуру части шкафа
+     * @param {string} cabinetId 
+     * @param {string} partName - 'body', 'door', 'insulation' и т.д.
+     * @param {string} texturePath - Путь без расширения
+     */
+    async changeCabinetTexture(cabinetId, partName, texturePath) {
+        const cabinet = this.cabinetManager.getCabinetById(cabinetId);
+        if (!cabinet) return;
+        
+        // Обновить схему
+        if (!cabinet.textureScheme) cabinet.textureScheme = {};
+        cabinet.textureScheme[partName] = texturePath;
+        
+        // Перезагрузить текстуры
+        await cabinet.applyTextures(cabinet.model);
+        
+        console.log(`✅ Текстура ${partName} изменена на ${texturePath}`);
+    }
+
+    // ====== Подсветка выбора (Fresnel) ======
+    async setSelectedMesh(mesh) {
+        if (!this.sceneManager || !this.sceneManager.scene) return;
+        // Снять предыдущую обводку
+        this.clearSelectionHighlight();
+        if (!mesh || !mesh.isMesh) {
+            this.selectedMesh = null;
+            return;
+        }
+        this.selectedMesh = mesh;
+        try {
+            this.selectedOutline = await createFresnelOutline(mesh, this.highlightOptions);
+            this.sceneManager.scene.add(this.selectedOutline);
+            
+            // ОТЛАДКА: вывести информацию о созданном outline
+            console.log('🎨 Outline создан:', {
+                visible: this.selectedOutline.visible,
+                scale: this.selectedOutline.scale,
+                renderOrder: this.selectedOutline.renderOrder,
+                material: {
+                    transparent: this.selectedOutline.material.transparent,
+                    depthWrite: this.selectedOutline.material.depthWrite,
+                    blending: this.selectedOutline.material.blending,
+                    uniforms: {
+                        uIntensity: this.selectedOutline.material.uniforms.uIntensity.value,
+                        uPower: this.selectedOutline.material.uniforms.uPower.value,
+                        uOpacity: this.selectedOutline.material.uniforms.uOpacity.value,
+                        uColor: this.selectedOutline.material.uniforms.uColor.value
+                    }
+                }
+            });
+        } catch (e) {
+            console.error('❌ Не удалось создать подсветку:', e);
+        }
+    }
+    clearSelectionHighlight() {
+        if (this.selectedOutline && this.sceneManager?.scene) {
+            this.sceneManager.scene.remove(this.selectedOutline);
+        }
+        this.selectedOutline = null;
+    }
+    setHighlightColor(hex) {
+        const color = typeof hex === 'number' ? hex : parseInt(String(hex).replace('#', '0x'), 16);
+        this.highlightOptions.color = color;
+        if (this.selectedOutline?.material?.uniforms?.uColor) {
+            this.selectedOutline.material.uniforms.uColor.value.setHex(color);
+            this.selectedOutline.material.uniformsNeedUpdate = true; // Пометить для обновления
+        }
+    }
+    setHighlightParams({ intensity, power, opacity, scaleMultiplier } = {}) {
+        if (intensity !== undefined) this.highlightOptions.intensity = intensity;
+        if (power !== undefined) this.highlightOptions.power = power;
+        if (opacity !== undefined) this.highlightOptions.opacity = opacity;
+        if (scaleMultiplier !== undefined) this.highlightOptions.scaleMultiplier = scaleMultiplier;
+        
+        // Обновить uniforms существующего outline (не пересоздавать!)
+        if (this.selectedOutline?.material?.uniforms) {
+            const u = this.selectedOutline.material.uniforms;
+            let needsUpdate = false;
+            if (intensity !== undefined && u.uIntensity) { u.uIntensity.value = intensity; needsUpdate = true; }
+            if (power !== undefined && u.uPower) { u.uPower.value = power; needsUpdate = true; }
+            if (opacity !== undefined && u.uOpacity) { u.uOpacity.value = opacity; needsUpdate = true; }
+            
+            if (needsUpdate) {
+                this.selectedOutline.material.uniformsNeedUpdate = true;
+            }
+            
+            // Если изменился scaleMultiplier, нужно пересоздать
+            if (scaleMultiplier !== undefined && this.selectedMesh) {
+                this.setSelectedMesh(this.selectedMesh);
+            }
+        }
+    }
+    // Поиск главного меша шкафа (наибольший объём)
+    getPrimaryMesh(object3D) {
+        let best = null;
+        let bestVol = -Infinity;
+        const box = new THREE.Box3();
+        object3D.traverse((child) => {
+            if (child.isMesh) {
+                box.setFromObject(child);
+                const size = new THREE.Vector3();
+                box.getSize(size);
+                const vol = size.x * size.y * size.z;
+                if (vol > bestVol) {
+                    bestVol = vol;
+                    best = child;
+                }
+            }
+        });
+        return best;
+    }
+    setSelectedForCabinet(cabinet, mesh) {
+        if (mesh && mesh.isMesh) return this.setSelectedMesh(mesh);
+        const mainMesh = this.getPrimaryMesh(cabinet.model);
+        return this.setSelectedMesh(mainMesh);
+    }
+    setSelectedForDoor(cabinet, mesh) {
+        if (mesh && mesh.isMesh) return this.setSelectedMesh(mesh);
+        let doorMesh = null;
+        cabinet.model.traverse((child) => {
+            if (child.isMesh && child.userData?.isDoor) doorMesh = child;
+        });
+        return this.setSelectedMesh(doorMesh || this.getPrimaryMesh(cabinet.model));
+    }
+    setSelectedForEquipment(cabinet, equipmentId, mesh) {
+        if (mesh && mesh.isMesh) return this.setSelectedMesh(mesh);
+        let eqMesh = null;
+        cabinet.model.traverse((child) => {
+            if (child.isMesh && child.userData?.equipmentId === equipmentId) eqMesh = child;
+        });
+        return this.setSelectedMesh(eqMesh || this.getPrimaryMesh(cabinet.model));
+    }
 }
 
 // Запуск при загрузке DOM
+console.log('📝 Проверка состояния DOM:', document.readyState);
+
 if (document.readyState === 'loading') {
+    console.log('⏳ DOM загружается, ждем DOMContentLoaded...');
     document.addEventListener('DOMContentLoaded', () => {
-        new CabinetConfigurator('#cabinet-3d-container');
+        console.log('✅ DOMContentLoaded сработал');
+        window.configurator = new CabinetConfigurator('#cabinet-3d-container');
     });
 } else {
-    new CabinetConfigurator('#cabinet-3d-container');
+    console.log('✅ DOM уже загружен, создаем конфигуратор');
+    window.configurator = new CabinetConfigurator('#cabinet-3d-container');
 }

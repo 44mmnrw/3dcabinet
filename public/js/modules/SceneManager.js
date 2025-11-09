@@ -1,3 +1,6 @@
+// ====== ОТЛАДКА ======
+console.log('🔄 SceneManager.js начал загрузку');
+
 /**
  * SceneManager — управление основной 3D-сценой
  * Создает комнату, освещение, камеру, рендерер
@@ -6,10 +9,11 @@
 import * as THREE from '../libs/three.module.js';
 import { OrbitControls } from '../libs/OrbitControls.js';
 import { tweenGroup } from './CabinetModel.js';
-// Stats.js — UMD-модуль, загружается динамически в initStats()
 
 export class SceneManager {
     constructor(containerElement) {
+        console.log('🏗️ SceneManager constructor вызван');
+        console.log('  containerElement:', containerElement);
         this.container = containerElement;
         this.scene = null;
         this.camera = null;
@@ -33,12 +37,16 @@ export class SceneManager {
     }
     
     init() {
+        console.log('🚀 SceneManager init() запущен');
+        
         // Проверка WebGL
         if (!this.checkWebGLSupport()) {
-            console.error('WebGL не поддерживается');
+            console.error('❌ WebGL не поддерживается');
             this.showWebGLError();
             return;
         }
+        
+        console.log('✅ WebGL поддерживается');
         
         // Создание сцены
         this.scene = new THREE.Scene();
@@ -46,7 +54,7 @@ export class SceneManager {
         
         // Камера (вид сверху-сбоку)
         const aspect = this.container.clientWidth / this.container.clientHeight;
-    this.camera = new THREE.PerspectiveCamera(50, aspect, 0.1, 1000000);
+        this.camera = new THREE.PerspectiveCamera(50, aspect, 0.1, 1000000);
         this.camera.position.set(3000, 2500, 3000);
         this.camera.lookAt(this.roomCenter);
         
@@ -89,8 +97,8 @@ export class SceneManager {
             RIGHT: THREE.MOUSE.PAN       // ПКМ = панорамирование
         };
         
-    this.controls.minDistance = 100;     // Минимум 100 мм — можно рассмотреть объект
-    this.controls.maxDistance = 1000000; // Дальняя дистанция — 1 км
+        this.controls.minDistance = 100;     // Минимум 100 мм — можно рассмотреть объект
+        this.controls.maxDistance = 1000000; // Дальняя дистанция — 1 км
         this.controls.zoomSpeed = 1.0;       // Скорость зума (как в Blender)
         this.controls.rotateSpeed = 1.0;     // Скорость вращения
         this.controls.panSpeed = 0.8;        // Скорость панорамирования
@@ -370,7 +378,6 @@ export class SceneManager {
     
     addToScene(object) {
         this.scene.add(object);
-        console.log(`  ✓ Объект добавлен на сцену:`, object.name || object.type);
     }
     
     removeFromScene(object) {
@@ -407,14 +414,6 @@ export class SceneManager {
         this.camera.lookAt(center);
         this.controls.target.copy(center);
         this.controls.update();
-
-        console.log(`\n  📷 === АВТОФОКУС КАМЕРЫ ===`);
-        console.log(`  Bounding box центр: (${center.x.toFixed(1)}, ${center.y.toFixed(1)}, ${center.z.toFixed(1)})`);
-        console.log(`  Размер: ${size.x.toFixed(0)} × ${size.y.toFixed(0)} × ${size.z.toFixed(0)} мм`);
-        console.log(`  Камера позиция: (${this.camera.position.x.toFixed(1)}, ${this.camera.position.y.toFixed(1)}, ${this.camera.position.z.toFixed(1)})`);
-        console.log(`  Камера смотрит на: (${center.x.toFixed(1)}, ${center.y.toFixed(1)}, ${center.z.toFixed(1)})`);
-        console.log(`  Controls target: (${this.controls.target.x.toFixed(1)}, ${this.controls.target.y.toFixed(1)}, ${this.controls.target.z.toFixed(1)})`);
-        console.log(`  ============================\n`);
     }
 
     updateCameraClipping(box) {
@@ -583,6 +582,61 @@ export class SceneManager {
         }
     }
     
+    /**
+     * Добавить объект на сцену
+     * @param {THREE.Object3D} object3D 
+     */
+    addToScene(object3D) {
+        console.log('➕ SceneManager.addToScene() вызван');
+        console.log('  Объект:', object3D?.name || object3D?.type || 'unnamed');
+        console.log('  Позиция:', object3D?.position);
+        console.log('  Видимость:', object3D?.visible);
+        
+        if (!object3D) {
+            console.error('❌ Попытка добавить null/undefined на сцену!');
+            return;
+        }
+        
+        this.scene.add(object3D);
+        console.log('  ✅ Объект добавлен на сцену');
+        console.log('  📊 Всего объектов на сцене:', this.scene.children.length);
+        
+        // Добавить в список интерактивных объектов для raycasting
+        object3D.traverse((child) => {
+            if (child.isMesh) {
+                this.interactiveObjects.push(child);
+            }
+        });
+        console.log('  📊 Всего интерактивных объектов:', this.interactiveObjects.length);
+    }
+    
+    /**
+     * Удалить объект со сцены
+     * @param {THREE.Object3D} object3D 
+     */
+    removeFromScene(object3D) {
+        console.log('➖ SceneManager.removeFromScene() вызван');
+        
+        if (!object3D) {
+            console.warn('⚠️ Попытка удалить null/undefined со сцены');
+            return;
+        }
+        
+        this.scene.remove(object3D);
+        
+        // Удалить из интерактивных объектов
+        object3D.traverse((child) => {
+            if (child.isMesh) {
+                const index = this.interactiveObjects.indexOf(child);
+                if (index > -1) {
+                    this.interactiveObjects.splice(index, 1);
+                }
+            }
+        });
+        
+        console.log('  ✅ Объект удален со сцены');
+    }
+    
     dispose() {
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
@@ -593,3 +647,5 @@ export class SceneManager {
         this.container.innerHTML = '';
     }
 }
+
+console.log('✅ SceneManager.js загружен полностью');
