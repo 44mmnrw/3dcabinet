@@ -1,0 +1,114 @@
+/* =================== HEADER, NAV, ЛОГОТИП =================== */
+
+
+.header {
+  width: 100%;
+  position: sticky;
+  top: 0;
+  background-color: var(--color-white);
+  z-index: 1000;
+  box-shadow: 3px -6px 8px rgba(var(--color-blue-shadow), 0.2),
+              0 4px 16px rgba(var(--color-blue-shadow), 0.05),
+              5px -14px 32px rgba(var(--color-blue-shadow), 0.08);               
+}
+
+.header-block {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  column-gap: var(--spacing-lg);
+  height: 5rem;
+  padding-inline: clamp(1rem, 5vw, 10rem);
+}
+
+.header-logo {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--spacing-xs) var(--spacing-lg);
+  flex-shrink: 0;
+  min-width: 9.375rem;
+}
+/* Жестко склеиваем части логотипа в одну линию */
+.header-logo a {
+  display: inline-flex;        /* используем flex для абсолютного контроля */
+  align-items: center;
+  gap: 0;                      /* без зазоров между частями */
+  white-space: nowrap;         /* защита от переносов */
+  flex-shrink: 0;              /* запрет на сжатие ссылки */
+  line-height: 0;              /* убираем межстрочный интервал */
+}
+.header-logo svg {
+  display: block; /* исключаем межэлементные пробелы в инлайне */
+  flex-shrink: 0; /* запрет на сжатие SVG */
+  transition: fill var(--transition-duration), color var(--transition-duration);
+  min-width: auto; /* сохраняем оригинальные размеры */
+  min-height: auto;
+}
+
+/* Фиксируем размеры каждой части логотипа */
+.header-logo .icon-logo-box-left {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.header-logo .icon-logo-box-right {
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-left: -1.1rem;
+}
+
+.header-logo .icon-logo-digits {
+  width: 4.375rem;
+  height: 4.375rem;
+}
+
+.header-actions {
+  display: grid;
+  grid-auto-flow: column;
+  column-gap: var(--spacing-sm);
+}
+
+/* Управление областью меню как блоком */
+.header-nav {
+  min-width: 0;
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-lg);
+}
+
+.header-nav-list {
+  display: grid;
+  grid-auto-flow: column;
+  column-gap: var(--spacing-2xl);
+  align-items: center;
+}
+
+.header-nav-link {
+  display: grid;
+  height: 4.9375rem;
+  align-items: center;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: var(--font-weight-400);
+}
+
+/* Hover-классы (назначаются на <a>) */
+.header-logo a.logo-hover-left:hover .icon-logo-box-left,
+.header-logo a.logo-hover-left:hover .icon-logo-box-left use {
+  color: var(--logo-left-hover);
+  fill: var(--logo-left-hover);
+}
+
+.header-logo a.logo-hover-right:hover .icon-logo-box-right,
+.header-logo a.logo-hover-right:hover .icon-logo-box-right use {
+  color: var(--logo-right-hover);
+  fill: var(--logo-right-hover);
+}
+
+.header-logo a.logo-hover-digits:hover .icon-logo-digits,
+.header-logo a.logo-hover-digits:hover .icon-logo-digits use {
+  color: var(--logo-digits-hover);
+  fill: var(--logo-digits-hover);
+}
