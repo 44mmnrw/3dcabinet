@@ -8,6 +8,8 @@ console.log('🔄 SceneManager.js начал загрузку');
 
 import * as THREE from '../libs/three.module.js';
 import { OrbitControls } from '../libs/OrbitControls.js';
+import { RoomEnvironment } from '../libs/RoomEnvironment.js';
+import { Tween, Easing } from '../libs/tween.esm.js';
 import { tweenGroup } from './CabinetModel.js';
 
 export class SceneManager {
@@ -54,20 +56,49 @@ export class SceneManager {
         
         // Камера (вид сверху-сбоку)
         const aspect = this.container.clientWidth / this.container.clientHeight;
-        this.camera = new THREE.PerspectiveCamera(50, aspect, 0.1, 1000000);
+        // NEAR увеличен с 0.1 до 10 — убирает z-fighting (мигающие артефакты)
+        this.camera = new THREE.PerspectiveCamera(50, aspect, 10, 1000000);
         this.camera.position.set(3000, 2500, 3000);
         this.camera.lookAt(this.roomCenter);
         
-        // Рендерер
+        // ═══════════════════════════════════════════════════════════════
+        // 🎨 ПРОФЕССИОНАЛЬНЫЙ РЕНДЕРЕР (как в glTF Viewer)
+        // ═══════════════════════════════════════════════════════════════
         this.renderer = new THREE.WebGLRenderer({ 
-            antialias: true,
-            alpha: false
+            antialias: true,           // Сглаживание краёв
+            alpha: false,              // Непрозрачный фон
+            powerPreference: 'high-performance',  // Использовать дискретную видеокарту
+            preserveDrawingBuffer: true // Для скриншотов
         });
+        
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Retina displays
+        
+        // ═══════════════════════════════════════════════════════════════
+        // ✨ ФИЗИЧЕСКИ КОРРЕКТНЫЙ РЕНДЕРИНГ (PBR)
+        // ═══════════════════════════════════════════════════════════════
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;  // Кинематографическое тонирование
+        this.renderer.toneMappingExposure = 0.8;                  // Экспозиция СНИЖЕНА с 1.0 (убирает засветку)
+        this.renderer.outputColorSpace = THREE.SRGBColorSpace;    // Правильное цветовое пространство
+        
+        // ═══════════════════════════════════════════════════════════════
+        // 🌑 ТЕНИ ВЫСОКОГО КАЧЕСТВА
+        // ═══════════════════════════════════════════════════════════════
         this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;    // Мягкие тени
+        // Альтернативы: THREE.BasicShadowMap (быстро), THREE.VSMShadowMap (лучше качество)
+        
+        // ═══════════════════════════════════════════════════════════════
+        // 🔥 ДОПОЛНИТЕЛЬНЫЕ НАСТРОЙКИ КАЧЕСТВА
+        // ═══════════════════════════════════════════════════════════════
+        this.renderer.physicallyCorrectLights = true;  // ⚠️ Deprecated в r155+, но улучшает освещение
+        
+        console.log('✅ Рендерер настроен:', {
+            toneMapping: 'ACESFilmic',
+            exposure: this.renderer.toneMappingExposure,
+            shadows: 'PCFSoft',
+            colorSpace: 'sRGB'
+        });
         
         // Добавляем canvas в начало контейнера (перед кнопками управления)
         if (this.container.firstChild) {
@@ -126,10 +157,85 @@ export class SceneManager {
         this.resizeHandler = this.onWindowResize.bind(this);
         window.addEventListener('resize', this.resizeHandler, false);
         
+        // ═══════════════════════════════════════════════════════════════
+        // 🚫 ОТКЛЮЧЕНИЕ ПРОКРУТКИ СТРАНИЦЫ НАД 3D-СЦЕНОЙ
+        // ═══════════════════════════════════════════════════════════════
+        // Блокируем скролл браузера, когда курсор над canvas
+        this.setupScrollLock();
+        
         // Запуск анимации
         this.animate();
         
         console.log('✅ SceneManager инициализирован');
+    }
+    
+    /**
+     * 🚫 Блокировка прокрутки страницы над 3D-сценой
+     * 
+     * Проблема: При вращении камеры средней кнопкой мыши (или колесом)
+     * браузер также прокручивает страницу, что мешает управлению 3D-сценой.
+     * 
+     * Решение: Отключаем события прокрутки на уровне window когда курсор
+     * находится над canvas элементом 3D-сцены.
+     */
+    setupScrollLock() {
+        const canvas = this.renderer.domElement;
+        
+        // Флаг: курсор над canvas
+        let isOverCanvas = false;
+        
+        // Обработчик блокировки прокрутки
+        const preventScroll = (e) => {
+            if (isOverCanvas) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+        };
+        
+        // Отслеживаем вход курсора на canvas
+        canvas.addEventListener('mouseenter', () => {
+            isOverCanvas = true;
+            document.body.style.overflow = 'hidden'; // Блокируем прокрутку body
+            console.log('🖱️ Курсор над 3D-сценой → прокрутка ОТКЛЮЧЕНА');
+        });
+        
+        // Отслеживаем выход курсора с canvas
+        canvas.addEventListener('mouseleave', () => {
+            isOverCanvas = false;
+            document.body.style.overflow = ''; // Восстанавливаем прокрутку
+            console.log('🖱️ Курсор за пределами сцены → прокрутка ВКЛЮЧЕНА');
+        });
+        
+        // Блокируем прокрутку колесом мыши НА УРОВНЕ WINDOW
+        window.addEventListener('wheel', preventScroll, { passive: false, capture: true });
+        
+        // Блокируем прокрутку на canvas (дополнительно)
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        }, { passive: false });
+        
+        // Блокируем touch-скролл на мобильных
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+        }, { passive: false });
+        
+        // Блокируем средний клик (авто-скролл в браузере)
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 1) { // Средняя кнопка
+                e.preventDefault();
+                console.log('🖱️ Средняя кнопка: авто-скролл заблокирован');
+            }
+        });
+        
+        canvas.addEventListener('auxclick', (e) => {
+            if (e.button === 1) {
+                e.preventDefault();
+            }
+        });
+        
+        console.log('✅ Scroll lock настроен для 3D-сцены');
     }
     
     checkWebGLSupport() {
@@ -250,34 +356,341 @@ export class SceneManager {
     }
     
     setupLighting() {
-        // Ambient light (общее освещение)
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        // ═══════════════════════════════════════════════════════════════
+        // 💡 СТУДИЙНОЕ ОСВЕЩЕНИЕ (3-точечная схема)
+        // ═══════════════════════════════════════════════════════════════
+        
+        // 1️⃣ KEY LIGHT — Основной источник света (сверху-спереди-справа)
+        // МЯГКОЕ ОСВЕЩЕНИЕ: снижена интенсивность с 1.2 до 0.8
+        const keyLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        keyLight.position.set(3000, 4000, 2000);
+        keyLight.castShadow = true;
+        
+        // Настройки МЯГКИХ теней (БЕЗ АРТЕФАКТОВ)
+        keyLight.shadow.camera.left = -3000;
+        keyLight.shadow.camera.right = 3000;
+        keyLight.shadow.camera.top = 3000;
+        keyLight.shadow.camera.bottom = -3000;
+        keyLight.shadow.camera.near = 100;     // ← УВЕЛИЧЕНО с 1 (убирает артефакты)
+        keyLight.shadow.camera.far = 8000;
+        keyLight.shadow.mapSize.width = 2048;  // ← СНИЖЕНО с 4096 (меньше нагрузка)
+        keyLight.shadow.mapSize.height = 2048;
+        keyLight.shadow.bias = -0.001;         // ← ИЗМЕНЕНО с -0.0001 (убирает мерцание)
+        keyLight.shadow.normalBias = 0.05;     // ← ДОБАВЛЕНО (убирает shadow acne)
+        keyLight.shadow.radius = 4;
+        
+        this.scene.add(keyLight);
+        console.log('💡 Key Light добавлен (мягкий режим: 0.8)');
+        
+        // 2️⃣ FILL LIGHT — Заполняющий свет (спереди-слева, слабее)
+        // Увеличена интенсивность для смягчения контраста
+        const fillLight = new THREE.DirectionalLight(0xffffff, 0.6);
+        fillLight.position.set(-2000, 2000, 2000);
+        this.scene.add(fillLight);
+        console.log('💡 Fill Light добавлен (мягкий режим: 0.6)');
+        
+        // 3️⃣ RIM LIGHT — Контровый свет (сзади-сверху, для контура)
+        // Снижена интенсивность для меньшего контраста
+        const rimLight = new THREE.DirectionalLight(0xffffff, 0.2);
+        rimLight.position.set(0, 3000, -3000);
+        this.scene.add(rimLight);
+        console.log('💡 Rim Light добавлен (мягкий режим: 0.2)');
+        
+        // 4️⃣ AMBIENT LIGHT — Глобальное рассеянное освещение (базовая яркость)
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
         this.scene.add(ambientLight);
+        console.log('💡 Ambient Light добавлен (мягкий режим: 0.6)');
         
-        // Directional light (основной, с тенями)
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(2000, 3000, 1500);
-        dirLight.castShadow = true;
-        dirLight.shadow.camera.left = -3000;
-        dirLight.shadow.camera.right = 3000;
-        dirLight.shadow.camera.top = 3000;
-        dirLight.shadow.camera.bottom = -3000;
-        dirLight.shadow.camera.near = 1;
-        dirLight.shadow.camera.far = 6000;
-        dirLight.shadow.mapSize.width = 2048;
-        dirLight.shadow.mapSize.height = 2048;
-        dirLight.shadow.bias = -0.0001;
-        this.scene.add(dirLight);
+        // 5️⃣ INTERIOR POINT LIGHT — Динамический свет внутрь шкафа (включается при открытии двери)
+        // PointLight светит во все стороны (как лампочка) — лучше для освещения замкнутого пространства
+        const interiorPointLight = new THREE.PointLight(
+            0xffffff,   // Цвет (белый)
+            0,          // Интенсивность (0 = выключен по умолчанию)
+            2000,       // Дистанция освещения (2 метра = 2000мм)
+            2           // Decay (затухание света с расстоянием)
+        );
+        // Позиция будет устанавливаться динамически при открытии двери (внутри шкафа)
+        interiorPointLight.position.set(0, 1000, 0); // Центр (начальная)
+        this.scene.add(interiorPointLight);
         
-        // Подсветка спереди (заполняющий свет)
-        const frontLight = new THREE.DirectionalLight(0xffffff, 0.4);
-        frontLight.position.set(0, 1500, 2500);
-        this.scene.add(frontLight);
+        // Добавляем визуализацию PointLight (для отладки)
+        const pointLightHelper = new THREE.PointLightHelper(interiorPointLight, 50);
+        this.scene.add(pointLightHelper);
+        this.pointLightHelper = pointLightHelper;
         
-        // Подсветка сзади (для глубины)
-        const backLight = new THREE.DirectionalLight(0xffffff, 0.2);
-        backLight.position.set(0, 1000, -2000);
-        this.scene.add(backLight);
+        console.log('💡 Interior PointLight создан:', {
+            intensity: interiorPointLight.intensity,
+            distance: interiorPointLight.distance,
+            decay: interiorPointLight.decay,
+            position: interiorPointLight.position
+        });
+        
+        // ═══════════════════════════════════════════════════════════════
+        // 🌍 ОКРУЖАЮЩАЯ СРЕДА (Environment Map для отражений)
+        // ═══════════════════════════════════════════════════════════════
+        // Используем RoomEnvironment (как в glTF Viewer) — реалистичные отражения
+        const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
+        pmremGenerator.compileEquirectangularShader();
+        
+        // RoomEnvironment создаёт виртуальную студию с освещением
+        // Это даёт реалистичные отражения на металлических и глянцевых поверхностях
+        const roomEnvironment = new RoomEnvironment(this.renderer);
+        const envMap = pmremGenerator.fromScene(roomEnvironment).texture;
+        console.log('🌍 Environment: RoomEnvironment (реалистичные отражения)');
+        
+        this.scene.environment = envMap;  // ← Отражения для PBR-материалов
+        this.environmentMap = envMap;     // ← Сохраняем для GUI
+        
+        pmremGenerator.dispose();
+        console.log('✅ Environment Map установлен');
+        
+        console.log('✅ Освещение настроено: 3-точечная схема + Environment');
+        
+        // Сохраняем ссылки на источники света для GUI
+        this.keyLight = keyLight;
+        this.fillLight = fillLight;
+        this.rimLight = rimLight;
+        this.ambientLight = ambientLight;
+        this.interiorPointLight = interiorPointLight;
+    }
+    
+    /**
+     * 🎛️ Добавление GUI-панели управления (как в glTF Viewer)
+     */
+    addGUI() {
+        if (typeof dat === 'undefined') {
+            console.warn('⚠️ dat.GUI не загружен, панель управления недоступна');
+            return;
+        }
+        
+        // Создаём GUI-панель
+        this.gui = new dat.GUI({
+            autoPlace: false,
+            width: 300,
+            hideable: true,
+        });
+        
+        // Состояние для контролов (МЯГКИЙ РЕЖИМ по умолчанию)
+        this.guiState = {
+            // Рендеринг
+            exposure: 0.8,  // ← СНИЖЕНО с 1.0 (убирает засветку)
+            toneMapping: 'ACESFilmic',
+            wireframe: false,
+            grid: true,
+            autoRotate: false,
+            
+            // Освещение (мягкие значения)
+            keyIntensity: 0.8,    // ← Снижено с 1.2 (мягче)
+            fillIntensity: 0.6,   // ← Увеличено с 0.5 (больше заполнения)
+            rimIntensity: 0.2,    // ← Снижено с 0.3 (меньше контраста)
+            ambientIntensity: 0.6, // ← Базовая яркость (мягкий режим)
+            
+            // Цвета света
+            keyColor: '#ffffff',
+            fillColor: '#ffffff',
+            rimColor: '#ffffff',
+            ambientColor: '#ffffff',
+            
+            // Окружение
+            envIntensity: 1.0,  // Интенсивность environment map (отражений)
+            
+            // Фон
+            bgColor: '#f5f5f5',
+        };
+        
+        // ═══════════════════════════════════════════════════════════════
+        // 📺 ПАПКА: Display (Отображение)
+        // ═══════════════════════════════════════════════════════════════
+        const displayFolder = this.gui.addFolder('Display');
+        
+        displayFolder.add(this.guiState, 'wireframe').name('Wireframe').onChange((value) => {
+            this.scene.traverse((obj) => {
+                if (obj.isMesh && obj.material) {
+                    if (Array.isArray(obj.material)) {
+                        obj.material.forEach(mat => mat.wireframe = value);
+                    } else {
+                        obj.material.wireframe = value;
+                    }
+                }
+            });
+        });
+        
+        displayFolder.add(this.guiState, 'grid').name('Grid').onChange((value) => {
+            const grid = this.scene.getObjectByName('Floor_Grid');
+            if (grid) grid.visible = value;
+        });
+        
+        displayFolder.add(this.guiState, 'autoRotate').name('Auto Rotate').onChange((value) => {
+            this.controls.autoRotate = value;
+        });
+        
+        displayFolder.addColor(this.guiState, 'bgColor').name('Background').onChange((color) => {
+            this.scene.background.set(color);
+        });
+        
+        displayFolder.open();
+        
+        // ═══════════════════════════════════════════════════════════════
+        // 🎨 ПАПКА: Rendering (Рендеринг)
+        // ═══════════════════════════════════════════════════════════════
+        const renderFolder = this.gui.addFolder('Rendering');
+        
+        renderFolder.add(this.guiState, 'exposure', 0.1, 3.0, 0.01).name('Exposure').onChange((value) => {
+            this.renderer.toneMappingExposure = value;
+        });
+        
+        renderFolder.add(this.guiState, 'envIntensity', 0, 3.0, 0.1).name('Environment').onChange((value) => {
+            // Изменяем интенсивность отражений на всех материалах
+            this.scene.traverse((obj) => {
+                if (obj.isMesh && obj.material) {
+                    const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
+                    materials.forEach(mat => {
+                        if (mat.envMapIntensity !== undefined) {
+                            mat.envMapIntensity = value;
+                            mat.needsUpdate = true;
+                        }
+                    });
+                }
+            });
+        });
+        
+        renderFolder.add(this.guiState, 'toneMapping', {
+            'Linear': 'Linear',
+            'ACES Filmic': 'ACESFilmic',
+            'Reinhard': 'Reinhard',
+            'Cineon': 'Cineon',
+        }).name('Tone Mapping').onChange((value) => {
+            switch(value) {
+                case 'Linear':
+                    this.renderer.toneMapping = THREE.LinearToneMapping;
+                    break;
+                case 'ACESFilmic':
+                    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                    break;
+                case 'Reinhard':
+                    this.renderer.toneMapping = THREE.ReinhardToneMapping;
+                    break;
+                case 'Cineon':
+                    this.renderer.toneMapping = THREE.CineonToneMapping;
+                    break;
+            }
+        });
+        
+        renderFolder.open();
+        
+        // ═══════════════════════════════════════════════════════════════
+        // 💡 ПАПКА: Lighting (Освещение)
+        // ═══════════════════════════════════════════════════════════════
+        const lightFolder = this.gui.addFolder('Lighting');
+        
+        lightFolder.add(this.guiState, 'keyIntensity', 0, 5, 0.1).name('Key Light').onChange((value) => {
+            if (this.keyLight) this.keyLight.intensity = value;
+        });
+        
+        lightFolder.add(this.guiState, 'fillIntensity', 0, 3, 0.1).name('Fill Light').onChange((value) => {
+            if (this.fillLight) this.fillLight.intensity = value;
+        });
+        
+        lightFolder.add(this.guiState, 'rimIntensity', 0, 2, 0.1).name('Rim Light').onChange((value) => {
+            if (this.rimLight) this.rimLight.intensity = value;
+        });
+        
+        lightFolder.add(this.guiState, 'ambientIntensity', 0, 2, 0.1).name('Ambient').onChange((value) => {
+            if (this.ambientLight) this.ambientLight.intensity = value;
+        });
+        
+        lightFolder.addColor(this.guiState, 'keyColor').name('Key Color').onChange((color) => {
+            if (this.keyLight) this.keyLight.color.set(color);
+        });
+        
+        lightFolder.addColor(this.guiState, 'ambientColor').name('Ambient Color').onChange((color) => {
+            if (this.ambientLight) this.ambientLight.color.set(color);
+        });
+        
+        // ═══════════════════════════════════════════════════════════════
+        // 🎭 ПРЕСЕТЫ ОСВЕЩЕНИЯ
+        // ═══════════════════════════════════════════════════════════════
+        const presets = {
+            'Мягкий (по умолчанию)': () => {
+                this.guiState.keyIntensity = 0.8;
+                this.guiState.fillIntensity = 0.6;
+                this.guiState.rimIntensity = 0.2;
+                this.guiState.ambientIntensity = 0.6;
+                this.applyLightingPreset();
+            },
+            'Жёсткий (контрастный)': () => {
+                this.guiState.keyIntensity = 1.5;
+                this.guiState.fillIntensity = 0.3;
+                this.guiState.rimIntensity = 0.5;
+                this.guiState.ambientIntensity = 0.2;
+                this.applyLightingPreset();
+            },
+            'Равномерный (студия)': () => {
+                this.guiState.keyIntensity = 1.0;
+                this.guiState.fillIntensity = 0.8;
+                this.guiState.rimIntensity = 0.3;
+                this.guiState.ambientIntensity = 0.7;
+                this.applyLightingPreset();
+            },
+            'Драматичный (тёмный)': () => {
+                this.guiState.keyIntensity = 1.2;
+                this.guiState.fillIntensity = 0.2;
+                this.guiState.rimIntensity = 0.6;
+                this.guiState.ambientIntensity = 0.2;
+                this.applyLightingPreset();
+            },
+            'Яркий (презентация)': () => {
+                this.guiState.keyIntensity = 1.0;
+                this.guiState.fillIntensity = 0.7;
+                this.guiState.rimIntensity = 0.3;
+                this.guiState.ambientIntensity = 0.8;
+                this.applyLightingPreset();
+            }
+        };
+        
+        lightFolder.add(presets, 'Мягкий (по умолчанию)').name('▶ Мягкий свет');
+        lightFolder.add(presets, 'Жёсткий (контрастный)').name('▶ Жёсткий свет');
+        lightFolder.add(presets, 'Равномерный (студия)').name('▶ Студийный');
+        lightFolder.add(presets, 'Драматичный (тёмный)').name('▶ Драматичный');
+        lightFolder.add(presets, 'Яркий (презентация)').name('▶ Презентация');
+        
+        lightFolder.open();
+        
+        // ═══════════════════════════════════════════════════════════════
+        // 📍 РАЗМЕЩЕНИЕ GUI
+        // ═══════════════════════════════════════════════════════════════
+        const guiContainer = document.createElement('div');
+        guiContainer.classList.add('gui-container');
+        guiContainer.style.position = 'absolute';
+        guiContainer.style.top = '10px';
+        guiContainer.style.right = '10px';
+        guiContainer.style.zIndex = '1000';
+        guiContainer.appendChild(this.gui.domElement);
+        this.container.appendChild(guiContainer);
+        
+        console.log('✅ GUI-панель создана');
+    }
+    
+    /**
+     * 🎭 Применение пресета освещения
+     */
+    applyLightingPreset() {
+        if (this.keyLight) this.keyLight.intensity = this.guiState.keyIntensity;
+        if (this.fillLight) this.fillLight.intensity = this.guiState.fillIntensity;
+        if (this.rimLight) this.rimLight.intensity = this.guiState.rimIntensity;
+        if (this.ambientLight) this.ambientLight.intensity = this.guiState.ambientIntensity;
+        
+        // Обновляем GUI контролы
+        if (this.gui) {
+            this.gui.updateDisplay();
+        }
+        
+        console.log('✅ Пресет освещения применён:', {
+            key: this.guiState.keyIntensity,
+            fill: this.guiState.fillIntensity,
+            rim: this.guiState.rimIntensity,
+            ambient: this.guiState.ambientIntensity
+        });
     }
     
     createAxisLabels() {
@@ -583,6 +996,53 @@ export class SceneManager {
     }
     
     /**
+     * Загрузить PBR-текстуры (albedo, normal, roughness, ao)
+     * @param {string} basePath - Путь к текстурам без расширения, например '/assets/textures/metal/brushed'
+     * @returns {Promise<Object>} - Объект с загруженными текстурами
+     */
+    async loadPBRTextures(basePath) {
+        const textureLoader = new THREE.TextureLoader();
+        const textures = {};
+        
+        // Список возможных карт и их суффиксов
+        const maps = {
+            map: '_albedo.jpg',           // Базовый цвет (diffuse/albedo)
+            normalMap: '_normal.jpg',      // Карта нормалей
+            roughnessMap: '_roughness.jpg',// Карта шероховатости
+            aoMap: '_ao.jpg',              // Ambient Occlusion
+            metalnessMap: '_metalness.jpg' // Металличность
+        };
+        
+        // Загрузить все текстуры параллельно
+        const promises = Object.entries(maps).map(([key, suffix]) => {
+            return new Promise((resolve) => {
+                const path = basePath + suffix;
+                textureLoader.load(
+                    path,
+                    (texture) => {
+                        // Настройки для качественного рендеринга
+                        texture.wrapS = THREE.RepeatWrapping;
+                        texture.wrapT = THREE.RepeatWrapping;
+                        texture.colorSpace = (key === 'map') ? THREE.SRGBColorSpace : THREE.LinearSRGBColorSpace;
+                        textures[key] = texture;
+                        console.log(`✅ Текстура загружена: ${path}`);
+                        resolve();
+                    },
+                    undefined,
+                    (error) => {
+                        // Не критично, если какая-то карта отсутствует
+                        console.warn(`⚠️ Текстура не найдена (пропускаем): ${path}`);
+                        resolve();
+                    }
+                );
+            });
+        });
+        
+        await Promise.all(promises);
+        return textures;
+    }
+    
+    /**
      * Добавить объект на сцену
      * @param {THREE.Object3D} object3D 
      */
@@ -635,6 +1095,94 @@ export class SceneManager {
         });
         
         console.log('  ✅ Объект удален со сцены');
+    }
+    
+    /**
+     * 🔦 Управление внутренним светом (включается/выключается при открытии/закрытии двери)
+     * @param {boolean} enable - true для включения, false для выключения
+     * @param {THREE.Object3D} cabinetModel - модель шкафа (для позиционирования света)
+     */
+    setInteriorLight(enable, cabinetModel = null) {
+        console.log('🔦 setInteriorLight вызван:', {
+            enable,
+            hasPointLight: !!this.interiorPointLight,
+            hasCabinet: !!cabinetModel,
+            currentIntensity: this.interiorPointLight ? this.interiorPointLight.intensity : 'N/A'
+        });
+        
+        if (!this.interiorPointLight) {
+            console.warn('⚠️ InteriorPointLight не создан');
+            return;
+        }
+        
+        if (enable) {
+            // Включаем свет с анимацией (плавное увеличение интенсивности)
+            const targetIntensity = 3.0; // Яркость света внутрь (PointLight эффективнее)
+            
+            // Позиционируем свет относительно шкафа (если передан)
+            if (cabinetModel) {
+                const cabinetBox = new THREE.Box3().setFromObject(cabinetModel);
+                const center = cabinetBox.getCenter(new THREE.Vector3());
+                const size = cabinetBox.getSize(new THREE.Vector3());
+                
+                console.log('📦 Параметры шкафа:', {
+                    center: { x: center.x.toFixed(1), y: center.y.toFixed(1), z: center.z.toFixed(1) },
+                    size: { x: size.x.toFixed(1), y: size.y.toFixed(1), z: size.z.toFixed(1) }
+                });
+                
+                // Позиция света: ВНУТРИ шкафа (в центре) — светит во все стороны
+                const lightPos = new THREE.Vector3(
+                    center.x,                 // Центр по X
+                    center.y,                 // Центр по Y
+                    center.z - size.z * 0.1   // Немного сзади от центра (внутри)
+                );
+                
+                this.interiorPointLight.position.copy(lightPos);
+                
+                console.log('💡 Позиция PointLight:', {
+                    position: { x: lightPos.x.toFixed(1), y: lightPos.y.toFixed(1), z: lightPos.z.toFixed(1) },
+                    distance: this.interiorPointLight.distance
+                });
+                
+                this.interiorPointLight.updateMatrixWorld();
+                
+                // Обновляем helper для визуализации
+                if (this.pointLightHelper) {
+                    this.pointLightHelper.update();
+                }
+            }
+            
+            // Плавное включение света (TWEEN анимация)
+            console.log('▶️ Запуск TWEEN анимации включения (0 → ' + targetIntensity + ')');
+            new Tween({ intensity: this.interiorPointLight.intensity }, tweenGroup)
+                .to({ intensity: targetIntensity }, 400) // 400мс
+                .easing(Easing.Quadratic.Out)
+                .onUpdate((obj) => {
+                    this.interiorPointLight.intensity = obj.intensity;
+                })
+                .onComplete(() => {
+                    console.log('✅ TWEEN анимация включения завершена, intensity:', this.interiorPointLight.intensity);
+                })
+                .start();
+            
+            console.log('🔦 Внутренний свет включён (целевая интенсивность:', targetIntensity, ')');
+            
+        } else {
+            // Выключаем свет с анимацией (плавное уменьшение до 0)
+            console.log('▶️ Запуск TWEEN анимации выключения (' + this.interiorPointLight.intensity + ' → 0)');
+            new Tween({ intensity: this.interiorPointLight.intensity }, tweenGroup)
+                .to({ intensity: 0 }, 300) // 300мс (быстрее чем включение)
+                .easing(Easing.Quadratic.In)
+                .onUpdate((obj) => {
+                    this.interiorPointLight.intensity = obj.intensity;
+                })
+                .onComplete(() => {
+                    console.log('✅ TWEEN анимация выключения завершена, intensity:', this.interiorPointLight.intensity);
+                })
+                .start();
+            
+            console.log('🔦 Внутренний свет выключен (начало анимации)');
+        }
     }
     
     dispose() {

@@ -347,10 +347,12 @@ console.error('Ошибка:', e);
 - Examples: https://threejs.org/examples/
 
 **Проектная документация**:
-- `QUICKSTART.md` — Инструкции запуска (миграции, сервер, браузер)
-- `3DCABINET_README.md` — Подробная документация структуры
-- `LARAGON_SETUP.md` — Настройка Laragon, PHP, vhosts, БД
-- `VHOST_SETUP.md` — Настройка cabinet-calc.test домена
+- `docs/QUICKSTART.md` — Инструкции запуска (миграции, сервер, браузер)
+- `docs/3DCABINET_README.md` — Подробная документация структуры
+- `docs/LARAGON_SETUP.md` — Настройка Laragon, PHP, vhosts, БД
+- `docs/VHOST_SETUP.md` — Настройка cabinet-calc.test домена
+
+**Важно**: Вся проектная документация находится в папке `docs/` в корне проекта. При создании новых markdown-файлов (гайдов, инструкций, технической документации) всегда размещайте их в `docs/`, а НЕ в корне проекта. Исключение — только `README.md` в корне.
 
 ---
 

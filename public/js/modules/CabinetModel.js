@@ -5,14 +5,17 @@
 
 import * as THREE from '../libs/three.module.js';
 import { GLTFLoader } from '../libs/GLTFLoader.js';
+import { DRACOLoader } from '../libs/DRACOLoader.js';
 import { Tween, Easing, Group } from '../libs/tween.esm.js';
 
 // Создаём глобальную группу для всех TWEEN-анимаций шкафов
 const tweenGroup = new Group();
 
 export class CabinetModel {
-    constructor(modelPath, config = {}) {
+    constructor(modelPath, config = {}, renderer = null, sceneManager = null) {
         this.modelPath = modelPath;
+        this.renderer = renderer;  // ← Для получения maxAnisotropy
+        this.sceneManager = sceneManager;  // ← Для управления внутренним светом
         this.config = {
             type: config.type || 'floor', // 'floor' или 'wall'
             width: config.width || 700,    // мм
@@ -58,6 +61,14 @@ export class CabinetModel {
     
     async load() {
         console.log('🔄 CabinetModel.load() начат для:', this.modelPath);
+        
+        // Настраиваем DRACOLoader для поддержки сжатых моделей
+        const dracoLoader = new DRACOLoader();
+        dracoLoader.setDecoderPath('/js/libs/draco/');  // Путь к WASM-декодерам
+        dracoLoader.setDecoderConfig({ type: 'js' });    // 'js' или 'wasm' (авто-выбор)
+        this.loader.setDRACOLoader(dracoLoader);
+        console.log('✅ DRACOLoader настроен для поддержки сжатых моделей');
+        
         return new Promise((resolve, reject) => {
             this.loader.load(
                 this.modelPath,
@@ -73,28 +84,49 @@ export class CabinetModel {
                         child.userData.cabinetId = this.id;
                     });
                     
-                    // ВАЖНО: Проверяем масштаб модели и центрируем
+                    // ═══════════════════════════════════════════════════════════════
+                    // 📏 ДИАГНОСТИКА РАЗМЕРОВ ШКАФА
+                    // ═══════════════════════════════════════════════════════════════
                     const initialBox = new THREE.Box3().setFromObject(this.model);
                     const initialSize = new THREE.Vector3();
                     const initialCenter = new THREE.Vector3();
                     initialBox.getSize(initialSize);
                     initialBox.getCenter(initialCenter);
-                    console.log('  📏 Исходные размеры модели:', initialSize);
+                    console.log('  � Исходные размеры ШКАФА (из GLB):');
+                    console.log('    └─ Ширина (X):', initialSize.x.toFixed(2), 'единиц');
+                    console.log('    └─ Высота (Y):', initialSize.y.toFixed(2), 'единиц');
+                    console.log('    └─ Глубина (Z):', initialSize.z.toFixed(2), 'единиц');
                     console.log('  📍 Исходный центр:', initialCenter);
-                    // === МАСШТАБИРОВАНИЕ МОДЕЛИ ===
+                    
+                    // ═══════════════════════════════════════════════════════════════
+                    // 🔧 МАСШТАБИРОВАНИЕ ШКАФА
+                    // ═══════════════════════════════════════════════════════════════
                     const expectedSize = new THREE.Vector3(
-                        this.config.width,
-                        this.config.height,
-                        this.config.depth
+                        this.config.width,   // 700 мм
+                        this.config.height,  // 500 мм
+                        this.config.depth    // 240 мм
                     );
+                    console.log('  🎯 Целевые размеры (из config):', {
+                        width: this.config.width,
+                        height: this.config.height,
+                        depth: this.config.depth
+                    });
+                    
+                    // МЕТОД МАСШТАБИРОВАНИЯ: по диагонали (сохраняет пропорции)
                     const initialDiagonal = initialSize.length();
                     const expectedDiagonal = expectedSize.length();
+                    console.log('  📐 Диагональ исходная:', initialDiagonal.toFixed(2), 'единиц');
+                    console.log('  📐 Диагональ целевая:', expectedDiagonal.toFixed(2), 'мм');
+                    
                     let scaleFactor = 1;
                     if (initialDiagonal > 0 && expectedDiagonal > 0) {
                         scaleFactor = expectedDiagonal / initialDiagonal;
                     }
                     scaleFactor = THREE.MathUtils.clamp(scaleFactor, 0.01, 2000);
-                    console.log('  🔢 Вычисленный scaleFactor:', scaleFactor);
+                    
+                    console.log(`  🔢 Вычисленный scaleFactor: ${scaleFactor.toFixed(6)}x`);
+                    console.log(`  💡 В GLB шкафа: 1 единица = ${(1/scaleFactor).toFixed(2)} мм`);
+                    
                     this.model.scale.set(scaleFactor, scaleFactor, scaleFactor);
                     this.model.updateMatrixWorld(true);
                     console.log('  ✅ Масштаб применен:', this.model.scale);
@@ -106,12 +138,19 @@ export class CabinetModel {
                         }
                     });
 
-                    // После масштабирования просто выводим размеры и центр
+                    // ═══════════════════════════════════════════════════════════════
+                    // ✅ ПРОВЕРКА ПОСЛЕ МАСШТАБИРОВАНИЯ
+                    // ═══════════════════════════════════════════════════════════════
                     const scaledBox = new THREE.Box3().setFromObject(this.model);
                     const scaledCenter = new THREE.Vector3();
                     const scaledSize = new THREE.Vector3();
                     scaledBox.getCenter(scaledCenter);
                     scaledBox.getSize(scaledSize);
+                    
+                    console.log('  ✅ Размеры ШКАФА после масштабирования:');
+                    console.log('    └─ Ширина:', scaledSize.x.toFixed(2), 'мм (ожидалось', this.config.width, 'мм)');
+                    console.log('    └─ Высота:', scaledSize.y.toFixed(2), 'мм (ожидалось', this.config.height, 'мм)');
+                    console.log('    └─ Глубина:', scaledSize.z.toFixed(2), 'мм (ожидалось', this.config.depth, 'мм)');
 
                     // НЕ сдвигаем позицию модели! Pivot как в GLB
                     this.model.updateMatrixWorld(true);
@@ -127,16 +166,97 @@ export class CabinetModel {
                     
                     // Включить тени для всех mesh
                     let meshCount = 0;
+                    console.log('🔍 МАТЕРИАЛЫ ИЗ GLB (до применения цветов):');
                     this.model.traverse((child) => {
                         if (child.isMesh) {
                             child.castShadow = true;
                             child.receiveShadow = true;
                             child.userData.cabinetId = this.id;
                             meshCount++;
+                            
+                            // Логируем материал из KeyShot
+                            if (child.material) {
+                                console.log(`  📦 ${child.name}:`);
+                                console.log(`    └─ Тип: ${child.material.type}`);
+                                console.log(`    └─ Цвет: #${child.material.color?.getHexString() || 'N/A'}`);
+                                console.log(`    └─ Map (текстура): ${child.material.map ? 'ДА' : 'НЕТ'}`);
+                                console.log(`    └─ Metalness: ${child.material.metalness ?? 'N/A'}`);
+                                console.log(`    └─ Roughness: ${child.material.roughness ?? 'N/A'}`);
+                            }
                         }
                     });
                     console.log(`  🔢 Найдено mesh-объектов: ${meshCount}`);
                     
+                    // ═══════════════════════════════════════════════════════════════
+                    // 🎨 КОРРЕКЦИЯ МАТЕРИАЛОВ ИЗ KEYSHOT
+                    // ═══════════════════════════════════════════════════════════════
+                    // KeyShot экспортирует материалы в Linear color space,
+                    // а Three.js рендерит в sRGB. Нужно повысить яркость материалов.
+                    console.log('🔧 Коррекция материалов KeyShot для правильного освещения...');
+                    this.model.traverse((child) => {
+                        if (child.isMesh && child.material) {
+                            // Конвертируем каждый материал (или массив материалов)
+                            const materials = Array.isArray(child.material) ? child.material : [child.material];
+                            
+                            materials.forEach(mat => {
+                                // Повышаем яркость цвета (компенсация linear → sRGB)
+                                if (mat.color) {
+                                    mat.color.convertLinearToSRGB();  // Яркость +20-30%
+                                }
+                                
+                                // Если есть map-текстура, указываем правильное цветовое пространство
+                                if (mat.map) {
+                                    mat.map.colorSpace = THREE.SRGBColorSpace;
+                                    
+                                    // ═══════════════════════════════════════════════════════════════
+                                    // 🎯 АНИЗОТРОПНАЯ ФИЛЬТРАЦИЯ — убирает рябь/чешуйчатость
+                                    // ═══════════════════════════════════════════════════════════════
+                                    // Получаем максимальную анизотропию для GPU (обычно 16)
+                                    const maxAnisotropy = this.renderer ? 
+                                        this.renderer.capabilities.getMaxAnisotropy() : 16;
+                                    
+                                    mat.map.anisotropy = maxAnisotropy;
+                                    mat.map.needsUpdate = true;
+                                    
+                                    console.log(`    🎯 Анизотропия: ${maxAnisotropy}x`);
+                                }
+                                
+                                // Применяем анизотропию ко ВСЕМ текстурам материала
+                                ['normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap'].forEach(texName => {
+                                    if (mat[texName]) {
+                                        const maxAnisotropy = this.renderer ? 
+                                            this.renderer.capabilities.getMaxAnisotropy() : 16;
+                                        mat[texName].anisotropy = maxAnisotropy;
+                                        mat[texName].needsUpdate = true;
+                                    }
+                                });
+                                
+                                // Увеличиваем яркость эмиссии (если есть)
+                                if (mat.emissive) {
+                                    mat.emissive.convertLinearToSRGB();
+                                }
+                                
+                                // ═══════════════════════════════════════════════════════════════
+                                // 🌍 ENVIRONMENT MAP INTENSITY — сила отражений/рефлексов
+                                // ═══════════════════════════════════════════════════════════════
+                                // Устанавливаем интенсивность environment map (1.0 = 100%)
+                                // Значение будет управляться через GUI → Rendering → Environment
+                                if (mat.envMapIntensity === undefined) {
+                                    mat.envMapIntensity = 1.0;  // По умолчанию нормальные отражения
+                                }
+                                
+                                mat.needsUpdate = true;
+                            });
+                            
+                            console.log(`  ✅ ${child.name}: цвет скорректирован`);
+                        }
+                    });
+                    console.log('✅ Материалы скорректированы для правильного отображения');
+                    
+                    // ═══════════════════════════════════════════════════════════════
+                    // ❌ ПЕРЕКРАСКА ОТКЛЮЧЕНА — используем материалы из KeyShot
+                    // ═══════════════════════════════════════════════════════════════
+                    /*
                     // Принудительно заменить материал для всех основных mesh
                     console.log(`🎨 Перекраска модели в цвет:`, this.config.color.toString(16));
                     this.model.traverse((child) => {
@@ -158,6 +278,8 @@ export class CabinetModel {
                             child.receiveShadow = true;
                         }
                     });
+                    */
+                    console.log('✅ Материалы из KeyShot сохранены (перекраска отключена)');
                     
                     // Найти дверцу (по имени объекта в GLTF) - СНАЧАЛА помечаем части
                     console.log('🔍 Поиск дверцы...');
@@ -171,8 +293,8 @@ export class CabinetModel {
                     
                     // Раскраска отдельных частей по цветовой схеме (если передана)
                     console.log('🎨 Применение цветовой схемы...');
-                    this.applyPartColors();
-                    console.log('  ✅ Цветовая схема применена');
+                    // this.applyPartColors();  // ← ОТКЛЮЧЕНО для проверки текстур из KeyShot
+                    console.log('  ✅ Цветовая схема применена (ПРОПУЩЕНА)');
                     
                     // Вычислить bounding box ПОСЛЕ всех трансформаций
                     console.log('📦 Вычисление bounding box...');
@@ -221,6 +343,20 @@ export class CabinetModel {
         });
     }
 
+    /**
+     * 🎨 ПРИМЕНЕНИЕ ЦВЕТОВ К ЧАСТЯМ ШКАФА
+     * 
+     * Этот метод раскрашивает каждую деталь модели в свой цвет:
+     * - Проходит по всем mesh-объектам в модели
+     * - Находит части по ключевым словам в имени (например, "door", "body")
+     * - Применяет соответствующий цвет из colorScheme
+     * 
+     * Как работает:
+     * 1. Берёт имя mesh-объекта (например, "door_left_001")
+     * 2. Ищет ключевое слово в имени (например, "door")
+     * 3. Находит соответствующий цвет в схеме (colorScheme.door)
+     * 4. Создаёт новый материал с этим цветом
+     */
     applyPartColors() {
         if (!this.model) return;
 
@@ -232,41 +368,67 @@ export class CabinetModel {
 
         const scheme = this.config.colorScheme;
         
-        // Карта соответствия: ключевое слово в имени mesh → ключ в colorScheme
+        // ═══════════════════════════════════════════════════════════════
+        // 🗺️ КАРТА СООТВЕТСТВИЯ: имя mesh → цвет
+        // ═══════════════════════════════════════════════════════════════
+        // Порядок ВАЖЕН! Более специфичные правила (insulation_frame) должны быть ПЕРЕД общими (insulation)
         const partMapping = [
-            { keywords: ['body', 'корпус'], colorKey: 'body' },
+            // КОРПУС/КАРКАС — основная металлическая конструкция
+            { keywords: ['body', 'корпус', 'frame', 'каркас'], colorKey: 'body' },
+            
+            // ДВЕРЦА — передняя часть с петлями
             { keywords: ['door', 'дверь', 'дверца'], colorKey: 'door' },
-            { keywords: ['panel', 'панель'], colorKey: 'panel' },
-            { keywords: ['insulation_frame', 'изоляция_рамка'], colorKey: 'insulationFrame' },
-            { keywords: ['insulation', 'изоляция'], colorKey: 'insulation' },
+            
+            // МОНТАЖНАЯ ПАНЕЛЬ — внутренняя панель для крепления оборудования
+            { keywords: ['panel', 'панель', 'mounting'], colorKey: 'panel' },
+            
+            // РАМКА ИЗОЛЯЦИИ — металлическая окантовка вокруг изоляции (проверяется ПЕРЕД insulation!)
+            { keywords: ['insulation_frame', 'изоляция_рамка', 'insulation_border'], colorKey: 'insulationFrame' },
+            
+            // ИЗОЛЯЦИЯ — теплоизоляционный материал/прокладки
+            { keywords: ['insulation', 'изоляция', 'padding'], colorKey: 'insulation' },
+            
+            // DIN-РЕЙКИ — монтажные рейки для оборудования
             { keywords: ['din_rail', 'din', 'rail', 'рейка'], colorKey: 'dinRail' }
         ];
 
+        // ═══════════════════════════════════════════════════════════════
+        // 🔄 ОБХОД ВСЕХ MESH-ОБЪЕКТОВ МОДЕЛИ
+        // ═══════════════════════════════════════════════════════════════
         this.model.traverse((child) => {
+            // Пропускаем не-mesh объекты и объекты без имени
             if (!child.isMesh || !child.name) return;
 
             const lowerName = child.name.toLowerCase();
-            let colorToUse = scheme.default;  // Цвет по умолчанию
+            let colorToUse = scheme.default;  // Цвет по умолчанию для неопознанных частей
             
-            // Ищем совпадение по ключевым словам
+            // ═══════════════════════════════════════════════════════════════
+            // 🔍 ПОИСК СОВПАДЕНИЯ ПО КЛЮЧЕВЫМ СЛОВАМ
+            // ═══════════════════════════════════════════════════════════════
+            // Ищем первое совпадение в имени mesh (например, "door_left" содержит "door")
             for (const mapping of partMapping) {
+                // Проверяем, содержит ли имя mesh хотя бы одно ключевое слово
                 if (mapping.keywords.some(kw => lowerName.includes(kw))) {
+                    // Нашли совпадение! Берём цвет из схемы
                     colorToUse = scheme[mapping.colorKey] || scheme.default;
                     console.log(`🎨 ${child.name} → ${mapping.colorKey} (${colorToUse.toString(16)})`);
-                    break;
+                    break; // Останавливаемся на первом найденном совпадении
                 }
             }
 
-            // Создаём новый материал с нужным цветом
+            // ═══════════════════════════════════════════════════════════════
+            // 🎨 СОЗДАНИЕ И ПРИМЕНЕНИЕ МАТЕРИАЛА
+            // ═══════════════════════════════════════════════════════════════
+            // Создаём новый PBR-материал (Physically Based Rendering)
             child.material = new THREE.MeshStandardMaterial({
-                color: colorToUse,
-                metalness: 0.3,
-                roughness: 0.7,
-                map: null,
-                transparent: false,
-                opacity: 1.0
+                color: colorToUse,        // ← ВОТ ГДЕ ПРИМЕНЯЕТСЯ ЦВЕТ!
+                metalness: 0.3,           // Металличность: 0 = диэлектрик, 1 = металл
+                roughness: 0.7,           // Шероховатость: 0 = зеркало, 1 = матовый
+                map: null,                // Текстура (будет добавлена позже через applyTextures)
+                transparent: false,       // Прозрачность отключена
+                opacity: 1.0              // Непрозрачный (100%)
             });
-            child.material.needsUpdate = true;
+            child.material.needsUpdate = true; // Помечаем материал для обновления в рендерере
         });
     }
     
@@ -505,6 +667,11 @@ export class CabinetModel {
         } else {
             this.door.rotation[ROTATION_AXIS] = targetRotation;
             this.door.updateMatrixWorld(true);
+        }
+        
+        // 🔦 Управление внутренним светом (включается при открытии, выключается при закрытии)
+        if (this.sceneManager && this.sceneManager.setInteriorLight) {
+            this.sceneManager.setInteriorLight(this.isDoorOpen, this.model);
         }
     }
     

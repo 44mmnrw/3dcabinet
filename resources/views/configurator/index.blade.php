@@ -8,6 +8,9 @@
 @endpush
 
 @push('scripts')
+    {{-- dat.GUI библиотека для панели управления --}}
+    <script src="{{ asset('js/libs/dat.gui.min.js') }}"></script>
+    
     {{-- Главный модуль конфигуратора --}}
     <script type="module" src="{{ asset('js/pages/configurator.js') }}"></script>
 @endpush

@@ -269,6 +269,67 @@
     }
 }
 
+/* ================================================
+   GUI-панель (dat.GUI)
+   ================================================ */
+.gui-container {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+}
+
+/* Стилизация dat.GUI */
+.gui-container .dg.ac {
+    z-index: 1000 !important;
+}
+
+.gui-container .dg.main {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+    border-radius: 8px !important;
+    overflow: hidden;
+}
+
+/* Заголовок папки */
+.gui-container .dg .folder .title {
+    background: #8b5cf6 !important; /* Фиолетовый цвет проекта */
+    color: white !important;
+    font-weight: 600 !important;
+}
+
+/* Открытая папка */
+.gui-container .dg .folder.open .title {
+    background: #7c3aed !important;
+}
+
+/* Контролы */
+.gui-container .dg .c {
+    border-left: 3px solid #8b5cf6 !important;
+}
+
+.gui-container .dg .c:hover {
+    background: #f5f3ff !important;
+}
+
+/* Слайдеры */
+.gui-container .dg .slider {
+    background: #e0e0e0 !important;
+}
+
+.gui-container .dg .slider-fg {
+    background: #8b5cf6 !important;
+}
+
+/* Кнопка сворачивания */
+.gui-container .dg .close-button {
+    background: #8b5cf6 !important;
+    color: white !important;
+}
+
+.gui-container .dg .close-button:hover {
+    background: #7c3aed !important;
+}
+
 /* Адаптивность */
 @media (max-width: 1400px) {
     .configurator-wrapper {
@@ -290,6 +351,16 @@
     
     #cabinet-3d-container {
         min-height: 60vh;
+    }
+    
+    /* GUI-панель на мобильных */
+    .gui-container {
+        top: 5px;
+        right: 5px;
+    }
+    
+    .gui-container .dg.main {
+        width: 260px !important;
     }
 }
 

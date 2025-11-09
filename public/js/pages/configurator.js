@@ -11,6 +11,9 @@ import { CabinetModel } from '../modules/CabinetModel.js';
 import { CabinetManager } from '../modules/CabinetManager.js';
 import { InteractionController } from '../modules/InteractionController.js';
 import { createFresnelOutline } from '../modules/ShaderUtils.js';
+import { GLTFLoader } from '../libs/GLTFLoader.js';
+import { DRACOLoader } from '../libs/DRACOLoader.js';
+import * as THREE from '../libs/three.module.js';
 
 class CabinetConfigurator {
     constructor(containerSelector) {
@@ -26,15 +29,24 @@ class CabinetConfigurator {
         this.cabinetManager = null;
         this.interactionController = null;
         
-        // ====== ЦВЕТОВАЯ СХЕМА ШКАФОВ ======
+        // ====== ЦВЕТОВАЯ СХЕМА ШКАФОВ (HEX-цвета) ======
+        // Формат: 0xRRGGBB (Red, Green, Blue в шестнадцатеричной системе)
+        // Пример: 0xFF0000 = красный, 0x00FF00 = зеленый, 0x0000FF = синий
         this.cabinetColorScheme = {
-            default: 0x673831,
-            body: 0x673831,
-            door: 0x673831,
-            panel: 0x673831,
-            insulation: 0xE8E8E8,
-            insulationFrame: 0xC0C0C0,
-            dinRail: 0xA8A8A8
+            // Цвет по умолчанию (fallback для неопознанных частей)
+            default: 0x673831,           // Коричневый (RGB: 103, 56, 49)
+            
+            // ОСНОВНЫЕ ЧАСТИ ШКАФА:
+            body: 0x673831,              // Корпус/каркас шкафа (коричневый)
+            door: 0x673831,              // Дверца шкафа (коричневый)
+            panel: 0x673831,             // Монтажная панель внутри (коричневый)
+            
+            // ИЗОЛЯЦИОННЫЕ ЭЛЕМЕНТЫ:
+            insulation: 0xE8E8E8,        // Изоляционный материал/прокладки (светло-серый, почти белый)
+            insulationFrame: 0xC0C0C0,   // Рамка вокруг изоляции (серебристый металл)
+            
+            // МОНТАЖНЫЕ КОМПОНЕНТЫ:
+            dinRail: 0xA8A8A8            // DIN-рейки для крепления оборудования (темно-серый металл)
         };
         
         // Подсветка выбора (Fresnel)
@@ -72,6 +84,12 @@ class CabinetConfigurator {
         
         // Настроить контролы камеры
         this.setupCameraControls();
+        
+        // ═══════════════════════════════════════════════════════════════
+        // 🎛️ ДОБАВЛЕНИЕ GUI-ПАНЕЛИ УПРАВЛЕНИЯ
+        // ═══════════════════════════════════════════════════════════════
+        this.sceneManager.addGUI();
+        console.log('✅ GUI-панель управления добавлена');
         
         // Экспортировать API в window
         window.configurator = this;
@@ -194,6 +212,23 @@ class CabinetConfigurator {
         const modelPath = '/assets/models/thermocabinets/tsh_700_500_240/tsh_700_500_240.glb';
         console.log('📁 Путь к модели:', modelPath);
         
+        // ═══════════════════════════════════════════════════════════════
+        // 🖼️ ТЕКСТУРНАЯ СХЕМА (PBR-текстуры из KeyShot)
+        // ═══════════════════════════════════════════════════════════════
+        // Путь БЕЗ суффиксов! SceneManager.loadPBRTextures() автоматически добавит:
+        // - _albedo.jpg (базовый цвет)
+        // - _normal.png (карта нормалей)
+        // - _roughness.jpg (шероховатость)
+        // - _ao.jpg (ambient occlusion)
+        // - _metalness.jpg (металличность, опционально)
+        const textureScheme = {
+            body: '/assets/textures/metal/keyshot/brushed',      // Корпус
+            door: '/assets/textures/metal/keyshot/brushed',      // Дверца
+            panel: '/assets/textures/metal/keyshot/brushed',     // Панель
+            dinRail: '/assets/textures/metal/keyshot/brushed'    // DIN-рейки
+            // insulation и insulationFrame используют цвета без текстур
+        };
+        
         console.log('🏗️ Создание CabinetModel...');
         const cabinet = new CabinetModel(modelPath, {
             type: 'floor',
@@ -202,8 +237,9 @@ class CabinetConfigurator {
             depth: 240,
             name: 'TSH 700×500×240',
             color: this.cabinetColorScheme.default,
-            colorScheme: this.cabinetColorScheme
-        });
+            colorScheme: this.cabinetColorScheme,
+            textureScheme: textureScheme  // ← Добавляем текстурную схему
+        }, this.sceneManager.renderer, this.sceneManager);  // ← Передаём renderer и sceneManager
         console.log('✅ CabinetModel создан, ID:', cabinet.id);
         
         try {
@@ -220,6 +256,13 @@ class CabinetConfigurator {
             console.log('📷 Фокусировка камеры на объект...');
             this.sceneManager.focusOnObject(cabinet.model);
             
+            // ═══════════════════════════════════════════════════════════════
+            // 🔌 ЗАГРУЗКА ОБОРУДОВАНИЯ (Автоматический выключатель)
+            // ═══════════════════════════════════════════════════════════════
+            // console.log('🔌 Загрузка оборудования...');
+            // await this.loadTestEquipment(cabinet);  // ← ОТКЛЮЧЕНО
+            console.log('ℹ️ Загрузка оборудования отключена');
+            
             console.log('✅✅✅ loadTestCabinet() ЗАВЕРШЁН УСПЕШНО ✅✅✅');
         } catch (error) {
             console.error('❌❌❌ ОШИБКА в loadTestCabinet() ❌❌❌');
@@ -228,6 +271,74 @@ class CabinetConfigurator {
             console.error('  Stack trace:', error.stack);
             console.error('  Проверьте, что файл существует:');
             console.error('  - public/assets/models/thermocabinets/tsh_700_500_240/tsh_700_500_240.glb');
+        }
+    }
+    
+    /**
+     * 🔌 Загрузка тестового оборудования на DIN-рейки
+     * Добавляет автоматический выключатель на первую DIN-рейку шкафа
+     */
+    async loadTestEquipment(cabinet) {
+        try {
+            console.log('🔄 loadTestEquipment() начат для cabinet:', cabinet.id);
+            
+            // Проверяем наличие DIN-реек
+            if (!cabinet.dinRails || cabinet.dinRails.length === 0) {
+                console.warn('⚠️ DIN-рейки не найдены в шкафу, оборудование не добавлено');
+                return;
+            }
+            
+            const equipmentPath = '/assets/models/equipment/circuit_breaker/circuit_breaker.glb';
+            console.log('📁 Путь к оборудованию:', equipmentPath);
+            
+            // Настроить DRACOLoader для сжатых моделей
+            const loader = new GLTFLoader();
+            const dracoLoader = new DRACOLoader();
+            dracoLoader.setDecoderPath('/js/libs/draco/');
+            dracoLoader.setDecoderConfig({ type: 'js' });  // Авто-выбор WASM/JS
+            loader.setDRACOLoader(dracoLoader);
+            console.log('✅ DRACOLoader настроен для оборудования');
+            
+            const gltf = await new Promise((resolve, reject) => {
+                loader.load(
+                    equipmentPath,
+                    (gltf) => {
+                        console.log('✅ Оборудование загружено:', equipmentPath);
+                        resolve(gltf);
+                    },
+                    undefined,
+                    (error) => {
+                        console.error('❌ Ошибка загрузки оборудования:', error);
+                        reject(error);
+                    }
+                );
+            });
+            
+            const equipmentModel = gltf.scene;
+            
+            // Настроить масштаб оборудования (автоматический выключатель обычно ~18мм шириной)
+            const targetWidth = 18; // мм (1 модуль DIN)
+            const bbox = new THREE.Box3().setFromObject(equipmentModel);
+            const size = new THREE.Vector3();
+            bbox.getSize(size);
+            
+            const scaleFactor = targetWidth / size.x;
+            equipmentModel.scale.setScalar(scaleFactor);
+            
+            console.log(`📏 Масштаб оборудования: ${scaleFactor.toFixed(3)}x`);
+            
+            // Добавить на первую DIN-рейку
+            const success = cabinet.addEquipment(equipmentModel, 0);
+            
+            if (success) {
+                console.log('✅ Оборудование добавлено на DIN-рейку #0');
+            } else {
+                console.error('❌ Не удалось добавить оборудование на рейку');
+            }
+            
+        } catch (error) {
+            console.error('❌ Ошибка в loadTestEquipment():', error);
+            console.error('  Модель оборудования не загружена, но работа продолжается');
         }
     }
     
@@ -242,7 +353,7 @@ class CabinetConfigurator {
             name: `TSH ${type === 'wall' ? 'настенный' : 'напольный'}`,
             color: this.cabinetColorScheme.default,
             colorScheme: this.cabinetColorScheme
-        });
+        }, this.sceneManager.renderer, this.sceneManager);  // ← Передаём renderer и sceneManager
         
         await this.cabinetManager.addCabinet(cabinet);
         return cabinet;
