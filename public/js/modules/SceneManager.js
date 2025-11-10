@@ -9,6 +9,7 @@ console.log('🔄 SceneManager.js начал загрузку');
 import * as THREE from '../libs/three.module.js';
 import { OrbitControls } from '../libs/OrbitControls.js';
 import { RoomEnvironment } from '../libs/RoomEnvironment.js';
+import { RGBELoader } from '../libs/RGBELoader.js';
 import { Tween, Easing } from '../libs/tween.esm.js';
 import { tweenGroup } from './CabinetModel.js';
 
@@ -142,6 +143,9 @@ export class SceneManager {
         
         // Освещение
         this.setupLighting();
+        
+        // 🔧 Загрузка автоматического выключателя (circuit breaker)
+        this.loadCircuitBreaker();
         
         // Оси координат (для отладки) - визуализация осей X, Y, Z
         const axesHelper = new THREE.AxesHelper(1000);
@@ -397,9 +401,10 @@ export class SceneManager {
         console.log('💡 Rim Light добавлен (мягкий режим: 0.2)');
         
         // 4️⃣ AMBIENT LIGHT — Глобальное рассеянное освещение (базовая яркость)
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        // Снижено до 0.3, т.к. HDR Environment теперь даёт дополнительное IBL
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
         this.scene.add(ambientLight);
-        console.log('💡 Ambient Light добавлен (мягкий режим: 0.6)');
+        console.log('💡 Ambient Light добавлен (пониженный режим: 0.3, дополняет HDR IBL)');
         
         // 5️⃣ INTERIOR POINT LIGHT — Динамический свет внутрь шкафа (включается при открытии двери)
         // PointLight светит во все стороны (как лампочка) — лучше для освещения замкнутого пространства
@@ -426,23 +431,45 @@ export class SceneManager {
         });
         
         // ═══════════════════════════════════════════════════════════════
-        // 🌍 ОКРУЖАЮЩАЯ СРЕДА (Environment Map для отражений)
+        // 🌍 ОКРУЖАЮЩАЯ СРЕДА (HDR Environment Map)
         // ═══════════════════════════════════════════════════════════════
-        // Используем RoomEnvironment (как в glTF Viewer) — реалистичные отражения
+        // Загружаем реальный HDR для фотореалистичных отражений
         const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
         pmremGenerator.compileEquirectangularShader();
         
-        // RoomEnvironment создаёт виртуальную студию с освещением
-        // Это даёт реалистичные отражения на металлических и глянцевых поверхностях
-        const roomEnvironment = new RoomEnvironment(this.renderer);
-        const envMap = pmremGenerator.fromScene(roomEnvironment).texture;
-        console.log('🌍 Environment: RoomEnvironment (реалистичные отражения)');
+        const rgbeLoader = new RGBELoader();
+        console.log('🔄 Начинаю загрузку HDR: /assets/hdri/warehouse.hdr');
         
-        this.scene.environment = envMap;  // ← Отражения для PBR-материалов
-        this.environmentMap = envMap;     // ← Сохраняем для GUI
-        
-        pmremGenerator.dispose();
-        console.log('✅ Environment Map установлен');
+        rgbeLoader.load(
+            '/assets/hdri/warehouse.hdr',
+            (hdrTexture) => {
+                // Успешная загрузка HDR
+                console.log('📦 HDR текстура загружена, обработка...');
+                const envMap = pmremGenerator.fromEquirectangular(hdrTexture).texture;
+                
+                this.scene.environment = envMap;  // ← Отражения для PBR-материалов
+                this.environmentMap = envMap;     // ← Сохраняем для GUI
+                
+                console.log('✅ HDR Environment загружен: Warehouse (industrial_sunset_puresky)');
+                
+                hdrTexture.dispose();
+                pmremGenerator.dispose();
+            },
+            undefined,
+            (error) => {
+                // Fallback на RoomEnvironment при ошибке
+                console.warn('⚠️ Ошибка загрузки HDR, используем RoomEnvironment:', error);
+                
+                const roomEnvironment = new RoomEnvironment(this.renderer);
+                const envMap = pmremGenerator.fromScene(roomEnvironment).texture;
+                
+                this.scene.environment = envMap;
+                this.environmentMap = envMap;
+                
+                pmremGenerator.dispose();
+                console.log('🌍 Environment: RoomEnvironment (fallback)');
+            }
+        );
         
         console.log('✅ Освещение настроено: 3-точечная схема + Environment');
         
@@ -669,6 +696,16 @@ export class SceneManager {
         this.container.appendChild(guiContainer);
         
         console.log('✅ GUI-панель создана');
+        
+        // ═══════════════════════════════════════════════════════════════
+        // ⏱️ АВТОМАТИЧЕСКОЕ ЗАКРЫТИЕ GUI через 3 секунды
+        // ═══════════════════════════════════════════════════════════════
+        setTimeout(() => {
+            if (this.gui) {
+                this.gui.close();
+                console.log('📦 GUI автоматически свёрнута (3 сек после загрузки)');
+            }
+        }, 3000);
     }
     
     /**
@@ -1193,6 +1230,57 @@ export class SceneManager {
         this.renderer.dispose();
         this.controls.dispose();
         this.container.innerHTML = '';
+    }
+    
+    /**
+     * 🔧 Загрузка модели автоматического выключателя
+     */
+    async loadCircuitBreaker() {
+        // Динамически импортируем GLTFLoader и DRACOLoader
+        const { GLTFLoader } = await import('../libs/GLTFLoader.js');
+        const { DRACOLoader } = await import('../libs/DRACOLoader.js');
+        
+        const loader = new GLTFLoader();
+        
+        // Настроить DRACOLoader для сжатых моделей
+        const dracoLoader = new DRACOLoader();
+        dracoLoader.setDecoderPath('/js/libs/draco/');
+        dracoLoader.setDecoderConfig({ type: 'js' });
+        loader.setDRACOLoader(dracoLoader);
+        console.log('✅ DRACOLoader настроен для circuit_breaker');
+        
+        loader.load(
+            '/assets/models/equipment/circuit_breaker/circuit_breaker.glb',
+            (gltf) => {
+                const circuitBreaker = gltf.scene;
+                
+                // Настройка позиции (по центру комнаты, на полу)
+                circuitBreaker.position.set(0, 0, 0);
+                circuitBreaker.scale.set(1, 1, 1);
+                
+                // Включить тени
+                circuitBreaker.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                });
+                
+                // Добавить на сцену
+                this.scene.add(circuitBreaker);
+                
+                console.log('✅ Circuit breaker загружен и добавлен на сцену');
+                console.log('  Позиция:', circuitBreaker.position);
+                console.log('  Масштаб:', circuitBreaker.scale);
+            },
+            (progress) => {
+                const percent = (progress.loaded / progress.total * 100).toFixed(1);
+                console.log(`⏳ Загрузка circuit_breaker.glb: ${percent}%`);
+            },
+            (error) => {
+                console.error('❌ Ошибка загрузки circuit_breaker.glb:', error);
+            }
+        );
     }
 }
 

@@ -704,16 +704,39 @@ export class CabinetModel {
         
         const rail = this.dinRails[railIndex];
         
+        console.log('🔧 addEquipment() начат:');
+        console.log('  Rail index:', railIndex);
+        console.log('  Rail name:', rail.name);
+        console.log('  Rail position (локальная):', rail.position);
+        console.log('  Equipment scale:', equipmentModel.scale);
+        
+        // Получить мировую позицию DIN-рейки
+        const railWorldPos = new THREE.Vector3();
+        rail.getWorldPosition(railWorldPos);
+        console.log('  Rail position (мировая):', railWorldPos);
+        
         // Позиция на рейке (упрощенно — в конце списка оборудования)
         const offset = this.equipment.filter(eq => eq.railIndex === railIndex).length * 50; // 50мм интервал
+        console.log('  Offset по X:', offset, 'мм');
         
+        // Установить локальную позицию относительно шкафа
         equipmentModel.position.copy(rail.position);
         equipmentModel.position.x += offset;
+        
+        // ВАЖНО: Сместить вперёд по Z, чтобы выключатель был виден спереди
+        equipmentModel.position.z += 100;  // 100мм вперёд от рейки
+        
+        console.log('  Equipment position (локальная, установлена):', equipmentModel.position);
         
         this.model.add(equipmentModel);
         this.equipment.push({ model: equipmentModel, railIndex });
         
-        console.log(`Оборудование добавлено на рейку ${railIndex}`);
+        // Проверка мировой позиции после добавления
+        const eqWorldPos = new THREE.Vector3();
+        equipmentModel.getWorldPosition(eqWorldPos);
+        console.log('  Equipment position (мировая, финальная):', eqWorldPos);
+        
+        console.log(`✅ Оборудование добавлено на рейку ${railIndex}`);
         return true;
     }
     
