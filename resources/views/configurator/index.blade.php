@@ -42,6 +42,41 @@
                 </div>
             </div>
             <div id="cabinet-3d-container">
+                <!-- Кнопка перехода в режим сборки -->
+                <button id="start-assembly-btn" class="assembly-mode-btn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="12" y1="8" x2="12" y2="16"></line>
+                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                    </svg>
+                    <span>Начать сборку</span>
+                </button>
+                
+                <!-- Индикатор режима сборки (скрыт по умолчанию) -->
+                <div id="assembly-mode-indicator" class="hidden">
+                    <div class="assembly-mode-info">
+                        <span class="assembly-mode-label">Режим сборки</span>
+                        <span class="assembly-mode-hint">Esc для выхода</span>
+                    </div>
+                    <button id="finish-assembly-btn" class="finish-assembly-btn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        <span>Готово</span>
+                    </button>
+                </div>
+                
+                <!-- Библиотека оборудования для режима сборки (скрыта по умолчанию) -->
+                <div id="equipment-library" class="hidden">
+                    <div class="equipment-library-header">
+                        <h3>Библиотека оборудования</h3>
+                        <input type="text" id="equipment-search-input" placeholder="Поиск..." />
+                    </div>
+                    <div class="equipment-categories">
+                        <!-- Категории будут заполняться через JS -->
+                    </div>
+                </div>
+                
                 <!-- Контролы камеры (вращение и зум) -->
                 <div id="camera-controls">
                     <!-- Вращение камеры -->

@@ -21,9 +21,7 @@ export class CabinetModel {
             width: config.width || 700,    // мм
             height: config.height || 500,  // мм
             depth: config.depth || 240,    // мм
-            name: config.name || 'Cabinet',
-            color: config.color || 0x2196f3,  // Основной цвет (fallback)
-            colorScheme: config.colorScheme || null  // Цветовая схема для частей модели
+            name: config.name || 'Cabinet'
         };
         
         this.id = this.generateId();
@@ -43,16 +41,13 @@ export class CabinetModel {
         // Состояние выбора
         this.isSelected = false;
         this.selectionBox = null; // Визуальная рамка выбора
-    this.pivotOffset = new THREE.Vector3(0, 0, 0);
+        this.pivotOffset = new THREE.Vector3(0, 0, 0);
         
         // Loader
         this.loader = new GLTFLoader();
         
         // Промис загрузки
         this.loadPromise = this.load();
-        
-        // Добавить текстурную схему
-        this.textureScheme = config.textureScheme || null;
     }
     
     generateId() {
@@ -313,20 +308,6 @@ export class CabinetModel {
                     console.log('📍 Установка начальной позиции:', this.position);
                     this.setPosition(this.position);
                     
-                    // ✅ Применить текстуры (если указаны)
-                    if (this.textureScheme) {
-                        console.log('🖼️ Применение текстур...');
-                        try {
-                            await this.applyTextures(this.model);
-                            console.log('  ✅ Текстуры применены');
-                        } catch (e) {
-                            console.error('❌ Ошибка применения текстур:', e);
-                            // Продолжаем работу даже если текстуры не загрузились
-                        }
-                    } else {
-                        console.log('ℹ️ Текстурная схема не задана, пропускаем');
-                    }
-                    
                     console.log('✅✅✅ CabinetModel.load() ЗАВЕРШЁН УСПЕШНО ✅✅✅');
                     resolve(this);
                 },
@@ -340,95 +321,6 @@ export class CabinetModel {
                     reject(error);
                 }
             );
-        });
-    }
-
-    /**
-     * 🎨 ПРИМЕНЕНИЕ ЦВЕТОВ К ЧАСТЯМ ШКАФА
-     * 
-     * Этот метод раскрашивает каждую деталь модели в свой цвет:
-     * - Проходит по всем mesh-объектам в модели
-     * - Находит части по ключевым словам в имени (например, "door", "body")
-     * - Применяет соответствующий цвет из colorScheme
-     * 
-     * Как работает:
-     * 1. Берёт имя mesh-объекта (например, "door_left_001")
-     * 2. Ищет ключевое слово в имени (например, "door")
-     * 3. Находит соответствующий цвет в схеме (colorScheme.door)
-     * 4. Создаёт новый материал с этим цветом
-     */
-    applyPartColors() {
-        if (!this.model) return;
-
-        // Если colorScheme не передана, используем config.color для всех частей
-        if (!this.config.colorScheme) {
-            console.log('⚠️ ColorScheme не задана, используется единый цвет:', this.config.color);
-            return;
-        }
-
-        const scheme = this.config.colorScheme;
-        
-        // ═══════════════════════════════════════════════════════════════
-        // 🗺️ КАРТА СООТВЕТСТВИЯ: имя mesh → цвет
-        // ═══════════════════════════════════════════════════════════════
-        // Порядок ВАЖЕН! Более специфичные правила (insulation_frame) должны быть ПЕРЕД общими (insulation)
-        const partMapping = [
-            // КОРПУС/КАРКАС — основная металлическая конструкция
-            { keywords: ['body', 'корпус', 'frame', 'каркас'], colorKey: 'body' },
-            
-            // ДВЕРЦА — передняя часть с петлями
-            { keywords: ['door', 'дверь', 'дверца'], colorKey: 'door' },
-            
-            // МОНТАЖНАЯ ПАНЕЛЬ — внутренняя панель для крепления оборудования
-            { keywords: ['panel', 'панель', 'mounting'], colorKey: 'panel' },
-            
-            // РАМКА ИЗОЛЯЦИИ — металлическая окантовка вокруг изоляции (проверяется ПЕРЕД insulation!)
-            { keywords: ['insulation_frame', 'изоляция_рамка', 'insulation_border'], colorKey: 'insulationFrame' },
-            
-            // ИЗОЛЯЦИЯ — теплоизоляционный материал/прокладки
-            { keywords: ['insulation', 'изоляция', 'padding'], colorKey: 'insulation' },
-            
-            // DIN-РЕЙКИ — монтажные рейки для оборудования
-            { keywords: ['din_rail', 'din', 'rail', 'рейка'], colorKey: 'dinRail' }
-        ];
-
-        // ═══════════════════════════════════════════════════════════════
-        // 🔄 ОБХОД ВСЕХ MESH-ОБЪЕКТОВ МОДЕЛИ
-        // ═══════════════════════════════════════════════════════════════
-        this.model.traverse((child) => {
-            // Пропускаем не-mesh объекты и объекты без имени
-            if (!child.isMesh || !child.name) return;
-
-            const lowerName = child.name.toLowerCase();
-            let colorToUse = scheme.default;  // Цвет по умолчанию для неопознанных частей
-            
-            // ═══════════════════════════════════════════════════════════════
-            // 🔍 ПОИСК СОВПАДЕНИЯ ПО КЛЮЧЕВЫМ СЛОВАМ
-            // ═══════════════════════════════════════════════════════════════
-            // Ищем первое совпадение в имени mesh (например, "door_left" содержит "door")
-            for (const mapping of partMapping) {
-                // Проверяем, содержит ли имя mesh хотя бы одно ключевое слово
-                if (mapping.keywords.some(kw => lowerName.includes(kw))) {
-                    // Нашли совпадение! Берём цвет из схемы
-                    colorToUse = scheme[mapping.colorKey] || scheme.default;
-                    console.log(`🎨 ${child.name} → ${mapping.colorKey} (${colorToUse.toString(16)})`);
-                    break; // Останавливаемся на первом найденном совпадении
-                }
-            }
-
-            // ═══════════════════════════════════════════════════════════════
-            // 🎨 СОЗДАНИЕ И ПРИМЕНЕНИЕ МАТЕРИАЛА
-            // ═══════════════════════════════════════════════════════════════
-            // Создаём новый PBR-материал (Physically Based Rendering)
-            child.material = new THREE.MeshStandardMaterial({
-                color: colorToUse,        // ← ВОТ ГДЕ ПРИМЕНЯЕТСЯ ЦВЕТ!
-                metalness: 0.3,           // Металличность: 0 = диэлектрик, 1 = металл
-                roughness: 0.7,           // Шероховатость: 0 = зеркало, 1 = матовый
-                map: null,                // Текстура (будет добавлена позже через applyTextures)
-                transparent: false,       // Прозрачность отключена
-                opacity: 1.0              // Непрозрачный (100%)
-            });
-            child.material.needsUpdate = true; // Помечаем материал для обновления в рендерере
         });
     }
     
@@ -649,7 +541,7 @@ export class CabinetModel {
     toggleDoor(animate = true) {
         if (!this.door) {
             console.warn('Дверца не найдена');
-            return;
+            return Promise.resolve(); // Возвращаем resolved Promise
         }
         
         this.isDoorOpen = !this.isDoorOpen;
@@ -663,15 +555,18 @@ export class CabinetModel {
         const targetRotation = this.isDoorOpen ? baseRotation - Math.PI / 2 : baseRotation; // Минус для открытия в другую сторону
         
         if (animate) {
-            this.animateDoor(targetRotation, ROTATION_AXIS);
+            // Возвращаем Promise, который резолвится после анимации
+            return this.animateDoor(targetRotation, ROTATION_AXIS);
         } else {
             this.door.rotation[ROTATION_AXIS] = targetRotation;
             this.door.updateMatrixWorld(true);
-        }
-        
-        // 🔦 Управление внутренним светом (включается при открытии, выключается при закрытии)
-        if (this.sceneManager && this.sceneManager.setInteriorLight) {
-            this.sceneManager.setInteriorLight(this.isDoorOpen, this.model);
+            
+            // 🔦 Управление внутренним светом (включается при открытии, выключается при закрытии)
+            if (this.sceneManager && this.sceneManager.setInteriorLight) {
+                this.sceneManager.setInteriorLight(this.isDoorOpen, this.model);
+            }
+            
+            return Promise.resolve();
         }
     }
     
@@ -679,12 +574,239 @@ export class CabinetModel {
         const startRotation = this.door.rotation[axis];
         const duration = 600; // мс
         
-        // Используем TWEEN для плавной анимации с явной группой
-        new Tween(this.door.rotation, tweenGroup)
-            .to({ [axis]: targetRotation }, duration)
-            .easing(Easing.Cubic.InOut) // Плавное ускорение и замедление
+        return new Promise((resolve) => {
+            // Используем TWEEN для плавной анимации с явной группой
+            new Tween(this.door.rotation, tweenGroup)
+                .to({ [axis]: targetRotation }, duration)
+                .easing(Easing.Cubic.InOut) // Плавное ускорение и замедление
+                .onUpdate(() => {
+                    this.door.updateMatrixWorld(true);
+                })
+                .onComplete(() => {
+                    // 🔦 Управление внутренним светом (включается при открытии, выключается при закрытии)
+                    if (this.sceneManager && this.sceneManager.setInteriorLight) {
+                        this.sceneManager.setInteriorLight(this.isDoorOpen, this.model);
+                    }
+                    console.log('✅ Анимация двери завершена');
+                    resolve();
+                })
+                .start();
+        });
+    }
+    
+    /**
+     * РЕЖИМ СБОРКИ: Полный вход
+     * 1. Поворот шкафа на 180° (дверью к камере)
+     * 2. Открытие двери
+     * 3. Масштабирование панели + DIN-реек до 300%
+     */
+    enterAssemblyMode() {
+        console.log('🚀 CabinetModel.enterAssemblyMode() начат');
+        
+        // Найти панель
+        const panel = this.model.getObjectByName('PANEL003') || 
+                      this.model.getObjectByName('PANEL.003');
+        
+        if (!panel) {
+            console.error('❌ Панель для сборки не найдена');
+            return Promise.reject(new Error('Panel not found'));
+        }
+        
+        // Найти BODY (корпус шкафа) для привязки границ
+        const body = this.model.getObjectByName('BODY');
+        if (!body) {
+            console.warn('⚠️ BODY не найден, масштабирование без ограничений');
+        } else {
+            const bodyBox = new THREE.Box3().setFromObject(body);
+            console.log('📦 BODY границы: minY =', bodyBox.min.y.toFixed(1), 'мм');
+        }
+        
+        // Проверка иерархии DIN-реек (для отладки)
+        console.log('🔍 Проверка иерархии объектов:');
+        console.log('  PANEL.003:', panel.name);
+        this.dinRails.forEach(rail => {
+            let isChildOfPanel = false;
+            let parent = rail.parent;
+            const parentChain = [rail.name];
+            
+            while (parent) {
+                parentChain.push(parent.name);
+                if (parent === panel) {
+                    isChildOfPanel = true;
+                    break;
+                }
+                parent = parent.parent;
+            }
+            
+            console.log(`  ${rail.name}: ${parentChain.reverse().join(' → ')} [дочерний панели: ${isChildOfPanel}]`);
+        });
+        
+        // Сохранить исходное состояние (только масштабы)
+        this.assemblyState = {
+            originalRotation: this.model.rotation.y,
+            isDoorOpen: this.isDoorOpen,
+            panelScale: panel.scale.clone(),
+            dinRailScales: this.dinRails.map(r => r.scale.clone())
+        };
+        
+        console.log('💾 Состояние сохранено:', this.assemblyState);
+        
+        return new Promise((resolve) => {
+            // 1. Открыть дверь (если не открыта)
+            if (!this.isDoorOpen && this.door) {
+                console.log('🚪 Открытие двери...');
+                this.toggleDoor(true).then(() => {
+                    console.log('✅ Дверь открыта');
+                    
+                    // 2. Масштабировать панель и DIN-рейки (с привязкой к BODY)
+                    this.scaleAssemblyPanelInternal(panel, 3.0, body, () => {
+                        console.log('✅ Режим сборки активирован');
+                        resolve();
+                    });
+                });
+            } else {
+                // Если дверь уже открыта, сразу масштабируем
+                this.scaleAssemblyPanelInternal(panel, 3.0, body, () => {
+                    console.log('✅ Режим сборки активирован');
+                    resolve();
+                });
+            }
+        });
+    }
+    
+    /**
+     * РЕЖИМ СБОРКИ: Полный выход
+     * Возврат к исходному состоянию
+     */
+    exitAssemblyMode() {
+        console.log('🔙 CabinetModel.exitAssemblyMode() начат');
+        
+        if (!this.assemblyState) {
+            console.warn('⚠️ Состояние сборки не сохранено');
+            return Promise.resolve();
+        }
+        
+        const state = this.assemblyState;
+        const panel = this.model.getObjectByName('PANEL003') || 
+                      this.model.getObjectByName('PANEL.003');
+        
+        if (!panel) {
+            return Promise.reject(new Error('Panel not found'));
+        }
+        
+        const body = this.model.getObjectByName('BODY'); // Найти BODY для обратного масштабирования
+        
+        return new Promise((resolve) => {
+            // 1. Вернуть масштаб панели и DIN-реек
+            console.log('📏 Возврат масштаба...');
+            this.scaleAssemblyPanelInternal(panel, 1.0, body, () => {
+                console.log('✅ Масштаб восстановлен');
+                
+                // 2. Закрыть дверь (если была закрыта изначально)
+                if (!state.isDoorOpen && this.isDoorOpen && this.door) {
+                    console.log('🚪 Закрытие двери...');
+                    this.toggleDoor(true).then(() => {
+                        console.log('✅ Дверь закрыта, режим сборки завершён');
+                        resolve();
+                    });
+                } else {
+                    // Если дверь не нужно закрывать, завершаем
+                    console.log('✅ Режим сборки завершён');
+                    resolve();
+                }
+            });
+        });
+    }
+    
+    /**
+     * Внутренний метод масштабирования панели и DIN-реек
+     * 
+     * ВАЖНО: DIN-рейки могут быть дочерними объектами PANEL.003,
+     * поэтому нужно компенсировать наследование масштабирования.
+     * 
+     * Если панель масштабируется на 3.0x, а DIN-рейка является её дочерним объектом,
+     * то для достижения итогового масштаба 3.0x нужно установить scale DIN-рейки = 1.0
+     * (так как она унаследует 3.0x от родителя).
+     */
+    scaleAssemblyPanelInternal(panel, targetScale, body, callback) {
+        console.log(`📏 Масштабирование до ${targetScale * 100}%`);
+        const duration = 800;
+        let completed = 0;
+        const total = 1 + this.dinRails.length; // панель + все рейки
+        
+        const checkComplete = () => {
+            completed++;
+            if (completed === total && callback) {
+                callback();
+            }
+        };
+        
+        // ═══════════════════════════════════════════════════════════════
+        // ПАНЕЛЬ: Простое масштабирование
+        // ═══════════════════════════════════════════════════════════════
+        
+        console.log(`  PANEL.003: scale ${panel.scale.x.toFixed(2)} → ${targetScale.toFixed(2)}`);
+        
+        // Анимация панели (только масштаб)
+        new Tween(panel.scale, tweenGroup)
+            .to({ x: targetScale, y: targetScale, z: targetScale }, duration)
+            .easing(Easing.Cubic.InOut)
             .onUpdate(() => {
-                this.door.updateMatrixWorld(true);
+                panel.updateMatrixWorld(true);
+            })
+            .onComplete(checkComplete)
+            .start();
+        
+        // ═══════════════════════════════════════════════════════════════
+        // DIN-РЕЙКИ: Масштабирование с компенсацией наследования
+        // ═══════════════════════════════════════════════════════════════
+        
+        this.dinRails.forEach(rail => {
+            // Проверяем, является ли рейка дочерним объектом панели
+            let isChildOfPanel = false;
+            let parent = rail.parent;
+            while (parent) {
+                if (parent === panel) {
+                    isChildOfPanel = true;
+                    break;
+                }
+                parent = parent.parent;
+            }
+            
+            // Если рейка является дочерней панели, компенсируем наследование масштаба
+            // (устанавливаем scale = 1.0, чтобы она унаследовала 3.0 от родителя)
+            const railTargetScale = isChildOfPanel ? 1.0 : targetScale;
+            
+            console.log(`  ${rail.name}: isChild=${isChildOfPanel}, scale ${rail.scale.x.toFixed(2)} → ${railTargetScale.toFixed(2)}`);
+            
+            // Анимация рейки (только масштаб)
+            new Tween(rail.scale, tweenGroup)
+                .to({ x: railTargetScale, y: railTargetScale, z: railTargetScale }, duration)
+                .easing(Easing.Cubic.InOut)
+                .onUpdate(() => {
+                    rail.updateMatrixWorld(true);
+                })
+                .onComplete(checkComplete)
+                .start();
+        });
+    }
+    
+    /**
+     * Вернуть поворот шкафа к исходному
+     */
+    rotateToOriginal(originalRotation, callback) {
+        console.log('🔄 Возврат поворота...');
+        
+        new Tween(this.model.rotation, tweenGroup)
+            .to({ y: originalRotation }, 1000)
+            .easing(Easing.Cubic.InOut)
+            .onUpdate(() => {
+                this.model.updateMatrixWorld(true);
+            })
+            .onComplete(() => {
+                console.log('✅ Режим обзора восстановлен');
+                this.assemblyState = null;
+                if (callback) callback();
             })
             .start();
     }
@@ -804,107 +926,6 @@ export class CabinetModel {
                 }
             }
         });
-    }
-    
-    /**
-     * Применить текстуры к меш-объектам
-     * @param {THREE.Object3D} model 
-     */
-    async applyTextures(model) {
-        if (!this.textureScheme) return;
-        
-        const sceneManager = window.configurator?.sceneManager;
-        if (!sceneManager) {
-            console.warn('SceneManager недоступен для загрузки текстур');
-            return;
-        }
-        
-        // Загрузить все текстуры параллельно
-        const texturePromises = {};
-        for (const [partName, texturePath] of Object.entries(this.textureScheme)) {
-            if (texturePath && typeof texturePath === 'string') {
-                texturePromises[partName] = sceneManager.loadPBRTextures(texturePath);
-            }
-        }
-        
-        const loadedTextures = {};
-        for (const [partName, promise] of Object.entries(texturePromises)) {
-            try {
-                loadedTextures[partName] = await promise;
-            } catch (e) {
-                console.error(`Не удалось загрузить текстуры для ${partName}:`, e);
-            }
-        }
-        
-        // Применить текстуры к мешам
-        model.traverse((child) => {
-            if (child.isMesh && child.name) {
-                const partName = this.getPartNameFromMesh(child);
-                const textures = loadedTextures[partName];
-                
-                if (textures && Object.keys(textures).length > 0) {
-                    this.applyTexturesToMaterial(child.material, textures);
-                    console.log(`✅ Текстуры применены к ${child.name}`);
-                }
-            }
-        });
-    }
-    
-    /**
-     * Применить текстуры к материалу
-     * @param {THREE.Material} material 
-     * @param {Object} textures 
-     */
-    applyTexturesToMaterial(material, textures) {
-        if (Array.isArray(material)) {
-            material.forEach(mat => this.applyTexturesToMaterial(mat, textures));
-            return;
-        }
-        
-        // Применить карты к материалу
-        if (textures.map) {
-            material.map = textures.map;
-        }
-        
-        if (textures.normalMap) {
-            material.normalMap = textures.normalMap;
-            material.normalScale = new THREE.Vector2(1, 1);
-        }
-        
-        if (textures.roughnessMap) {
-            material.roughnessMap = textures.roughnessMap;
-            material.roughness = 1.0;
-        }
-        
-        if (textures.aoMap) {
-            material.aoMap = textures.aoMap;
-            material.aoMapIntensity = 1.0;
-            
-            // UV2 для aoMap
-            if (material.geometry && !material.geometry.attributes.uv2) {
-                material.geometry.attributes.uv2 = material.geometry.attributes.uv;
-            }
-        }
-        
-        material.needsUpdate = true;
-    }
-    
-    /**
-     * Определить название части по имени меша
-     * @param {THREE.Mesh} mesh 
-     * @returns {string}
-     */
-    getPartNameFromMesh(mesh) {
-        const name = mesh.name.toUpperCase();
-        
-        if (name.includes('BODY')) return 'body';
-        if (name.includes('DOOR')) return 'door';
-        if (name.includes('PANEL')) return 'panel';
-        if (name.includes('INSULATION') && !name.includes('FRAME')) return 'insulation';
-        if (name.includes('INSULATION_FRAME')) return 'insulationFrame';
-        if (name.includes('DIN_RAIL')) return 'dinRail';
-        
-        return 'default';
     }
 }
 

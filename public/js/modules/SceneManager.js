@@ -8,8 +8,6 @@ console.log('🔄 SceneManager.js начал загрузку');
 
 import * as THREE from '../libs/three.module.js';
 import { OrbitControls } from '../libs/OrbitControls.js';
-import { RoomEnvironment } from '../libs/RoomEnvironment.js';
-import { RGBELoader } from '../libs/RGBELoader.js';
 import { Tween, Easing } from '../libs/tween.esm.js';
 import { tweenGroup } from './CabinetModel.js';
 
@@ -59,7 +57,30 @@ export class SceneManager {
         const aspect = this.container.clientWidth / this.container.clientHeight;
         // NEAR увеличен с 0.1 до 10 — убирает z-fighting (мигающие артефакты)
         this.camera = new THREE.PerspectiveCamera(50, aspect, 10, 1000000);
-        this.camera.position.set(3000, 2500, 3000);
+        
+        // ====================================================================
+        // НАЧАЛЬНАЯ ПОЗИЦИЯ КАМЕРЫ (изменяйте ЭТИ значения для поворота вида)
+        // ====================================================================
+        // Исходная позиция: (3000, 2500, 3000) - вид из угла под 45°
+        // Для поворота на 45° ВПРАВО от исходного положения:
+        //   Исходный азимут: 45° (π/4)
+        //   Новый азимут: 0° (вид строго с СЕВЕРА, вдоль оси Z)
+        
+        const radius = Math.sqrt(3000 * 3000 + 2500 * 2500 + 3000 * 3000); // Расстояние от центра
+        const polarAngle = Math.acos(2500 / radius);      // Наклон камеры (вертикальный угол)
+        const azimuthAngle = 0;                           // Азимут 0° = вид СТРОГО С СЕВЕРА (45° вправо от исходного)
+        
+        // Пересчёт сферических координат в декартовы (X, Y, Z)
+        const x = radius * Math.sin(polarAngle) * Math.sin(azimuthAngle);
+        const y = radius * Math.cos(polarAngle);
+        const z = radius * Math.sin(polarAngle) * Math.cos(azimuthAngle);
+        
+        console.log('📹 Начальная позиция камеры (повёрнута на 45° вправо):');
+        console.log(`  Азимут: ${(azimuthAngle * 180 / Math.PI).toFixed(0)}°`);
+        console.log(`  Полярный угол: ${(polarAngle * 180 / Math.PI).toFixed(0)}°`);
+        console.log(`  Позиция: X=${x.toFixed(0)}, Y=${y.toFixed(0)}, Z=${z.toFixed(0)}`);
+        
+        this.camera.position.set(x, y, z);
         this.camera.lookAt(this.roomCenter);
         
         // ═══════════════════════════════════════════════════════════════
@@ -144,9 +165,6 @@ export class SceneManager {
         // Освещение
         this.setupLighting();
         
-        // 🔧 Загрузка автоматического выключателя (circuit breaker)
-        this.loadCircuitBreaker();
-        
         // Оси координат (для отладки) - визуализация осей X, Y, Z
         const axesHelper = new THREE.AxesHelper(1000);
         this.scene.add(axesHelper);
@@ -201,14 +219,12 @@ export class SceneManager {
         canvas.addEventListener('mouseenter', () => {
             isOverCanvas = true;
             document.body.style.overflow = 'hidden'; // Блокируем прокрутку body
-            console.log('🖱️ Курсор над 3D-сценой → прокрутка ОТКЛЮЧЕНА');
         });
         
         // Отслеживаем выход курсора с canvas
         canvas.addEventListener('mouseleave', () => {
             isOverCanvas = false;
             document.body.style.overflow = ''; // Восстанавливаем прокрутку
-            console.log('🖱️ Курсор за пределами сцены → прокрутка ВКЛЮЧЕНА');
         });
         
         // Блокируем прокрутку колесом мыши НА УРОВНЕ WINDOW
@@ -229,7 +245,6 @@ export class SceneManager {
         canvas.addEventListener('mousedown', (e) => {
             if (e.button === 1) { // Средняя кнопка
                 e.preventDefault();
-                console.log('🖱️ Средняя кнопка: авто-скролл заблокирован');
             }
         });
         
@@ -361,124 +376,61 @@ export class SceneManager {
     
     setupLighting() {
         // ═══════════════════════════════════════════════════════════════
-        // 💡 СТУДИЙНОЕ ОСВЕЩЕНИЕ (3-точечная схема)
+        // 💡 ОПТИМИЗИРОВАННОЕ ОСВЕЩЕНИЕ — 3 источника на равном расстоянии
         // ═══════════════════════════════════════════════════════════════
         
-        // 1️⃣ KEY LIGHT — Основной источник света (сверху-спереди-справа)
-        // МЯГКОЕ ОСВЕЩЕНИЕ: снижена интенсивность с 1.2 до 0.8
-        const keyLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        keyLight.position.set(3000, 4000, 2000);
-        keyLight.castShadow = true;
+        const distance = 4000;  // Расстояние от центра (мм)
+        const height = 3000;    // Высота всех источников (мм)
+        const intensity = 0.6;  // Одинаковая интенсивность для всех
         
-        // Настройки МЯГКИХ теней (БЕЗ АРТЕФАКТОВ)
-        keyLight.shadow.camera.left = -3000;
-        keyLight.shadow.camera.right = 3000;
-        keyLight.shadow.camera.top = 3000;
-        keyLight.shadow.camera.bottom = -3000;
-        keyLight.shadow.camera.near = 100;     // ← УВЕЛИЧЕНО с 1 (убирает артефакты)
-        keyLight.shadow.camera.far = 8000;
-        keyLight.shadow.mapSize.width = 2048;  // ← СНИЖЕНО с 4096 (меньше нагрузка)
-        keyLight.shadow.mapSize.height = 2048;
-        keyLight.shadow.bias = -0.001;         // ← ИЗМЕНЕНО с -0.0001 (убирает мерцание)
-        keyLight.shadow.normalBias = 0.05;     // ← ДОБАВЛЕНО (убирает shadow acne)
-        keyLight.shadow.radius = 4;
+        // 1️⃣ LIGHT 1 — Позиция: 0° (впереди)
+        const light1 = new THREE.DirectionalLight(0xffffff, intensity);
+        light1.position.set(0, height, distance);
+        light1.castShadow = true;
         
-        this.scene.add(keyLight);
-        console.log('💡 Key Light добавлен (мягкий режим: 0.8)');
+        // Настройки теней (только для одного источника, чтобы снизить нагрузку)
+        light1.shadow.camera.left = -3000;
+        light1.shadow.camera.right = 3000;
+        light1.shadow.camera.top = 3000;
+        light1.shadow.camera.bottom = -3000;
+        light1.shadow.camera.near = 100;
+        light1.shadow.camera.far = 8000;
+        light1.shadow.mapSize.width = 2048;
+        light1.shadow.mapSize.height = 2048;
+        light1.shadow.bias = -0.001;
+        light1.shadow.normalBias = 0.05;
         
-        // 2️⃣ FILL LIGHT — Заполняющий свет (спереди-слева, слабее)
-        // Увеличена интенсивность для смягчения контраста
-        const fillLight = new THREE.DirectionalLight(0xffffff, 0.6);
-        fillLight.position.set(-2000, 2000, 2000);
-        this.scene.add(fillLight);
-        console.log('💡 Fill Light добавлен (мягкий режим: 0.6)');
+        this.scene.add(light1);
         
-        // 3️⃣ RIM LIGHT — Контровый свет (сзади-сверху, для контура)
-        // Снижена интенсивность для меньшего контраста
-        const rimLight = new THREE.DirectionalLight(0xffffff, 0.2);
-        rimLight.position.set(0, 3000, -3000);
-        this.scene.add(rimLight);
-        console.log('💡 Rim Light добавлен (мягкий режим: 0.2)');
-        
-        // 4️⃣ AMBIENT LIGHT — Глобальное рассеянное освещение (базовая яркость)
-        // Снижено до 0.3, т.к. HDR Environment теперь даёт дополнительное IBL
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
-        this.scene.add(ambientLight);
-        console.log('💡 Ambient Light добавлен (пониженный режим: 0.3, дополняет HDR IBL)');
-        
-        // 5️⃣ INTERIOR POINT LIGHT — Динамический свет внутрь шкафа (включается при открытии двери)
-        // PointLight светит во все стороны (как лампочка) — лучше для освещения замкнутого пространства
-        const interiorPointLight = new THREE.PointLight(
-            0xffffff,   // Цвет (белый)
-            0,          // Интенсивность (0 = выключен по умолчанию)
-            2000,       // Дистанция освещения (2 метра = 2000мм)
-            2           // Decay (затухание света с расстоянием)
+        // 2️⃣ LIGHT 2 — Позиция: 120° (сзади-слева)
+        const angle2 = (120 * Math.PI) / 180;
+        const light2 = new THREE.DirectionalLight(0xffffff, intensity);
+        light2.position.set(
+            Math.sin(angle2) * distance,
+            height,
+            Math.cos(angle2) * distance
         );
-        // Позиция будет устанавливаться динамически при открытии двери (внутри шкафа)
-        interiorPointLight.position.set(0, 1000, 0); // Центр (начальная)
-        this.scene.add(interiorPointLight);
+        this.scene.add(light2);
         
-        // Добавляем визуализацию PointLight (для отладки)
-        const pointLightHelper = new THREE.PointLightHelper(interiorPointLight, 50);
-        this.scene.add(pointLightHelper);
-        this.pointLightHelper = pointLightHelper;
-        
-        console.log('💡 Interior PointLight создан:', {
-            intensity: interiorPointLight.intensity,
-            distance: interiorPointLight.distance,
-            decay: interiorPointLight.decay,
-            position: interiorPointLight.position
-        });
-        
-        // ═══════════════════════════════════════════════════════════════
-        // 🌍 ОКРУЖАЮЩАЯ СРЕДА (HDR Environment Map)
-        // ═══════════════════════════════════════════════════════════════
-        // Загружаем реальный HDR для фотореалистичных отражений
-        const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
-        pmremGenerator.compileEquirectangularShader();
-        
-        const rgbeLoader = new RGBELoader();
-        console.log('🔄 Начинаю загрузку HDR: /assets/hdri/warehouse.hdr');
-        
-        rgbeLoader.load(
-            '/assets/hdri/warehouse.hdr',
-            (hdrTexture) => {
-                // Успешная загрузка HDR
-                console.log('📦 HDR текстура загружена, обработка...');
-                const envMap = pmremGenerator.fromEquirectangular(hdrTexture).texture;
-                
-                this.scene.environment = envMap;  // ← Отражения для PBR-материалов
-                this.environmentMap = envMap;     // ← Сохраняем для GUI
-                
-                console.log('✅ HDR Environment загружен: Warehouse (industrial_sunset_puresky)');
-                
-                hdrTexture.dispose();
-                pmremGenerator.dispose();
-            },
-            undefined,
-            (error) => {
-                // Fallback на RoomEnvironment при ошибке
-                console.warn('⚠️ Ошибка загрузки HDR, используем RoomEnvironment:', error);
-                
-                const roomEnvironment = new RoomEnvironment(this.renderer);
-                const envMap = pmremGenerator.fromScene(roomEnvironment).texture;
-                
-                this.scene.environment = envMap;
-                this.environmentMap = envMap;
-                
-                pmremGenerator.dispose();
-                console.log('🌍 Environment: RoomEnvironment (fallback)');
-            }
+        // 3️⃣ LIGHT 3 — Позиция: 240° (сзади-справа)
+        const angle3 = (240 * Math.PI) / 180;
+        const light3 = new THREE.DirectionalLight(0xffffff, intensity);
+        light3.position.set(
+            Math.sin(angle3) * distance,
+            height,
+            Math.cos(angle3) * distance
         );
+        this.scene.add(light3);
         
-        console.log('✅ Освещение настроено: 3-точечная схема + Environment');
+        console.log('✅ Освещение настроено: 3 источника на равном расстоянии');
+        console.log('  Расстояние:', distance, 'мм');
+        console.log('  Высота:', height, 'мм');
+        console.log('  Интенсивность:', intensity);
         
-        // Сохраняем ссылки на источники света для GUI
-        this.keyLight = keyLight;
-        this.fillLight = fillLight;
-        this.rimLight = rimLight;
-        this.ambientLight = ambientLight;
-        this.interiorPointLight = interiorPointLight;
+        // Сохраняем ссылки на источники света
+        this.light1 = light1;
+        this.light2 = light2;
+        this.light3 = light3;
     }
     
     /**
@@ -819,6 +771,11 @@ export class SceneManager {
         // Обновить TWEEN анимации шкафов (двери, движение и т.д.)
         tweenGroup.update();
         
+        // Обновить глобальные TWEEN анимации (камера, переходы режимов)
+        if (typeof TWEEN !== 'undefined' && TWEEN.update) {
+            TWEEN.update();
+        }
+        
         this.controls.update();
         this.renderer.render(this.scene, this.camera);
         
@@ -834,38 +791,9 @@ export class SceneManager {
         this.scene.remove(object);
     }
     
-    focusOnObject(object) {
-        // Автофокусировка камеры на bounding box модели (как в gltf-viewer)
-        const box = new THREE.Box3().setFromObject(object);
-        const center = new THREE.Vector3();
-        const size = new THREE.Vector3();
-        box.getCenter(center);
-        box.getSize(size);
-
-        // Вычисляем максимальное измерение
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const fov = this.camera.fov * (Math.PI / 180);
-        let cameraDistance = Math.abs(maxDim / 2 / Math.tan(fov / 2));
-        cameraDistance *= 1.5; // как в gltf-viewer — чуть дальше
-
-    // Ограничения
-    cameraDistance = Math.max(1000, cameraDistance);
-    this.updateCameraClipping(box);
-        if (cameraDistance > this.controls.maxDistance) {
-            this.controls.maxDistance = cameraDistance * 2;
-        }
-
-        // Камера позиционируется по диагонали от центра bounding box
-        this.camera.position.set(
-            center.x + cameraDistance,
-            center.y + cameraDistance,
-            center.z + cameraDistance
-        );
-        this.camera.lookAt(center);
-        this.controls.target.copy(center);
-        this.controls.update();
-    }
-
+    // focusOnObject() УДАЛЁН — камера остаётся в начальной позиции (вид с севера)
+    // Причина: метод разворачивал камеру после загрузки шкафа
+    
     updateCameraClipping(box) {
         if (!box) return;
         const size = new THREE.Vector3();
@@ -1011,72 +939,16 @@ export class SceneManager {
     }
     
     /**
-     * Сброс камеры в исходное положение
+     * Сброс камеры в исходное положение (вид с севера, азимут 0°)
      */
     resetCamera() {
-        // Используем автофокус на все объекты сцены
-        const allObjects = this.scene.children.filter(child => 
-            child.userData.isCabinet || child.type === 'Group'
-        );
+        // Возвращаем камеру в начальную позицию (вид с севера)
+        const defaultDistance = 5000;         // Расстояние от центра
+        const defaultPolar = Math.acos(2500 / Math.sqrt(3000 * 3000 + 2500 * 2500 + 3000 * 3000)); // Исходный наклон
+        const defaultAzimuth = 0;             // Азимут 0° = вид строго с СЕВЕРА
         
-        if (allObjects.length > 0) {
-            this.focusOnObject(allObjects[0]); // Фокус на первый шкаф
-        } else {
-            // Если шкафов нет, возвращаем дефолтную позицию
-            const defaultDistance = 2000;
-            const defaultPolar = Math.PI / 3; // 60 градусов
-            const defaultAzimuth = Math.PI / 4; // 45 градусов
-            
-            this.animateCameraRotation(defaultAzimuth, defaultPolar);
-            this.animateCameraZoom(defaultDistance);
-        }
-    }
-    
-    /**
-     * Загрузить PBR-текстуры (albedo, normal, roughness, ao)
-     * @param {string} basePath - Путь к текстурам без расширения, например '/assets/textures/metal/brushed'
-     * @returns {Promise<Object>} - Объект с загруженными текстурами
-     */
-    async loadPBRTextures(basePath) {
-        const textureLoader = new THREE.TextureLoader();
-        const textures = {};
-        
-        // Список возможных карт и их суффиксов
-        const maps = {
-            map: '_albedo.jpg',           // Базовый цвет (diffuse/albedo)
-            normalMap: '_normal.jpg',      // Карта нормалей
-            roughnessMap: '_roughness.jpg',// Карта шероховатости
-            aoMap: '_ao.jpg',              // Ambient Occlusion
-            metalnessMap: '_metalness.jpg' // Металличность
-        };
-        
-        // Загрузить все текстуры параллельно
-        const promises = Object.entries(maps).map(([key, suffix]) => {
-            return new Promise((resolve) => {
-                const path = basePath + suffix;
-                textureLoader.load(
-                    path,
-                    (texture) => {
-                        // Настройки для качественного рендеринга
-                        texture.wrapS = THREE.RepeatWrapping;
-                        texture.wrapT = THREE.RepeatWrapping;
-                        texture.colorSpace = (key === 'map') ? THREE.SRGBColorSpace : THREE.LinearSRGBColorSpace;
-                        textures[key] = texture;
-                        console.log(`✅ Текстура загружена: ${path}`);
-                        resolve();
-                    },
-                    undefined,
-                    (error) => {
-                        // Не критично, если какая-то карта отсутствует
-                        console.warn(`⚠️ Текстура не найдена (пропускаем): ${path}`);
-                        resolve();
-                    }
-                );
-            });
-        });
-        
-        await Promise.all(promises);
-        return textures;
+        this.animateCameraRotation(defaultAzimuth, defaultPolar);
+        this.animateCameraZoom(defaultDistance);
     }
     
     /**
@@ -1230,57 +1102,6 @@ export class SceneManager {
         this.renderer.dispose();
         this.controls.dispose();
         this.container.innerHTML = '';
-    }
-    
-    /**
-     * 🔧 Загрузка модели автоматического выключателя
-     */
-    async loadCircuitBreaker() {
-        // Динамически импортируем GLTFLoader и DRACOLoader
-        const { GLTFLoader } = await import('../libs/GLTFLoader.js');
-        const { DRACOLoader } = await import('../libs/DRACOLoader.js');
-        
-        const loader = new GLTFLoader();
-        
-        // Настроить DRACOLoader для сжатых моделей
-        const dracoLoader = new DRACOLoader();
-        dracoLoader.setDecoderPath('/js/libs/draco/');
-        dracoLoader.setDecoderConfig({ type: 'js' });
-        loader.setDRACOLoader(dracoLoader);
-        console.log('✅ DRACOLoader настроен для circuit_breaker');
-        
-        loader.load(
-            '/assets/models/equipment/circuit_breaker/circuit_breaker.glb',
-            (gltf) => {
-                const circuitBreaker = gltf.scene;
-                
-                // Настройка позиции (по центру комнаты, на полу)
-                circuitBreaker.position.set(0, 0, 0);
-                circuitBreaker.scale.set(1, 1, 1);
-                
-                // Включить тени
-                circuitBreaker.traverse((child) => {
-                    if (child.isMesh) {
-                        child.castShadow = true;
-                        child.receiveShadow = true;
-                    }
-                });
-                
-                // Добавить на сцену
-                this.scene.add(circuitBreaker);
-                
-                console.log('✅ Circuit breaker загружен и добавлен на сцену');
-                console.log('  Позиция:', circuitBreaker.position);
-                console.log('  Масштаб:', circuitBreaker.scale);
-            },
-            (progress) => {
-                const percent = (progress.loaded / progress.total * 100).toFixed(1);
-                console.log(`⏳ Загрузка circuit_breaker.glb: ${percent}%`);
-            },
-            (error) => {
-                console.error('❌ Ошибка загрузки circuit_breaker.glb:', error);
-            }
-        );
     }
 }
 

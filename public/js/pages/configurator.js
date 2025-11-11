@@ -9,11 +9,15 @@ console.log('🔄 configurator.js начал загрузку');
 import { SceneManager } from '../modules/SceneManager.js';
 import { CabinetModel } from '../modules/CabinetModel.js';
 import { CabinetManager } from '../modules/CabinetManager.js';
+import { EquipmentManager } from '../modules/EquipmentManager.js';
 import { InteractionController } from '../modules/InteractionController.js';
 import { createFresnelOutline } from '../modules/ShaderUtils.js';
 import { GLTFLoader } from '../libs/GLTFLoader.js';
 import { DRACOLoader } from '../libs/DRACOLoader.js';
 import * as THREE from '../libs/three.module.js';
+import { getCabinetById } from '../data/cabinets-catalog.js';
+import { getEquipmentById, getAvailableEquipment } from '../data/equipment-catalog.js';
+import * as TWEEN from '../libs/tween.esm.js';
 
 class CabinetConfigurator {
     constructor(containerSelector) {
@@ -27,27 +31,15 @@ class CabinetConfigurator {
         // Менеджеры
         this.sceneManager = null;
         this.cabinetManager = null;
+        this.equipmentManager = null;
         this.interactionController = null;
         
-        // ====== ЦВЕТОВАЯ СХЕМА ШКАФОВ (HEX-цвета) ======
-        // Формат: 0xRRGGBB (Red, Green, Blue в шестнадцатеричной системе)
-        // Пример: 0xFF0000 = красный, 0x00FF00 = зеленый, 0x0000FF = синий
-        this.cabinetColorScheme = {
-            // Цвет по умолчанию (fallback для неопознанных частей)
-            default: 0x673831,           // Коричневый (RGB: 103, 56, 49)
-            
-            // ОСНОВНЫЕ ЧАСТИ ШКАФА:
-            body: 0x673831,              // Корпус/каркас шкафа (коричневый)
-            door: 0x673831,              // Дверца шкафа (коричневый)
-            panel: 0x673831,             // Монтажная панель внутри (коричневый)
-            
-            // ИЗОЛЯЦИОННЫЕ ЭЛЕМЕНТЫ:
-            insulation: 0xE8E8E8,        // Изоляционный материал/прокладки (светло-серый, почти белый)
-            insulationFrame: 0xC0C0C0,   // Рамка вокруг изоляции (серебристый металл)
-            
-            // МОНТАЖНЫЕ КОМПОНЕНТЫ:
-            dinRail: 0xA8A8A8            // DIN-рейки для крепления оборудования (темно-серый металл)
-        };
+        // Режим работы: 'overview' (обзор) или 'assembly' (сборка)
+        this.mode = 'overview';
+        this.isEnteringAssemblyMode = false; // Флаг процесса входа в режим
+        this.assemblyState = null; // Сохранённое состояние для отката
+        this.currentPanel = null; // Панель, которая извлечена в режиме сборки (deprecated)
+        this.originalPanelPosition = null; // Исходная позиция панели (deprecated)
         
         // Подсветка выбора (Fresnel)
         this.selectedMesh = null;
@@ -70,6 +62,9 @@ class CabinetConfigurator {
         // Менеджер шкафов
         this.cabinetManager = new CabinetManager(this.sceneManager);
         
+        // Менеджер оборудования
+        this.equipmentManager = new EquipmentManager(this.sceneManager, this.cabinetManager);
+        
         // Контроллер взаимодействия
         this.interactionController = new InteractionController(
             this.sceneManager, 
@@ -82,14 +77,17 @@ class CabinetConfigurator {
         // Загрузить тестовый шкаф
         await this.loadTestCabinet();
         
-        // ═══════════════════════════════════════════════════════════════
-        // 🔌 ОТЛАДКА: Загрузка выключателя БЕЗ шкафа (напрямую на сцену)
-        // ═══════════════════════════════════════════════════════════════
-        // console.log('🔌 Загрузка выключателя в режиме отладки (без шкафа)...');
-        await this.loadTestEquipment(null);  // null = загрузка напрямую на сцену (ОТКЛЮЧЕНО)
+        // 🧪 ТЕСТ: Автоматически добавить выключатель на шкаф
+        await this.addTestCircuitBreaker();
         
         // Настроить контролы камеры
         this.setupCameraControls();
+        
+        // Настроить кнопку перехода в режим сборки
+        this.setupAssemblyModeButton();
+        
+        // Заполнить библиотеку оборудования
+        this.populateEquipmentLibrary();
         
         // ═══════════════════════════════════════════════════════════════
         // 🎛️ ДОБАВЛЕНИЕ GUI-ПАНЕЛИ УПРАВЛЕНИЯ
@@ -173,6 +171,213 @@ class CabinetConfigurator {
                     break;
             }
         });
+        
+        // Обработчик клавиши Esc для выхода из режима сборки
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && this.mode === 'assembly') {
+                event.preventDefault();
+                this.exitAssemblyMode();
+            }
+        });
+    }
+    
+    /**
+     * Настроить кнопку "Начать сборку" и "Готово"
+     */
+    setupAssemblyModeButton() {
+        // Кнопка "Начать сборку"
+        const startButton = document.getElementById('start-assembly-btn');
+        if (startButton) {
+            // Удалить старые обработчики (если были)
+            const oldHandler = startButton.__assemblyHandler;
+            if (oldHandler) {
+                startButton.removeEventListener('click', oldHandler);
+            }
+            
+            // Создать новый обработчик
+            const newHandler = () => {
+                this.enterAssemblyMode();
+            };
+            
+            // Сохранить ссылку на обработчик
+            startButton.__assemblyHandler = newHandler;
+            
+            // Добавить обработчик
+            startButton.addEventListener('click', newHandler);
+            console.log('✅ Кнопка "Начать сборку" подключена');
+        }
+        
+        // Кнопка "Готово" (в индикаторе режима)
+        const finishButton = document.getElementById('finish-assembly-btn');
+        if (finishButton) {
+            // Удалить старые обработчики (если были)
+            const oldHandler = finishButton.__assemblyHandler;
+            if (oldHandler) {
+                finishButton.removeEventListener('click', oldHandler);
+            }
+            
+            // Создать новый обработчик
+            const newHandler = () => {
+                this.exitAssemblyMode();
+            };
+            
+            // Сохранить ссылку на обработчик
+            finishButton.__assemblyHandler = newHandler;
+            
+            // Добавить обработчик
+            finishButton.addEventListener('click', newHandler);
+            console.log('✅ Кнопка "Готово" подключена');
+        }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // 🔧 УПРАВЛЕНИЕ РЕЖИМАМИ (OVERVIEW / ASSEMBLY)
+    // ═══════════════════════════════════════════════════════════════
+    
+    /**
+     * Переход в режим сборки
+     * - Анимация камеры к панели
+     * - Извлечение панели из шкафа
+     * - Масштабирование панели до 80% viewport
+     * - Отключение OrbitControls
+     * - Показ UI режима сборки
+     */
+    async enterAssemblyMode(cabinetId = null) {
+        if (this.mode === 'assembly') {
+            console.warn('⚠️ Уже в режиме сборки');
+            return;
+        }
+        
+        if (this.isEnteringAssemblyMode) {
+            console.warn('⚠️ Переход в режим сборки уже выполняется...');
+            return;
+        }
+        
+        console.log('🚀 Вход в режим сборки...');
+        this.isEnteringAssemblyMode = true;
+        this.mode = 'assembly';
+        
+        // Получить шкаф (по умолчанию первый или выбранный)
+        let cabinet = null;
+        
+        if (cabinetId) {
+            // Если указан ID, получить конкретный шкаф
+            cabinet = this.cabinetManager.getCabinetById(cabinetId);
+        } else if (this.cabinetManager.selectedCabinet) {
+            // Использовать выбранный шкаф
+            cabinet = this.cabinetManager.selectedCabinet;
+        } else {
+            // Взять первый шкаф из Map
+            const firstCabinet = this.cabinetManager.cabinets.values().next().value;
+            cabinet = firstCabinet;
+        }
+            
+        if (!cabinet) {
+            console.error('❌ Шкаф не найден для режима сборки');
+            console.error('  Доступные шкафы:', this.cabinetManager.cabinets);
+            console.error('  Количество:', this.cabinetManager.cabinets.size);
+            console.error('  Выбранный шкаф:', this.cabinetManager.selectedCabinet);
+            
+            alert('Шкаф не загружен. Пожалуйста, подождите завершения загрузки.');
+            this.mode = 'overview';
+            return;
+        }
+        
+        console.log('✅ Шкаф найден:', cabinet.id);
+        
+        // Найти ключевые объекты в шкафу
+        console.log('🔍 Поиск объектов шкафа...');
+        const objects = this.findCabinetObjects(cabinet);
+        
+        if (!objects.panel) {
+            console.error('❌ Панель PANEL.003 не найдена');
+            alert('Ошибка: панель для сборки не найдена в модели шкафа');
+            this.mode = 'overview';
+            return;
+        }
+        
+        console.log('✅ Найденные объекты:', {
+            panel: objects.panel?.name,
+            door: objects.door?.name,
+            dinRails: objects.dinRails.map(r => r.name)
+        });
+        
+        // Сохранить состояние для отката
+        this.assemblyState = {
+            cabinet: cabinet,
+            panel: objects.panel,
+            door: objects.door,
+            dinRails: objects.dinRails,
+            originalPanelScale: objects.panel.scale.clone(),
+            originalDoorRotation: objects.door ? objects.door.rotation.clone() : null,
+            originalCabinetRotation: cabinet.model.rotation.clone(),
+            isDoorOpen: cabinet.isDoorOpen || false
+        };
+        
+        console.log('💾 Состояние сохранено');
+        
+        try {
+            // Вызвать встроенный метод шкафа для входа в режим сборки
+            console.log('� Вызов cabinet.enterAssemblyMode()...');
+            await cabinet.enterAssemblyMode();
+            
+            // Отключить OrbitControls
+            this.sceneManager.controls.enabled = false;
+            
+            // Показать UI режима сборки
+            this.showAssemblyUI();
+            
+            console.log('✅ Режим сборки активирован');
+            this.isEnteringAssemblyMode = false;
+        } catch (error) {
+            console.error('❌ Ошибка входа в режим сборки:', error);
+            this.mode = 'overview';
+            this.isEnteringAssemblyMode = false;
+            return;
+        }
+    }
+    
+    /**
+     * Выход из режима сборки
+     * Возвращает всё в исходное состояние
+     */
+    async exitAssemblyMode() {
+        if (this.mode !== 'assembly') {
+            console.warn('⚠️ Не в режиме сборки');
+            return;
+        }
+        
+        console.log('🔙 Выход из режима сборки...');
+        
+        if (!this.assemblyState) {
+            console.error('❌ Состояние сборки не сохранено');
+            this.mode = 'overview';
+            return;
+        }
+        
+        const state = this.assemblyState;
+        
+        try {
+            // Скрыть UI режима сборки
+            this.hideAssemblyUI();
+            
+            // Вызвать встроенный метод шкафа для выхода из режима сборки
+            console.log('� Вызов cabinet.exitAssemblyMode()...');
+            await state.cabinet.exitAssemblyMode();
+            
+            // Включить OrbitControls
+            this.sceneManager.controls.enabled = true;
+            
+            // Очистить состояние
+            this.assemblyState = null;
+            this.mode = 'overview';
+            
+            console.log('✅ Режим обзора активирован');
+        } catch (error) {
+            console.error('❌ Ошибка выхода из режима сборки:', error);
+            this.mode = 'overview';
+            this.sceneManager.controls.enabled = true;
+        }
     }
     
     setupCallbacks() {
@@ -212,28 +417,71 @@ class CabinetConfigurator {
         };
     }
     
+    /**
+     * 🔨 Добавить оборудование из каталога по ID
+     * Вызывается при drag & drop из боковой панели
+     */
+    async addEquipmentFromCatalog(catalogId) {
+        
+        try {
+            // Создать экземпляр оборудования
+            const equipment = await this.equipmentManager.createEquipment(catalogId);
+            
+            return equipment;
+            
+        } catch (error) {
+            console.error('❌ Ошибка создания оборудования:', error);
+            return null;
+        }
+    }
+    
+    /**
+     * 🔧 Разместить оборудование на шкафу
+     * Вызывается после drag & drop на шкаф
+     */
+    async placeEquipmentOnCabinet(equipment, cabinetId, options = {}) {
+        const cabinet = this.cabinetManager.getCabinetById(cabinetId);
+        if (!cabinet) {
+            console.error('❌ Шкаф не найден');
+            return false;
+        }
+        
+        const success = await this.equipmentManager.placeOnCabinet(equipment, cabinet, options);
+        
+        if (success) {
+            this.updateUI(cabinet);
+        }
+        
+        return success;
+    }
+    
+    /**
+     * 🧪 ТЕСТОВЫЙ МЕТОД: Добавить автоматический выключатель на шкаф
+     * Используется для демонстрации работы системы
+     */
+    async addTestCircuitBreaker() {
+        // Получить первый шкаф на сцене
+        const cabinet = Array.from(this.cabinetManager.cabinets.values())[0];
+        if (!cabinet) {
+            console.error('❌ На сцене нет шкафов. Сначала добавьте шкаф.');
+            return;
+        }
+        
+        // Создать оборудование
+        const equipment = await this.addEquipmentFromCatalog('circuit_breaker_1p');
+        if (!equipment) return;
+        
+        // Разместить на первой DIN-рейке
+        await this.placeEquipmentOnCabinet(equipment, cabinet.id, {
+            dinRailIndex: 0
+        });
+    }
+    
     async loadTestCabinet() {
         console.log('🚀🚀🚀 loadTestCabinet() НАЧАТ 🚀🚀🚀');
         
         const modelPath = '/assets/models/thermocabinets/tsh_700_500_240/tsh_700_500_240.glb';
         console.log('📁 Путь к модели:', modelPath);
-        
-        // ═══════════════════════════════════════════════════════════════
-        // 🖼️ ТЕКСТУРНАЯ СХЕМА (PBR-текстуры из KeyShot)
-        // ═══════════════════════════════════════════════════════════════
-        // Путь БЕЗ суффиксов! SceneManager.loadPBRTextures() автоматически добавит:
-        // - _albedo.jpg (базовый цвет)
-        // - _normal.png (карта нормалей)
-        // - _roughness.jpg (шероховатость)
-        // - _ao.jpg (ambient occlusion)
-        // - _metalness.jpg (металличность, опционально)
-        const textureScheme = {
-            body: '/assets/textures/metal/keyshot/brushed',      // Корпус
-            door: '/assets/textures/metal/keyshot/brushed',      // Дверца
-            panel: '/assets/textures/metal/keyshot/brushed',     // Панель
-            dinRail: '/assets/textures/metal/keyshot/brushed'    // DIN-рейки
-            // insulation и insulationFrame используют цвета без текстур
-        };
         
         console.log('🏗️ Создание CabinetModel...');
         const cabinet = new CabinetModel(modelPath, {
@@ -241,11 +489,8 @@ class CabinetConfigurator {
             width: 700,
             height: 500,
             depth: 240,
-            name: 'TSH 700×500×240',
-            color: this.cabinetColorScheme.default,
-            colorScheme: this.cabinetColorScheme,
-            textureScheme: textureScheme  // ← Добавляем текстурную схему
-        }, this.sceneManager.renderer, this.sceneManager);  // ← Передаём renderer и sceneManager
+            name: 'TSH 700×500×240'
+        }, this.sceneManager.renderer, this.sceneManager);
         console.log('✅ CabinetModel создан, ID:', cabinet.id);
         
         try {
@@ -259,14 +504,8 @@ class CabinetConfigurator {
             console.log('🖥️ Обновление UI...');
             this.updateUI(cabinet);
             
-            console.log('📷 Фокусировка камеры на объект...');
-            this.sceneManager.focusOnObject(cabinet.model);
-            
-            // ═══════════════════════════════════════════════════════════════
-            // 🔌 ЗАГРУЗКА ОБОРУДОВАНИЯ (Автоматический выключатель)
-            // ═══════════════════════════════════════════════════════════════
-            console.log('🔌 Загрузка оборудования на DIN-рейку...');
-            await this.loadTestEquipment(cabinet);  // ← С шкафом
+            // console.log('📷 Фокусировка камеры на объект...');
+            // this.sceneManager.focusOnObject(cabinet.model); // ОТКЛЮЧЕНО: оставляем начальный вид с севера
             
             console.log('✅✅✅ loadTestCabinet() ЗАВЕРШЁН УСПЕШНО ✅✅✅');
         } catch (error) {
@@ -279,161 +518,16 @@ class CabinetConfigurator {
         }
     }
     
-    /**
-     * 🔌 Загрузка тестового оборудования на DIN-рейки
-     * Добавляет автоматический выключатель на первую DIN-рейку шкафа
-     * 
-     * ⚠️ РЕЖИМ ОТЛАДКИ: Если cabinet = null, загружает напрямую на сцену (без шкафа)
-     */
-    async loadTestEquipment(cabinet = null) {
-        try {
-            console.log('🔄 loadTestEquipment() начат');
-            console.log('  Cabinet:', cabinet ? cabinet.id : 'null (загрузка напрямую на сцену)');
-            
-            const equipmentPath = '/assets/models/equipment/circuit_breaker/circuit_breaker.glb';
-            console.log('📁 Путь к оборудованию:', equipmentPath);
-            
-            // Настроить DRACOLoader для сжатых моделей
-            const loader = new GLTFLoader();
-            const dracoLoader = new DRACOLoader();
-            dracoLoader.setDecoderPath('/js/libs/draco/');
-            dracoLoader.setDecoderConfig({ type: 'js' });  // Авто-выбор WASM/JS
-            loader.setDRACOLoader(dracoLoader);
-            console.log('✅ DRACOLoader настроен для оборудования');
-            
-            const gltf = await new Promise((resolve, reject) => {
-                loader.load(
-                    equipmentPath,
-                    (gltf) => {
-                        console.log('✅ Оборудование загружено:', equipmentPath);
-                        resolve(gltf);
-                    },
-                    (progress) => {
-                        const percent = (progress.loaded / progress.total * 100).toFixed(1);
-                        console.log(`⏳ Загрузка: ${percent}%`);
-                    },
-                    (error) => {
-                        console.error('❌ Ошибка загрузки оборудования:', error);
-                        reject(error);
-                    }
-                );
-            });
-            
-            const equipmentModel = gltf.scene;
-            
-            // ═══════════════════════════════════════════════════════════════
-            // 📊 ДИАГНОСТИКА МОДЕЛИ
-            // ═══════════════════════════════════════════════════════════════
-            const bbox = new THREE.Box3().setFromObject(equipmentModel);
-            const size = new THREE.Vector3();
-            const center = new THREE.Vector3();
-            bbox.getSize(size);
-            bbox.getCenter(center);
-            
-            console.log('📏 ИСХОДНЫЕ размеры модели из GLB:');
-            console.log('  Ширина (X):', size.x.toFixed(2), 'единиц');
-            console.log('  Высота (Y):', size.y.toFixed(2), 'единиц');
-            console.log('  Глубина (Z):', size.z.toFixed(2), 'единиц');
-            console.log('  Центр:', center);
-            
-            // Настроить масштаб оборудования (автоматический выключатель обычно ~18мм шириной)
-            const targetWidth = 18; // мм (1 модуль DIN)
-            const scaleFactor = targetWidth / size.x;
-            equipmentModel.scale.setScalar(scaleFactor);
-            equipmentModel.updateMatrixWorld(true);
-            
-            console.log(`🔢 Вычисленный scaleFactor: ${scaleFactor.toFixed(6)}x`);
-            console.log(`💡 В GLB модели: 1 единица = ${(targetWidth / scaleFactor).toFixed(2)} мм`);
-            
-            // Проверка после масштабирования
-            const scaledBox = new THREE.Box3().setFromObject(equipmentModel);
-            const scaledSize = new THREE.Vector3();
-            scaledBox.getSize(scaledSize);
-            
-            console.log('✅ Размеры после масштабирования:');
-            console.log('  Ширина:', scaledSize.x.toFixed(2), 'мм (ожидалось', targetWidth, 'мм)');
-            console.log('  Высота:', scaledSize.y.toFixed(2), 'мм');
-            console.log('  Глубина:', scaledSize.z.toFixed(2), 'мм');
-            
-            // Включить тени
-            equipmentModel.traverse((child) => {
-                if (child.isMesh) {
-                    child.castShadow = true;
-                    child.receiveShadow = true;
-                }
-            });
-            
-            // ═══════════════════════════════════════════════════════════════
-            // 🎯 РАЗМЕЩЕНИЕ МОДЕЛИ
-            // ═══════════════════════════════════════════════════════════════
-            console.log('🔍 Проверка наличия шкафа и DIN-реек:');
-            console.log('  cabinet:', cabinet);
-            console.log('  cabinet.dinRails:', cabinet ? cabinet.dinRails : 'N/A');
-            console.log('  dinRails.length:', cabinet && cabinet.dinRails ? cabinet.dinRails.length : 0);
-            
-            if (cabinet && cabinet.dinRails && cabinet.dinRails.length > 0) {
-                // Режим 1: Добавить на DIN-рейку шкафа
-                console.log('📍 Режим: Добавление на DIN-рейку шкафа');
-                console.log('  Доступно DIN-реек:', cabinet.dinRails.length);
-                
-                const success = cabinet.addEquipment(equipmentModel, 0);
-                
-                if (success) {
-                    console.log('✅ Оборудование добавлено на DIN-рейку #0');
-                    console.log('  Родитель:', equipmentModel.parent);
-                    console.log('  Позиция:', equipmentModel.position);
-                } else {
-                    console.error('❌ Не удалось добавить оборудование на рейку');
-                    console.warn('⚠️ Пробуем добавить напрямую на сцену...');
-                    
-                    // Fallback: добавить на сцену
-                    equipmentModel.position.set(200, 50, 0);  // Рядом со шкафом
-                    this.sceneManager.addToScene(equipmentModel);
-                    console.log('✅ Оборудование добавлено напрямую на сцену (fallback)');
-                }
-            } else {
-                // Режим 2: ОТЛАДКА - Добавить напрямую на сцену (в центре, на полу)
-                console.warn('⚠️ DIN-рейки не найдены!');
-                if (cabinet) {
-                    console.warn('  Cabinet существует, но dinRails =', cabinet.dinRails);
-                    console.warn('  Проверьте метод findDinRails() в CabinetModel');
-                }
-                
-                console.log('📍 Режим ОТЛАДКИ: Добавление напрямую на сцену');
-                
-                // Позиция: рядом со шкафом (если есть) или в центре
-                const posX = cabinet ? 300 : 0;
-                const posY = cabinet ? 100 : 0;
-                const posZ = cabinet ? 0 : 0;
-                
-                equipmentModel.position.set(posX, posY, posZ);
-                
-                // Добавить напрямую на сцену
-                this.sceneManager.addToScene(equipmentModel);
-                
-                console.log('✅ Оборудование добавлено напрямую на сцену');
-                console.log('  Позиция:', equipmentModel.position);
-                console.log('  Масштаб:', equipmentModel.scale);
-            }
-            
-        } catch (error) {
-            console.error('❌ Ошибка в loadTestEquipment():', error);
-            console.error('  Stack:', error.stack);
-        }
-    }
-    
     async addCabinet(type = 'floor') {
-        const modelPath = '/assets/models/thermocabinets/tsh_700_500_240/tsh_700_500_240.gltf';
+        const modelPath = '/assets/models/thermocabinets/tsh_700_500_240/tsh_700_500_240.glb';
         
         const cabinet = new CabinetModel(modelPath, {
             type: type,
             width: 700,
             height: 500,
             depth: 240,
-            name: `TSH ${type === 'wall' ? 'настенный' : 'напольный'}`,
-            color: this.cabinetColorScheme.default,
-            colorScheme: this.cabinetColorScheme
-        }, this.sceneManager.renderer, this.sceneManager);  // ← Передаём renderer и sceneManager
+            name: `TSH ${type === 'wall' ? 'настенный' : 'напольный'}`
+        }, this.sceneManager.renderer, this.sceneManager);
         
         await this.cabinetManager.addCabinet(cabinet);
         return cabinet;
@@ -649,34 +743,6 @@ class CabinetConfigurator {
             this.cabinetManager.rotateCabinet(cabinetId, newRotation);
         }
     }
-    
-    changeCabinetColor(cabinetId, colorHex) {
-        const cabinet = this.cabinetManager.getCabinetById(cabinetId);
-        if (cabinet) {
-            const color = parseInt(colorHex.replace('#', '0x'), 16);
-            cabinet.setColor(color);
-        }
-    }
-
-    /**
-     * Изменить текстуру части шкафа
-     * @param {string} cabinetId 
-     * @param {string} partName - 'body', 'door', 'insulation' и т.д.
-     * @param {string} texturePath - Путь без расширения
-     */
-    async changeCabinetTexture(cabinetId, partName, texturePath) {
-        const cabinet = this.cabinetManager.getCabinetById(cabinetId);
-        if (!cabinet) return;
-        
-        // Обновить схему
-        if (!cabinet.textureScheme) cabinet.textureScheme = {};
-        cabinet.textureScheme[partName] = texturePath;
-        
-        // Перезагрузить текстуры
-        await cabinet.applyTextures(cabinet.model);
-        
-        console.log(`✅ Текстура ${partName} изменена на ${texturePath}`);
-    }
 
     // ====== Подсветка выбора (Fresnel) ======
     async setSelectedMesh(mesh) {
@@ -691,24 +757,6 @@ class CabinetConfigurator {
         try {
             this.selectedOutline = await createFresnelOutline(mesh, this.highlightOptions);
             this.sceneManager.scene.add(this.selectedOutline);
-            
-            // ОТЛАДКА: вывести информацию о созданном outline
-            console.log('🎨 Outline создан:', {
-                visible: this.selectedOutline.visible,
-                scale: this.selectedOutline.scale,
-                renderOrder: this.selectedOutline.renderOrder,
-                material: {
-                    transparent: this.selectedOutline.material.transparent,
-                    depthWrite: this.selectedOutline.material.depthWrite,
-                    blending: this.selectedOutline.material.blending,
-                    uniforms: {
-                        uIntensity: this.selectedOutline.material.uniforms.uIntensity.value,
-                        uPower: this.selectedOutline.material.uniforms.uPower.value,
-                        uOpacity: this.selectedOutline.material.uniforms.uOpacity.value,
-                        uColor: this.selectedOutline.material.uniforms.uColor.value
-                    }
-                }
-            });
         } catch (e) {
             console.error('❌ Не удалось создать подсветку:', e);
         }
@@ -790,6 +838,637 @@ class CabinetConfigurator {
             if (child.isMesh && child.userData?.equipmentId === equipmentId) eqMesh = child;
         });
         return this.setSelectedMesh(eqMesh || this.getPrimaryMesh(cabinet.model));
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // 🎬 АНИМАЦИИ ПЕРЕХОДОВ МЕЖДУ РЕЖИМАМИ
+    // ═══════════════════════════════════════════════════════════════
+    
+    /**
+     * Найти все ключевые объекты в шкафу для режима сборки
+     * @param {CabinetModel} cabinet - Модель шкафа
+     * @returns {Object} - Объект с найденными элементами
+     */
+    findCabinetObjects(cabinet) {
+        const objects = {
+            panel: null,
+            door: null,
+            dinRails: []
+        };
+        
+        console.log('🔍 Поиск объектов в шкафу...');
+        
+        cabinet.model.traverse((child) => {
+            const name = child.name?.toLowerCase() || '';
+            
+            // PANEL.003 - монтажная панель (гибкий поиск)
+            if (child.userData?.isPanel || 
+                name === 'panel.003' || 
+                name === 'panel003' ||
+                (name.includes('panel') && !name.includes('din'))) {
+                if (!objects.panel) { // Берём только первую найденную
+                    objects.panel = child;
+                    console.log('✅ Найдена панель:', child.name);
+                }
+            }
+            
+            // DOOR - дверь шкафа
+            if (child.userData?.isDoor || name === 'door') {
+                objects.door = child;
+                console.log('✅ Найдена дверь:', child.name);
+            }
+            
+            // DIN-рейки (ищем все, что содержит din_rail или din-rail)
+            if (child.userData?.isDinRail || 
+                name.includes('din_rail') || 
+                name.includes('din-rail') ||
+                name.includes('dinrail')) {
+                objects.dinRails.push(child);
+                console.log('📌 Найдена DIN-рейка:', child.name);
+            }
+        });
+        
+        console.log('📊 Результаты поиска:');
+        console.log('  - Панель:', objects.panel?.name || 'НЕ НАЙДЕНА');
+        console.log('  - Дверь:', objects.door?.name || 'НЕ НАЙДЕНА');
+        console.log('  - DIN-рейки:', objects.dinRails.length);
+        
+        return objects;
+    }
+    
+    /**
+     * Повернуть шкаф дверью к камере
+     */
+    async rotateCabinetToFront(cabinet, duration = 1000) {
+        return new Promise((resolve) => {
+            const startRotation = cabinet.model.rotation.y;
+            const targetRotation = Math.PI; // 180 градусов
+            
+            new TWEEN.Tween({ rotation: startRotation })
+                .to({ rotation: targetRotation }, duration)
+                .easing(TWEEN.Easing.Cubic.InOut)
+                .onUpdate(({ rotation }) => {
+                    cabinet.model.rotation.y = rotation;
+                })
+                .onComplete(() => {
+                    console.log('✅ Шкаф повёрнут дверью к камере');
+                    resolve();
+                })
+                .start();
+        });
+    }
+    
+    /**
+     * Вернуть поворот шкафа в исходное состояние
+     */
+    async rotateCabinetBack(cabinet, originalRotation, duration = 1000) {
+        return new Promise((resolve) => {
+            const startRotation = cabinet.model.rotation.y;
+            const targetRotation = originalRotation.y;
+            
+            new TWEEN.Tween({ rotation: startRotation })
+                .to({ rotation: targetRotation }, duration)
+                .easing(TWEEN.Easing.Cubic.InOut)
+                .onUpdate(({ rotation }) => {
+                    cabinet.model.rotation.y = rotation;
+                })
+                .onComplete(() => {
+                    console.log('✅ Шкаф возвращён в исходное положение');
+                    resolve();
+                })
+                .start();
+        });
+    }
+    
+    /**
+     * Масштабировать панель и DIN-рейки
+     * @param {THREE.Object3D} panel - Панель PANEL.003
+     * @param {Array} dinRails - Массив DIN-реек
+     * @param {number} targetScale - Целевой масштаб (3.0 = 300%)
+     * @param {number} duration - Длительность анимации (мс)
+     */
+    async scalePanelGroup(panel, dinRails, targetScale, duration = 1000) {
+        return new Promise((resolve) => {
+            const startScale = panel.scale.x;
+            
+            console.log(`📏 Масштабирование от ${startScale} до ${targetScale}`);
+            
+            new TWEEN.Tween({ scale: startScale })
+                .to({ scale: targetScale }, duration)
+                .easing(TWEEN.Easing.Cubic.InOut)
+                .onUpdate(({ scale }) => {
+                    // Масштабировать панель
+                    panel.scale.setScalar(scale);
+                    
+                    // Масштабировать все DIN-рейки
+                    dinRails.forEach(rail => {
+                        rail.scale.setScalar(scale);
+                    });
+                })
+                .onComplete(() => {
+                    console.log(`✅ Масштабирование завершено: ${targetScale * 100}%`);
+                    resolve();
+                })
+                .start();
+        });
+    }
+    
+    /**
+     * Найти панель с DIN-рейками в шкафу (старый метод - оставлен для совместимости)
+     * @param {CabinetModel} cabinet - Модель шкафа
+     * @returns {THREE.Object3D|null} - Панель с DIN-рейками
+     */
+    findDINPanel(cabinet) {
+        let panel = null;
+        let dinRails = [];
+        
+        console.log('🔍 Проход по дереву модели шкафа...');
+        console.log('📦 СТРУКТУРА ШКАФА:');
+        console.log('═══════════════════════════════════════════════════════════');
+        
+        // Функция для отображения дерева с отступами
+        const printTree = (obj, level = 0) => {
+            const indent = '  '.repeat(level);
+            const objType = obj.type || 'Object3D';
+            const userData = obj.userData ? JSON.stringify(obj.userData) : '{}';
+            
+            console.log(`${indent}├─ ${obj.name || 'unnamed'} (${objType})`);
+            console.log(`${indent}│  userData: ${userData}`);
+            console.log(`${indent}│  position: (${obj.position.x.toFixed(1)}, ${obj.position.y.toFixed(1)}, ${obj.position.z.toFixed(1)})`);
+            
+            if (obj.children && obj.children.length > 0) {
+                obj.children.forEach(child => printTree(child, level + 1));
+            }
+        };
+        
+        printTree(cabinet.model);
+        console.log('═══════════════════════════════════════════════════════════');
+        
+        let childCount = 0;
+        
+        cabinet.model.traverse((child) => {
+            childCount++;
+            
+            // Разделяем поиск: ПАНЕЛЬ vs DIN-РЕЙКИ
+            const childName = child.name?.toLowerCase() || '';
+            
+            // 1. Поиск панели (исключая DIN-рейки!)
+            if (child.userData?.isDINPanel) {
+                // Явно помечена как DIN-панель
+                console.log('✅ Найдена DIN-панель (userData):', child.name);
+                panel = child;
+            } else if (childName.includes('panel') && !childName.includes('din_rail')) {
+                // Имя содержит "panel", но не "din_rail"
+                console.log('✅ Найдена панель по имени:', child.name);
+                if (!panel) panel = child; // Берём первую найденную
+            }
+            
+            // 2. Поиск DIN-реек (для справки)
+            if (child.userData?.isDinRail || childName.includes('din_rail')) {
+                console.log('📌 Найдена DIN-рейка:', child.name);
+                dinRails.push(child);
+            }
+        });
+        
+        console.log(`📊 Всего объектов в модели: ${childCount}`);
+        console.log(`📌 Найдено DIN-реек: ${dinRails.length}`);
+        
+        // Если не нашли специфичную панель, используем весь шкаф
+        if (!panel) {
+            console.warn('⚠️ Специфичная DIN-панель не найдена, используем модель шкафа');
+            console.log('📦 Модель шкафа:', cabinet.model);
+            panel = cabinet.model;
+        } else {
+            console.log('✅ Выбранная панель для анимации:', panel.name);
+        }
+        
+        return panel;
+    }
+    
+    /**
+     * Анимировать камеру к панели
+     * @param {THREE.Object3D} panel - Целевая панель
+     * @param {number} duration - Длительность анимации (мс)
+     */
+    async animateCameraToPanel(panel, duration = 1000) {
+        console.log('📹 animateCameraToPanel() начат');
+        console.log('  Панель:', panel.name);
+        
+        return new Promise((resolve, reject) => {
+            try {
+                const camera = this.sceneManager.camera;
+                const controls = this.sceneManager.controls;
+                
+                console.log('  Камера:', camera.position);
+                console.log('  Controls target:', controls.target);
+                
+                // Вычислить целевую позицию камеры (перед панелью)
+                const panelBox = new THREE.Box3().setFromObject(panel);
+                const panelCenter = new THREE.Vector3();
+                panelBox.getCenter(panelCenter);
+                
+                const panelSize = new THREE.Vector3();
+                panelBox.getSize(panelSize);
+                
+                console.log('  Центр панели:', panelCenter);
+                console.log('  Размер панели:', panelSize);
+                
+                // Камера должна быть на расстоянии, чтобы панель занимала ~80% viewport
+                const distance = Math.max(panelSize.x, panelSize.y) * 1.5;
+                console.log('  Расстояние до панели:', distance);
+                
+                // Целевая позиция: перед панелью на оси Z
+                const targetPosition = new THREE.Vector3(
+                    panelCenter.x,
+                    panelCenter.y,
+                    panelCenter.z + distance
+                );
+                
+                console.log('  Целевая позиция камеры:', targetPosition);
+                
+                // Анимация камеры через TWEEN
+                const startPosition = camera.position.clone();
+                const startTarget = controls.target.clone();
+                
+                console.log('  Создание TWEEN анимации...');
+                
+                new TWEEN.Tween({ t: 0 })
+                    .to({ t: 1 }, duration)
+                    .easing(TWEEN.Easing.Cubic.InOut)
+                    .onUpdate(({ t }) => {
+                        camera.position.lerpVectors(startPosition, targetPosition, t);
+                        controls.target.lerpVectors(startTarget, panelCenter, t);
+                        controls.update();
+                    })
+                    .onComplete(() => {
+                        console.log('✅ Камера анимирована к панели');
+                        resolve();
+                    })
+                    .start();
+            } catch (error) {
+                console.error('❌ Ошибка в animateCameraToPanel:', error);
+                reject(error);
+            }
+        });
+    }
+    
+    /**
+     * Извлечь панель из шкафа (сдвинуть вперёд по Z)
+     * @param {THREE.Object3D} panel - Панель для извлечения
+     * @param {number} distance - Расстояние извлечения (мм)
+     * @param {number} duration - Длительность анимации (мс)
+     */
+    async pullOutPanel(panel, distance = 300, duration = 800) {
+        return new Promise((resolve) => {
+            const startPosition = panel.position.clone();
+            const targetPosition = startPosition.clone();
+            targetPosition.z += distance; // Выдвинуть вперёд
+            
+            new TWEEN.Tween({ t: 0 })
+                .to({ t: 1 }, duration)
+                .easing(TWEEN.Easing.Cubic.Out)
+                .onUpdate(({ t }) => {
+                    panel.position.lerpVectors(startPosition, targetPosition, t);
+                })
+                .onComplete(() => {
+                    console.log(`✅ Панель извлечена на ${distance} мм`);
+                    resolve();
+                })
+                .start();
+        });
+    }
+    
+    /**
+     * Задвинуть панель обратно в шкаф
+     * @param {THREE.Object3D} panel - Панель для задвигания
+     * @param {THREE.Vector3} originalPosition - Исходная позиция
+     * @param {number} duration - Длительность анимации (мс)
+     */
+    async pushInPanel(panel, originalPosition, duration = 800) {
+        return new Promise((resolve) => {
+            const startPosition = panel.position.clone();
+            
+            new TWEEN.Tween({ t: 0 })
+                .to({ t: 1 }, duration)
+                .easing(TWEEN.Easing.Cubic.In)
+                .onUpdate(({ t }) => {
+                    panel.position.lerpVectors(startPosition, originalPosition, t);
+                })
+                .onComplete(() => {
+                    console.log('✅ Панель задвинута обратно');
+                    resolve();
+                })
+                .start();
+        });
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // 🎨 UI РЕЖИМА СБОРКИ
+    // ═══════════════════════════════════════════════════════════════
+    
+    /**
+     * Показать UI режима сборки
+     */
+    showAssemblyUI() {
+        // Показать панель с библиотекой оборудования
+        const libraryPanel = document.getElementById('equipment-library');
+        if (libraryPanel) {
+            libraryPanel.classList.remove('hidden');
+            libraryPanel.classList.add('visible');
+        }
+        
+        // Показать индикатор режима и кнопку "Готово"
+        const modeIndicator = document.getElementById('assembly-mode-indicator');
+        if (modeIndicator) {
+            modeIndicator.classList.remove('hidden');
+            modeIndicator.classList.add('visible');
+        }
+        
+        // Скрыть кнопку "Начать сборку"
+        const startButton = document.getElementById('start-assembly-btn');
+        if (startButton) {
+            startButton.classList.add('hidden');
+        }
+        
+        // Настроить обработчики drag & drop для 3D-контейнера
+        this.setupDropZone();
+        
+        console.log('🎨 UI режима сборки отображён');
+    }
+    
+    /**
+     * Скрыть UI режима сборки
+     */
+    hideAssemblyUI() {
+        // Скрыть панель с библиотекой оборудования
+        const libraryPanel = document.getElementById('equipment-library');
+        if (libraryPanel) {
+            libraryPanel.classList.remove('visible');
+            libraryPanel.classList.add('hidden');
+        }
+        
+        // Скрыть индикатор режима
+        const modeIndicator = document.getElementById('assembly-mode-indicator');
+        if (modeIndicator) {
+            modeIndicator.classList.remove('visible');
+            modeIndicator.classList.add('hidden');
+        }
+        
+        // Показать кнопку "Начать сборку"
+        const startButton = document.getElementById('start-assembly-btn');
+        if (startButton) {
+            startButton.classList.remove('hidden');
+        }
+        
+        // Удалить drop-зону (очистим outline на всякий случай)
+        if (this.container) {
+            this.container.style.outline = 'none';
+        }
+        
+        console.log('🎨 UI режима сборки скрыт');
+    }
+    
+    /**
+     * Настроить зону drop для добавления оборудования на панель
+     */
+    setupDropZone() {
+        const dropZone = this.container; // 3D-контейнер
+        
+        if (!dropZone) {
+            console.warn('⚠️ Drop-зона не найдена');
+            return;
+        }
+        
+        // Предотвратить поведение по умолчанию
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            dropZone.style.outline = '3px dashed var(--primary-color, #8b5cf6)';
+        });
+        
+        dropZone.addEventListener('dragleave', (e) => {
+            dropZone.style.outline = 'none';
+        });
+        
+        // Обработка drop
+        dropZone.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            dropZone.style.outline = 'none';
+            
+            const equipmentId = e.dataTransfer.getData('equipment-id');
+            if (!equipmentId) {
+                console.warn('⚠️ equipment-id не найден в dataTransfer');
+                return;
+            }
+            
+            console.log(`📦 Dropped equipment ID: ${equipmentId}`);
+            
+            // Получить координаты drop относительно canvas
+            const rect = dropZone.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            
+            // Выполнить raycasting для определения позиции на DIN-рейке
+            const position = this.calculateDropPosition(x, y);
+            
+            if (!position) {
+                console.warn('⚠️ Не удалось определить позицию на DIN-рейке');
+                return;
+            }
+            
+            // Добавить оборудование на шкаф
+            await this.addEquipmentFromLibrary(equipmentId, position);
+        });
+        
+        console.log('✅ Drop-зона настроена');
+    }
+    
+    /**
+     * Вычислить позицию drop на DIN-рейке через raycasting
+     * @param {number} x - Нормализованная X координата (-1 до 1)
+     * @param {number} y - Нормализованная Y координата (-1 до 1)
+     * @returns {Object|null} - Объект с данными позиции или null
+     */
+    calculateDropPosition(x, y) {
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2(x, y);
+        
+        raycaster.setFromCamera(mouse, this.sceneManager.camera);
+        
+        // Найти пересечения с DIN-рейками
+        const cabinet = this.cabinetManager.cabinets[0]; // Текущий шкаф
+        if (!cabinet) return null;
+        
+        const intersects = raycaster.intersectObjects(cabinet.model.children, true);
+        
+        for (const intersect of intersects) {
+            const object = intersect.object;
+            
+            // Проверить, является ли объект DIN-рейкой
+            if (object.userData?.isDINRail) {
+                const dinRail = object.userData.dinRail; // Ссылка на объект DIN-рейки
+                const intersectionPoint = intersect.point;
+                
+                // Вычислить позицию на рейке (slot)
+                const slotPosition = this.calculateSlotFromPoint(dinRail, intersectionPoint);
+                
+                return {
+                    cabinetId: cabinet.id,
+                    dinRailId: dinRail.id,
+                    slotPosition: slotPosition
+                };
+            }
+        }
+        
+        // Если не попали в DIN-рейку, использовать первую свободную позицию
+        console.warn('⚠️ Drop не попал в DIN-рейку, используем первую свободную');
+        return {
+            cabinetId: cabinet.id,
+            dinRailId: 0, // Первая рейка
+            slotPosition: 0 // Первый слот
+        };
+    }
+    
+    /**
+     * Вычислить номер слота из 3D-координаты точки пересечения
+     * @param {Object} dinRail - Объект DIN-рейки
+     * @param {THREE.Vector3} point - Точка пересечения
+     * @returns {number} - Номер слота
+     */
+    calculateSlotFromPoint(dinRail, point) {
+        // DIN-рейка ориентирована по оси X (горизонтально)
+        // Модуль занимает 18 мм на рейке
+        const MODULE_WIDTH = 18; // мм
+        
+        // Получить локальную X-координату относительно начала рейки
+        const railStartX = dinRail.position.x - (dinRail.length / 2);
+        const localX = point.x - railStartX;
+        
+        // Вычислить номер слота
+        const slotIndex = Math.floor(localX / MODULE_WIDTH);
+        
+        return Math.max(0, slotIndex); // Не может быть отрицательным
+    }
+    
+    /**
+     * Добавить оборудование из библиотеки на шкаф
+     * @param {string} equipmentId - ID оборудования из каталога
+     * @param {Object} position - Позиция размещения
+     */
+    async addEquipmentFromLibrary(equipmentId, position) {
+        console.log(`🔧 Добавление оборудования ${equipmentId} на позицию:`, position);
+        
+        try {
+            // Использовать существующий метод добавления
+            const equipment = await this.addEquipmentFromCatalog(equipmentId);
+            
+            if (!equipment) {
+                console.error('❌ Не удалось создать оборудование');
+                return;
+            }
+            
+            // Разместить на указанной позиции
+            await this.placeEquipmentOnCabinet(equipment, position.cabinetId, {
+                dinRail: position.dinRailId,
+                slot: position.slotPosition
+            });
+            
+            console.log('✅ Оборудование добавлено из библиотеки');
+        } catch (error) {
+            console.error('❌ Ошибка добавления оборудования:', error);
+        }
+    }
+    
+    /**
+     * Заполнить библиотеку оборудования категориями и элементами
+     */
+    populateEquipmentLibrary() {
+        const categoriesContainer = document.querySelector('.equipment-categories');
+        if (!categoriesContainer) {
+            console.warn('⚠️ Контейнер .equipment-categories не найден');
+            return;
+        }
+        
+        // Получить все доступное оборудование из каталога
+        const allEquipment = getAvailableEquipment();
+        
+        // Группировать по категориям
+        const categories = {
+            'circuit_breaker': { title: 'Автоматические выключатели', items: [] },
+            'relay': { title: 'Реле и контакторы', items: [] },
+            'terminal': { title: 'Клеммники', items: [] },
+            'power_supply': { title: 'Источники питания', items: [] },
+            'controller': { title: 'Контроллеры', items: [] },
+            'other': { title: 'Прочее оборудование', items: [] }
+        };
+        
+        // Распределить оборудование по категориям
+        allEquipment.forEach(equipment => {
+            const category = equipment.category || 'other';
+            if (categories[category]) {
+                categories[category].items.push(equipment);
+            } else {
+                categories['other'].items.push(equipment);
+            }
+        });
+        
+        // Создать HTML для каждой категории
+        Object.entries(categories).forEach(([key, category]) => {
+            if (category.items.length === 0) return; // Пропустить пустые
+            
+            const categoryDiv = document.createElement('div');
+            categoryDiv.className = 'equipment-category';
+            categoryDiv.dataset.category = key;
+            
+            const categoryTitle = document.createElement('div');
+            categoryTitle.className = 'equipment-category-title';
+            categoryTitle.textContent = category.title;
+            categoryDiv.appendChild(categoryTitle);
+            
+            const itemsContainer = document.createElement('div');
+            itemsContainer.className = 'equipment-items';
+            
+            category.items.forEach(equipment => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'equipment-item';
+                itemDiv.dataset.equipmentId = equipment.id;
+                itemDiv.draggable = true;
+                
+                const nameSpan = document.createElement('div');
+                nameSpan.className = 'equipment-item-name';
+                nameSpan.textContent = equipment.name;
+                
+                const infoSpan = document.createElement('div');
+                infoSpan.className = 'equipment-item-info';
+                infoSpan.textContent = `${equipment.width}мм | ${equipment.poles || 1}P`;
+                
+                itemDiv.appendChild(nameSpan);
+                itemDiv.appendChild(infoSpan);
+                itemsContainer.appendChild(itemDiv);
+                
+                // Обработчики drag & drop
+                itemDiv.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('equipment-id', equipment.id);
+                    e.dataTransfer.effectAllowed = 'copy';
+                    itemDiv.style.opacity = '0.5';
+                });
+                
+                itemDiv.addEventListener('dragend', (e) => {
+                    itemDiv.style.opacity = '1';
+                });
+            });
+            
+            categoryDiv.appendChild(itemsContainer);
+            categoriesContainer.appendChild(categoryDiv);
+            
+            // Сворачивание/разворачивание категории при клике
+            categoryTitle.addEventListener('click', () => {
+                itemsContainer.style.display = 
+                    itemsContainer.style.display === 'none' ? 'flex' : 'none';
+            });
+        });
+        
+        console.log('✅ Библиотека оборудования заполнена');
     }
 }
 
