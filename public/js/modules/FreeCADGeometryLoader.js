@@ -9,8 +9,7 @@ import * as THREE from '../libs/three.module.js';
 
 export class FreeCADGeometryLoader {
     constructor() {
-        this.group = new THREE.Group();
-        this.group.name = 'FreeCADModel';
+        // Убираем this.group — создаём новую группу при каждом load()
     }
     
     /**
@@ -20,6 +19,9 @@ export class FreeCADGeometryLoader {
      * @returns {Promise<THREE.Group>}
      */
     async load(jsonPath, options = {}) {
+        // Создаём новую группу для этой загрузки
+        const group = new THREE.Group();
+        group.name = options.name || 'FreeCADModel';
         const config = {
             // Стиль отображения
             style: options.style || 'technical',  // 'technical' | 'realistic'
@@ -48,12 +50,12 @@ export class FreeCADGeometryLoader {
             const isUltraLight = data.metadata.mode === 'edges-only';
             
             if (isUltraLight) {
-                this.loadUltraLight(data, config);
+                this.loadUltraLight(data, config, group);
             } else {
-                this.loadWithTriangulation(data, config);
+                this.loadWithTriangulation(data, config, group);
             }
             
-            return this.group;
+            return group;
             
         } catch (error) {
             console.error('❌ Ошибка загрузки:', error);
@@ -64,7 +66,7 @@ export class FreeCADGeometryLoader {
     /**
      * Загрузка Ultra-Light режима (только рёбра)
      */
-    loadUltraLight(data, config) {
+    loadUltraLight(data, config, group) {
         data.objects.forEach(obj => {
             const objGroup = new THREE.Group();
             objGroup.name = obj.name;
@@ -111,14 +113,14 @@ export class FreeCADGeometryLoader {
                 objGroup.add(surfaceMesh);
             }
             
-            this.group.add(objGroup);
+            group.add(objGroup);
         });
     }
     
     /**
      * Загрузка с полной триангуляцией
      */
-    loadWithTriangulation(data, config) {
+    loadWithTriangulation(data, config, group) {
         data.objects.forEach(obj => {
             const objGroup = new THREE.Group();
             objGroup.name = obj.name;
@@ -186,22 +188,15 @@ export class FreeCADGeometryLoader {
                 });
             }
             
-            this.group.add(objGroup);
+            group.add(objGroup);
         });
-    }
-    
-    /**
-     * Получить загруженную группу
-     */
-    getGroup() {
-        return this.group;
     }
     
     /**
      * Изменить прозрачность поверхностей
      */
-    setSurfaceOpacity(opacity) {
-        this.group.traverse((child) => {
+    static setSurfaceOpacity(group, opacity) {
+        group.traverse((child) => {
             if (child.name && child.name.includes('_surface')) {
                 if (child.material) {
                     child.material.opacity = opacity;
@@ -214,8 +209,8 @@ export class FreeCADGeometryLoader {
     /**
      * Изменить цвет линий
      */
-    setLineColor(color) {
-        this.group.traverse((child) => {
+    static setLineColor(group, color) {
+        group.traverse((child) => {
             if (child.name && (child.name.includes('_edge') || child.name.includes('_edges'))) {
                 if (child.material) {
                     child.material.color.setHex(color);
@@ -228,8 +223,8 @@ export class FreeCADGeometryLoader {
     /**
      * Переключить видимость рёбер
      */
-    toggleEdges(visible) {
-        this.group.traverse((child) => {
+    static toggleEdges(group, visible) {
+        group.traverse((child) => {
             if (child.name && (child.name.includes('_edge') || child.name.includes('_edges'))) {
                 child.visible = visible;
             }
@@ -239,8 +234,8 @@ export class FreeCADGeometryLoader {
     /**
      * Переключить видимость поверхностей
      */
-    toggleSurfaces(visible) {
-        this.group.traverse((child) => {
+    static toggleSurfaces(group, visible) {
+        group.traverse((child) => {
             if (child.name && child.name.includes('_surface')) {
                 child.visible = visible;
             }
@@ -250,8 +245,8 @@ export class FreeCADGeometryLoader {
     /**
      * Cleanup
      */
-    dispose() {
-        this.group.traverse((child) => {
+    static dispose(group) {
+        group.traverse((child) => {
             if (child.geometry) {
                 child.geometry.dispose();
             }

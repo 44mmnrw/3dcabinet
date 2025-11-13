@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TS_700_500_250 - Test</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: Arial, sans-serif; }
+        canvas { display: block; }
+        #info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(255,255,255,0.95);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 12px;
+            max-width: 350px;
+        }
+        #controls {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(255,255,255,0.95);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 11px;
+        }
+        button {
+            margin: 5px 0;
+            padding: 8px 12px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background: #3498db;
+            color: white;
+            font-size: 11px;
+            width: 100%;
+        }
+        button:hover { background: #2980b9; }
+        .input-group {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .input-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 10px;
+        }
+        input[type="number"] {
+            width: 60px;
+            padding: 4px;
+            margin-right: 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <strong>⏳ Загрузка...</strong>
+    </div>
+    
+    <div id="controls">
+        <strong>🎮 Управление компонентами</strong>
+        
+        <div class="input-group">
+            <label>🚪 Door Position:</label>
+            <input type="number" id="doorX" value="-0.4" step="0.05"> X<br>
+            <input type="number" id="doorY" value="0" step="0.05"> Y<br>
+            <input type="number" id="doorZ" value="0" step="0.05"> Z<br>
+            <button onclick="updateDoorPosition()">Применить</button>
+        </div>
+        
+        <div class="input-group">
+            <label>📋 Panel Position:</label>
+            <input type="number" id="panelX" value="0" step="0.05"> X<br>
+            <input type="number" id="panelY" value="0" step="0.05"> Y<br>
+            <input type="number" id="panelZ" value="-0.25" step="0.05"> Z<br>
+            <button onclick="updatePanelPosition()">Применить</button>
+        </div>
+        
+        <div class="input-group">
+            <label>⚡ DIN Rail Position:</label>
+            <input type="number" id="dinX" value="-0.15" step="0.05"> X<br>
+            <input type="number" id="dinY" value="0.2" step="0.05"> Y<br>
+            <input type="number" id="dinZ" value="0" step="0.05"> Z<br>
+            <button onclick="updateDinRailPosition()">Применить</button>
+        </div>
+        
+        <button onclick="toggleDoor()">🔄 Показать/Скрыть Door</button>
+        <button onclick="showInfo()">📊 Показать Info</button>
+    </div>
+
+    <script type="module">
+        import * as THREE from './js/libs/three.module.js';
+        import { OrbitControls } from './js/libs/OrbitControls.js';
+        import { TS_700_500_250 } from './js/models/TS_700_500_250/TS_700_500_250.js';
+        
+        console.clear();
+        console.log('🚀 TS_700_500_250 Test');
+        
+        // Сцена
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xf0f0f0);
+        
+        // Камера
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(1.5, 1, 1.5);
+        
+        // Рендерер
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+        
+        // Контроллы
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 0.5, 0);
+        
+        // Свет
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.4);
+        dirLight.position.set(5, 10, 5);
+        scene.add(dirLight);
+        
+        // Сетка
+        scene.add(new THREE.GridHelper(2, 20));
+        scene.add(new THREE.AxesHelper(0.5));
+        
+        // ========================================
+        // ГЛАВНАЯ ЧАСТЬ: Создаём и собираем шкаф
+        // ========================================
+        
+        const assembler = new TS_700_500_250();
+        let cabinet;
+        
+        // Загружаем и собираем
+        (async function() {
+            try {
+                // Сборка шкафа
+                cabinet = await assembler.assemble({
+                    basePath: './assets/models/freecad',
+                    size: '700_500_250'
+                });
+                
+                // Добавляем готовую сборку в сцену
+                scene.add(cabinet);
+                
+                console.log('\n✅ Шкаф собран и добавлен в сцену!');
+                console.log('📦 Cabinet:', cabinet);
+                console.log('🔧 Компоненты:', assembler.getComponents());
+                
+                // Обновляем UI
+                updateInfoDisplay();
+                
+            } catch (error) {
+                console.error('❌ Ошибка:', error);
+                document.getElementById('info').innerHTML = `
+                    <strong style="color:red;">❌ Ошибка загрузки!</strong><br>
+                    ${error.message}
+                `;
+            }
+        })();
+        
+        // ========================================
+        // API для управления из UI
+        // ========================================
+        
+        window.updateDoorPosition = function() {
+            const x = parseFloat(document.getElementById('doorX').value);
+            const y = parseFloat(document.getElementById('doorY').value);
+            const z = parseFloat(document.getElementById('doorZ').value);
+            
+            assembler.setComponentPosition('door', x, y, z);
+            updateInfoDisplay();
+        };
+        
+        window.updatePanelPosition = function() {
+            const x = parseFloat(document.getElementById('panelX').value);
+            const y = parseFloat(document.getElementById('panelY').value);
+            const z = parseFloat(document.getElementById('panelZ').value);
+            
+            assembler.setComponentPosition('panel', x, y, z);
+            updateInfoDisplay();
+        };
+        
+        window.updateDinRailPosition = function() {
+            const x = parseFloat(document.getElementById('dinX').value);
+            const y = parseFloat(document.getElementById('dinY').value);
+            const z = parseFloat(document.getElementById('dinZ').value);
+            
+            assembler.setComponentPosition('dinRail', x, y, z);
+            updateInfoDisplay();
+        };
+        
+        window.toggleDoor = function() {
+            const door = assembler.getComponents().door;
+            if (door) {
+                assembler.setComponentVisibility('door', !door.visible);
+            }
+        };
+        
+        window.showInfo = function() {
+            const info = assembler.getInfo();
+            console.log('📊 Информация о сборке:');
+            console.log(JSON.stringify(info, null, 2));
+        };
+        
+        function updateInfoDisplay() {
+            const components = assembler.getComponents();
+            
+            const bodyPos = assembler.getComponentPosition('body');
+            const doorPos = assembler.getComponentPosition('door');
+            const panelPos = assembler.getComponentPosition('panel');
+            const dinPos = assembler.getComponentPosition('dinRail');
+            
+            const bodyWorld = assembler.getComponentWorldPosition('body');
+            const doorWorld = assembler.getComponentWorldPosition('door');
+            const panelWorld = assembler.getComponentWorldPosition('panel');
+            const dinWorld = assembler.getComponentWorldPosition('dinRail');
+            
+            document.getElementById('info').innerHTML = `
+                <strong>✅ Шкаф собран!</strong><br>
+                <small>Используй панель справа для изменения позиций</small><br><br>
+                
+                <strong>📍 Координаты (local / world):</strong><br>
+                <small>
+                <strong>Body:</strong><br>
+                L: (${bodyPos.x.toFixed(3)}, ${bodyPos.y.toFixed(3)}, ${bodyPos.z.toFixed(3)})<br>
+                W: (${bodyWorld.x.toFixed(3)}, ${bodyWorld.y.toFixed(3)}, ${bodyWorld.z.toFixed(3)})<br><br>
+                
+                <strong>Door:</strong><br>
+                L: (${doorPos.x.toFixed(3)}, ${doorPos.y.toFixed(3)}, ${doorPos.z.toFixed(3)})<br>
+                W: (${doorWorld.x.toFixed(3)}, ${doorWorld.y.toFixed(3)}, ${doorWorld.z.toFixed(3)})<br><br>
+                
+                <strong>Panel:</strong><br>
+                L: (${panelPos.x.toFixed(3)}, ${panelPos.y.toFixed(3)}, ${panelPos.z.toFixed(3)})<br>
+                W: (${panelWorld.x.toFixed(3)}, ${panelWorld.y.toFixed(3)}, ${panelWorld.z.toFixed(3)})<br><br>
+                
+                <strong>DIN_Rail:</strong><br>
+                L: (${dinPos.x.toFixed(3)}, ${dinPos.y.toFixed(3)}, ${dinPos.z.toFixed(3)})<br>
+                W: (${dinWorld.x.toFixed(3)}, ${dinWorld.y.toFixed(3)}, ${dinWorld.z.toFixed(3)})
+                </small>
+            `;
+        }
+        
+        // Анимация
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+        
+        // Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
