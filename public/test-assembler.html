@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TS_700_500_250 - Test</title>
+    <title>ModelSceneManager + TS_700_500_250 - Test</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: Arial, sans-serif; }
         canvas { display: block; }
@@ -98,10 +98,11 @@
     <script type="module">
         import * as THREE from './js/libs/three.module.js';
         import { OrbitControls } from './js/libs/OrbitControls.js';
-        import { TS_700_500_250 } from './js/models/TS_700_500_250/TS_700_500_250.js';
+        import { ModelSceneManager } from './js/modules/ModelSceneManager.js';
+        import { test_TS_700_500_250 } from './js/models/TS_700_500_250/test_TS_700_500_250.js';
         
         console.clear();
-        console.log('🚀 TS_700_500_250 Test');
+        console.log('🚀 ModelSceneManager + test_TS_700_500_250 Test (Тестовая модель)');
         
         // Сцена
         const scene = new THREE.Scene();
@@ -127,34 +128,39 @@
         scene.add(dirLight);
         
         // Сетка
-        scene.add(new THREE.GridHelper(2, 20));
+        scene.add(new THREE.GridHelper(2, 10));
         scene.add(new THREE.AxesHelper(0.5));
         
         // ========================================
-        // ГЛАВНАЯ ЧАСТЬ: Создаём и собираем шкаф
+        // ГЛАВНАЯ ЧАСТЬ: Используем ModelSceneManager
         // ========================================
         
-        const assembler = new TS_700_500_250();
-        let cabinet;
+        const sceneManager = new ModelSceneManager(scene);
+        const MODEL_ID = 'cabinet-1';
         
-        // Загружаем и собираем
+        // Загружаем модель через ModelSceneManager
         (async function() {
             try {
-                // Сборка шкафа
-                cabinet = await assembler.assemble({
-                    basePath: './assets/models/freecad',
-                    size: '700_500_250'
-                });
+                const assembler = new test_TS_700_500_250();
                 
-                // Добавляем готовую сборку в сцену
-                scene.add(cabinet);
+                // Добавляем модель через менеджер сцены
+                await sceneManager.addModel(
+                    MODEL_ID,
+                    assembler,
+                    { x: 0, y: 0, z: 0 },
+                    {
+                        basePath: './assets/models/freecad',
+                        size: '700_500_250',
+                        name: 'Main Cabinet'
+                    }
+                );
                 
-                console.log('\n✅ Шкаф собран и добавлен в сцену!');
-                console.log('📦 Cabinet:', cabinet);
-                console.log('🔧 Компоненты:', assembler.getComponents());
+                console.log('\n✅ Модель добавлена через ModelSceneManager!');
+                console.log('📊 Информация о сцене:', sceneManager.getInfo());
                 
-                // Обновляем UI
+                // Обновляем UI и синхронизируем инпуты
                 updateInfoDisplay();
+                syncInputsFromModel();
                 
             } catch (error) {
                 console.error('❌ Ошибка:', error);
@@ -174,7 +180,7 @@
             const y = parseFloat(document.getElementById('doorY').value);
             const z = parseFloat(document.getElementById('doorZ').value);
             
-            assembler.setComponentPosition('door', x, y, z);
+            sceneManager.setComponentPosition(MODEL_ID, 'door', x, y, z);
             updateInfoDisplay();
         };
         
@@ -183,7 +189,7 @@
             const y = parseFloat(document.getElementById('panelY').value);
             const z = parseFloat(document.getElementById('panelZ').value);
             
-            assembler.setComponentPosition('panel', x, y, z);
+            sceneManager.setComponentPosition(MODEL_ID, 'panel', x, y, z);
             updateInfoDisplay();
         };
         
@@ -192,25 +198,56 @@
             const y = parseFloat(document.getElementById('dinY').value);
             const z = parseFloat(document.getElementById('dinZ').value);
             
-            assembler.setComponentPosition('dinRail', x, y, z);
+            sceneManager.setComponentPosition(MODEL_ID, 'dinRail', x, y, z);
             updateInfoDisplay();
         };
         
         window.toggleDoor = function() {
-            const door = assembler.getComponents().door;
-            if (door) {
-                assembler.setComponentVisibility('door', !door.visible);
+            const model = sceneManager.models.get(MODEL_ID);
+            if (model) {
+                const door = model.assembler.getComponents().door;
+                if (door) {
+                    model.assembler.setComponentVisibility('door', !door.visible);
+                }
             }
         };
         
         window.showInfo = function() {
-            const info = assembler.getInfo();
-            console.log('📊 Информация о сборке:');
+            const info = sceneManager.getInfo();
+            console.log('📊 Информация о сцене:');
             console.log(JSON.stringify(info, null, 2));
         };
         
+        // Синхронизация инпутов с реальными координатами модели
+        function syncInputsFromModel() {
+            const model = sceneManager.models.get(MODEL_ID);
+            if (!model) return;
+            
+            const assembler = model.assembler;
+            
+            const doorPos = assembler.getComponentPosition('door');
+            const panelPos = assembler.getComponentPosition('panel');
+            const dinPos = assembler.getComponentPosition('dinRail');
+            
+            // Обновляем value инпутов
+            document.getElementById('doorX').value = doorPos.x.toFixed(2);
+            document.getElementById('doorY').value = doorPos.y.toFixed(2);
+            document.getElementById('doorZ').value = doorPos.z.toFixed(2);
+            
+            document.getElementById('panelX').value = panelPos.x.toFixed(2);
+            document.getElementById('panelY').value = panelPos.y.toFixed(2);
+            document.getElementById('panelZ').value = panelPos.z.toFixed(2);
+            
+            document.getElementById('dinX').value = dinPos.x.toFixed(2);
+            document.getElementById('dinY').value = dinPos.y.toFixed(2);
+            document.getElementById('dinZ').value = dinPos.z.toFixed(2);
+        }
+        
         function updateInfoDisplay() {
-            const components = assembler.getComponents();
+            const model = sceneManager.models.get(MODEL_ID);
+            if (!model) return;
+            
+            const assembler = model.assembler;
             
             const bodyPos = assembler.getComponentPosition('body');
             const doorPos = assembler.getComponentPosition('door');
