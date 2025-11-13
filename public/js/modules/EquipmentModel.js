@@ -70,9 +70,7 @@ export class EquipmentModel {
                         child.userData.catalogId = this.catalogId;
                     });
                     
-                    // 🔧 ИСПРАВЛЕНИЕ МАСШТАБА: модель в метрах, система в мм
-                    let scale = this.data.model.scale || 1.0;
-                    scale = scale * 1000; // м → мм
+                    const scale = this.data.model.scale || 1.0;
                     this.model.scale.setScalar(scale);
                     
                     // Рассчитать размеры

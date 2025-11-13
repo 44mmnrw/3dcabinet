@@ -76,13 +76,17 @@ export async function createFresnelMaterial(options = {}) {
   });
 }
 
-// Утилита: создать "обводку" путём небольшого масштабирования копии меша
 export async function createFresnelOutline(mesh, options = {}) {
   const outline = mesh.clone();
   outline.material = await createFresnelMaterial(options);
-  // Чуть-чуть увеличим, чтобы обводка была видна поверх
+  
+  // Копировать мировую трансформацию (позиция, поворот, масштаб)
+  mesh.updateMatrixWorld(true);
+  outline.position.copy(mesh.getWorldPosition(new THREE.Vector3()));
+  outline.quaternion.copy(mesh.getWorldQuaternion(new THREE.Quaternion()));
+  outline.scale.copy(mesh.getWorldScale(new THREE.Vector3()));
   outline.scale.multiplyScalar(options.scaleMultiplier ?? 1.02);
-  // Положим поверх основного (depthWrite=false в материале уже помогает)
+  
   outline.renderOrder = (mesh.renderOrder ?? 0) + 10;
   outline.userData.__isOutline = true;
   return outline;

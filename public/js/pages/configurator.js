@@ -235,12 +235,7 @@ class CabinetConfigurator {
     // ═══════════════════════════════════════════════════════════════
     
     /**
-     * Переход в режим сборки
-     * - Анимация камеры к панели
-     * - Извлечение панели из шкафа
-     * - Масштабирование панели до 80% viewport
-     * - Отключение OrbitControls
-     * - Показ UI режима сборки
+     * Переход в режим сборки (300% увеличение панели)
      */
     async enterAssemblyMode(cabinetId = null) {
         if (this.mode === 'assembly') {
@@ -284,15 +279,35 @@ class CabinetConfigurator {
         }
         
         console.log('✅ Шкаф найден:', cabinet.id);
+        console.log('  cabinet.model:', cabinet.model);
+        console.log('  cabinet.model.children.length:', cabinet.model?.children?.length);
+        
+        // Отладка: вывести ВСЕ имена объектов в модели
+        console.log('📋 ВСЕ ОБЪЕКТЫ В cabinet.model:');
+        const allNames = [];
+        cabinet.model.traverse((child) => {
+            if (child.name) {
+                allNames.push(child.name);
+                console.log(`  - ${child.name} (type: ${child.type})`);
+            }
+        });
+        console.log('  Всего объектов с именами:', allNames.length);
         
         // Найти ключевые объекты в шкафу
         console.log('🔍 Поиск объектов шкафа...');
         const objects = this.findCabinetObjects(cabinet);
         
+        console.log('📊 Результат поиска:', objects);
+        console.log('  objects.panel:', objects.panel);
+        console.log('  objects.door:', objects.door);
+        console.log('  objects.dinRails.length:', objects.dinRails.length);
+        
         if (!objects.panel) {
-            console.error('❌ Панель PANEL.003 не найдена');
+            console.error('❌ Панель не найдена (искали: PANEL_003, PANEL.003, PANEL003)');
+            console.error('  Список всех имён:', allNames);
             alert('Ошибка: панель для сборки не найдена в модели шкафа');
             this.mode = 'overview';
+            this.isEnteringAssemblyMode = false;
             return;
         }
         
@@ -578,7 +593,7 @@ class CabinetConfigurator {
                 <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
                     <p style="margin: 0.5rem 0;"><strong>ID:</strong> <code style="background: #e9ecef; padding: 2px 6px; border-radius: 3px; font-size: 0.85rem;">${cabinet.id.substring(0, 12)}...</code></p>
                     <p style="margin: 0.5rem 0;"><strong>Тип:</strong> ${cabinet.config.type === 'floor' ? '🏢 Напольный' : '🔲 Настенный'}</p>
-                    <p style="margin: 0.5rem 0;"><strong>Размеры:</strong> ${cabinet.config.width}×${cabinet.config.height}×${cabinet.config.depth} мм</p>
+                    <p style="margin: 0.5rem 0;"><strong>Размеры:</strong> ${(cabinet.config.width * 1000).toFixed(0)}×${(cabinet.config.height * 1000).toFixed(0)}×${(cabinet.config.depth * 1000).toFixed(0)} мм</p>
                     <p style="margin: 0.5rem 0;"><strong>Дверца:</strong> ${cabinet.isDoorOpen ? '🟢 Открыта' : '🔴 Закрыта'}</p>
                     <p style="margin: 0.5rem 0;"><strong>Оборудование:</strong> ${cabinet.equipment.length} шт.</p>
                 </div>
@@ -850,48 +865,18 @@ class CabinetConfigurator {
      * @returns {Object} - Объект с найденными элементами
      */
     findCabinetObjects(cabinet) {
+        // Быстрый поиск по точным именам
         const objects = {
-            panel: null,
-            door: null,
-            dinRails: []
+            panel: cabinet.model.getObjectByName('PANEL_003') || 
+                   cabinet.model.getObjectByName('PANEL.003') || 
+                   cabinet.model.getObjectByName('PANEL003'),
+            door: cabinet.model.getObjectByName('DOOR'),
+            dinRails: [
+                cabinet.model.getObjectByName('DIN_RAIL_1'),
+                cabinet.model.getObjectByName('DIN_RAIL_2'),
+                cabinet.model.getObjectByName('DIN_RAIL_3')
+            ].filter(Boolean) // Удалить null/undefined
         };
-        
-        console.log('🔍 Поиск объектов в шкафу...');
-        
-        cabinet.model.traverse((child) => {
-            const name = child.name?.toLowerCase() || '';
-            
-            // PANEL.003 - монтажная панель (гибкий поиск)
-            if (child.userData?.isPanel || 
-                name === 'panel.003' || 
-                name === 'panel003' ||
-                (name.includes('panel') && !name.includes('din'))) {
-                if (!objects.panel) { // Берём только первую найденную
-                    objects.panel = child;
-                    console.log('✅ Найдена панель:', child.name);
-                }
-            }
-            
-            // DOOR - дверь шкафа
-            if (child.userData?.isDoor || name === 'door') {
-                objects.door = child;
-                console.log('✅ Найдена дверь:', child.name);
-            }
-            
-            // DIN-рейки (ищем все, что содержит din_rail или din-rail)
-            if (child.userData?.isDinRail || 
-                name.includes('din_rail') || 
-                name.includes('din-rail') ||
-                name.includes('dinrail')) {
-                objects.dinRails.push(child);
-                console.log('📌 Найдена DIN-рейка:', child.name);
-            }
-        });
-        
-        console.log('📊 Результаты поиска:');
-        console.log('  - Панель:', objects.panel?.name || 'НЕ НАЙДЕНА');
-        console.log('  - Дверь:', objects.door?.name || 'НЕ НАЙДЕНА');
-        console.log('  - DIN-рейки:', objects.dinRails.length);
         
         return objects;
     }
@@ -940,33 +925,20 @@ class CabinetConfigurator {
         });
     }
     
-    /**
-     * Масштабировать панель и DIN-рейки
-     * @param {THREE.Object3D} panel - Панель PANEL.003
-     * @param {Array} dinRails - Массив DIN-реек
-     * @param {number} targetScale - Целевой масштаб (3.0 = 300%)
-     * @param {number} duration - Длительность анимации (мс)
-     */
     async scalePanelGroup(panel, dinRails, targetScale, duration = 1000) {
         return new Promise((resolve) => {
             const startScale = panel.scale.x;
-            
-            console.log(`📏 Масштабирование от ${startScale} до ${targetScale}`);
             
             new TWEEN.Tween({ scale: startScale })
                 .to({ scale: targetScale }, duration)
                 .easing(TWEEN.Easing.Cubic.InOut)
                 .onUpdate(({ scale }) => {
-                    // Масштабировать панель
                     panel.scale.setScalar(scale);
-                    
-                    // Масштабировать все DIN-рейки
                     dinRails.forEach(rail => {
                         rail.scale.setScalar(scale);
                     });
                 })
                 .onComplete(() => {
-                    console.log(`✅ Масштабирование завершено: ${targetScale * 100}%`);
                     resolve();
                 })
                 .start();
@@ -1440,7 +1412,9 @@ class CabinetConfigurator {
                 
                 const infoSpan = document.createElement('div');
                 infoSpan.className = 'equipment-item-info';
-                infoSpan.textContent = `${equipment.width}мм | ${equipment.poles || 1}P`;
+                // Конвертируем метры в мм для отображения
+                const widthMm = (equipment.dimensions.width * 1000).toFixed(0);
+                infoSpan.textContent = `${widthMm}мм | ${equipment.specifications?.poles || 1}P`;
                 
                 itemDiv.appendChild(nameSpan);
                 itemDiv.appendChild(infoSpan);

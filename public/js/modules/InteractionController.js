@@ -368,7 +368,6 @@ export class InteractionController {
         }
     }
     
-    // Масштабирование объекта колесом мыши
     onWheel(event) {
         event.preventDefault();
         let cabinet = this.cabinetManager.selectedCabinet;
@@ -384,15 +383,13 @@ export class InteractionController {
         let newScale = currentScale * scaleFactor;
         newScale = THREE.MathUtils.clamp(newScale, 0.1, 10000);
         
-        // === СОХРАНИТЬ ПОЗИЦИЮ НИЖНЕЙ ТОЧКИ ДО МАСШТАБИРОВАНИЯ ===
         cabinet.updateBoundingBox();
         const bottomYBefore = cabinet.boundingBox ? cabinet.boundingBox.min.y : 0;
         
-        // Применить масштаб
         cabinet.model.scale.set(newScale, newScale, newScale);
         cabinet.model.updateMatrixWorld(true);
         
-        // Обновить bounding box после масштабирования
+        // Обновить bounding box
         cabinet.updateBoundingBox();
         
         // === СКОРРЕКТИРОВАТЬ ПОЗИЦИЮ, ЧТОБЫ НИЖНЯЯ ТОЧКА ОСТАЛАСЬ НА МЕСТЕ ===

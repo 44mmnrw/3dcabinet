@@ -18,9 +18,9 @@ export class CabinetModel {
         this.sceneManager = sceneManager;  // ← Для управления внутренним светом
         this.config = {
             type: config.type || 'floor', // 'floor' или 'wall'
-            width: config.width || 700,    // мм
-            height: config.height || 500,  // мм
-            depth: config.depth || 240,    // мм
+            width: config.width || 0.7,    // метры (0.7 м = 700 мм)
+            height: config.height || 0.5,  // метры (0.5 м = 500 мм)
+            depth: config.depth || 0.24,   // метры (0.24 м = 240 мм)
             name: config.name || 'Cabinet'
         };
         
@@ -73,180 +73,76 @@ export class CabinetModel {
                     this.model.userData.cabinetId = this.id;
                     this.model.userData.isCabinet = true;
                     console.log('  📦 Модель создана, ID:', this.id);
-                    
-                    // ВАЖНО: Установить cabinetId на всех дочерних объектах для raycasting
-                    this.model.traverse((child) => {
-                        child.userData.cabinetId = this.id;
-                    });
-                    
-                    // ═══════════════════════════════════════════════════════════════
-                    // 📏 ДИАГНОСТИКА РАЗМЕРОВ ШКАФА
-                    // ═══════════════════════════════════════════════════════════════
-                    const initialBox = new THREE.Box3().setFromObject(this.model);
-                    const initialSize = new THREE.Vector3();
-                    const initialCenter = new THREE.Vector3();
-                    initialBox.getSize(initialSize);
-                    initialBox.getCenter(initialCenter);
-                    console.log('  � Исходные размеры ШКАФА (из GLB):');
-                    console.log('    └─ Ширина (X):', initialSize.x.toFixed(2), 'единиц');
-                    console.log('    └─ Высота (Y):', initialSize.y.toFixed(2), 'единиц');
-                    console.log('    └─ Глубина (Z):', initialSize.z.toFixed(2), 'единиц');
-                    console.log('  📍 Исходный центр:', initialCenter);
-                    
-                    // ═══════════════════════════════════════════════════════════════
-                    // 🔧 МАСШТАБИРОВАНИЕ ШКАФА
-                    // ═══════════════════════════════════════════════════════════════
-                    const expectedSize = new THREE.Vector3(
-                        this.config.width,   // 700 мм
-                        this.config.height,  // 500 мм
-                        this.config.depth    // 240 мм
-                    );
-                    console.log('  🎯 Целевые размеры (из config):', {
-                        width: this.config.width,
-                        height: this.config.height,
-                        depth: this.config.depth
-                    });
-                    
-                    // МЕТОД МАСШТАБИРОВАНИЯ: по диагонали (сохраняет пропорции)
-                    const initialDiagonal = initialSize.length();
-                    const expectedDiagonal = expectedSize.length();
-                    console.log('  📐 Диагональ исходная:', initialDiagonal.toFixed(2), 'единиц');
-                    console.log('  📐 Диагональ целевая:', expectedDiagonal.toFixed(2), 'мм');
-                    
-                    let scaleFactor = 1;
-                    if (initialDiagonal > 0 && expectedDiagonal > 0) {
-                        scaleFactor = expectedDiagonal / initialDiagonal;
-                    }
-                    scaleFactor = THREE.MathUtils.clamp(scaleFactor, 0.01, 2000);
-                    
-                    console.log(`  🔢 Вычисленный scaleFactor: ${scaleFactor.toFixed(6)}x`);
-                    console.log(`  💡 В GLB шкафа: 1 единица = ${(1/scaleFactor).toFixed(2)} мм`);
-                    
-                    this.model.scale.set(scaleFactor, scaleFactor, scaleFactor);
-                    this.model.updateMatrixWorld(true);
-                    console.log('  ✅ Масштаб применен:', this.model.scale);
+                    this.model.scale.set(1, 1, 1);
 
-                    // Принудительно сбрасываем масштаб всех дочерних объектов
-                    this.model.traverse(child => {
-                        if (child !== this.model && child.scale) {
-                            child.scale.set(1, 1, 1);
-                        }
-                    });
-
-                    // ═══════════════════════════════════════════════════════════════
-                    // ✅ ПРОВЕРКА ПОСЛЕ МАСШТАБИРОВАНИЯ
-                    // ═══════════════════════════════════════════════════════════════
-                    const scaledBox = new THREE.Box3().setFromObject(this.model);
-                    const scaledCenter = new THREE.Vector3();
-                    const scaledSize = new THREE.Vector3();
-                    scaledBox.getCenter(scaledCenter);
-                    scaledBox.getSize(scaledSize);
-                    
-                    console.log('  ✅ Размеры ШКАФА после масштабирования:');
-                    console.log('    └─ Ширина:', scaledSize.x.toFixed(2), 'мм (ожидалось', this.config.width, 'мм)');
-                    console.log('    └─ Высота:', scaledSize.y.toFixed(2), 'мм (ожидалось', this.config.height, 'мм)');
-                    console.log('    └─ Глубина:', scaledSize.z.toFixed(2), 'мм (ожидалось', this.config.depth, 'мм)');
-
-                    // НЕ сдвигаем позицию модели! Pivot как в GLB
-                    this.model.updateMatrixWorld(true);
-
-                    // Сохранить смещение для установки пики
-                    this.pivotOffset.set(-scaledCenter.x, -scaledBox.min.y, -scaledCenter.z);
-
-                    // Центрировать по X и Z, оставить Y на полу (минимум = 0)
-                    this.model.position.copy(this.pivotOffset);
-                    this.model.updateMatrixWorld(true);
-                    console.log('  📍 Позиция модели установлена:', this.model.position);
-                    console.log('  🎯 PivotOffset:', this.pivotOffset);
-                    
-                    // Включить тени для всех mesh
+                    // ОДИН traverse для всех операций (userData, тени, материалы)
                     let meshCount = 0;
-                    console.log('🔍 МАТЕРИАЛЫ ИЗ GLB (до применения цветов):');
+                    const maxAnisotropy = this.renderer ? this.renderer.capabilities.getMaxAnisotropy() : 16;
+                    
                     this.model.traverse((child) => {
+                        // Установить cabinetId для raycasting
+                        child.userData.cabinetId = this.id;
+                        
+                        // Настроить mesh (тени + материалы)
                         if (child.isMesh) {
                             child.castShadow = true;
                             child.receiveShadow = true;
-                            child.userData.cabinetId = this.id;
                             meshCount++;
                             
-                            // Логируем материал из KeyShot
+                            // Коррекция материалов KeyShot (inline, без повторного traverse)
                             if (child.material) {
-                                console.log(`  📦 ${child.name}:`);
-                                console.log(`    └─ Тип: ${child.material.type}`);
-                                console.log(`    └─ Цвет: #${child.material.color?.getHexString() || 'N/A'}`);
-                                console.log(`    └─ Map (текстура): ${child.material.map ? 'ДА' : 'НЕТ'}`);
-                                console.log(`    └─ Metalness: ${child.material.metalness ?? 'N/A'}`);
-                                console.log(`    └─ Roughness: ${child.material.roughness ?? 'N/A'}`);
+                                const materials = Array.isArray(child.material) ? child.material : [child.material];
+                                materials.forEach(mat => {
+                                    // Конвертация цвета Linear → sRGB
+                                    if (mat.color) {
+                                        mat.color.convertLinearToSRGB();
+                                    }
+                                    // Конвертация эмиссии (если есть)
+                                    if (mat.emissive) {
+                                        mat.emissive.convertLinearToSRGB();
+                                    }
+                                    // Установка envMapIntensity по умолчанию
+                                    if (mat.envMapIntensity === undefined) {
+                                        mat.envMapIntensity = 1.0;
+                                    }
+                                    // Анизотропная фильтрация для всех текстур
+                                    ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap'].forEach(texName => {
+                                        if (mat[texName]) {
+                                            if (texName === 'map') {
+                                                mat[texName].colorSpace = THREE.SRGBColorSpace;
+                                            }
+                                            mat[texName].anisotropy = maxAnisotropy;
+                                            mat[texName].needsUpdate = true;
+                                        }
+                                    });
+                                    mat.needsUpdate = true;
+                                });
                             }
                         }
                     });
-                    console.log(`  🔢 Найдено mesh-объектов: ${meshCount}`);
+
+                    // Вычислить Box3 для позиционирования
+                    const box = new THREE.Box3().setFromObject(this.model);
+                    const center = box.getCenter(new THREE.Vector3());
                     
-                    // ═══════════════════════════════════════════════════════════════
-                    // 🎨 КОРРЕКЦИЯ МАТЕРИАЛОВ ИЗ KEYSHOT
-                    // ═══════════════════════════════════════════════════════════════
-                    // KeyShot экспортирует материалы в Linear color space,
-                    // а Three.js рендерит в sRGB. Нужно повысить яркость материалов.
-                    console.log('🔧 Коррекция материалов KeyShot для правильного освещения...');
-                    this.model.traverse((child) => {
-                        if (child.isMesh && child.material) {
-                            // Конвертируем каждый материал (или массив материалов)
-                            const materials = Array.isArray(child.material) ? child.material : [child.material];
-                            
-                            materials.forEach(mat => {
-                                // Повышаем яркость цвета (компенсация linear → sRGB)
-                                if (mat.color) {
-                                    mat.color.convertLinearToSRGB();  // Яркость +20-30%
-                                }
-                                
-                                // Если есть map-текстура, указываем правильное цветовое пространство
-                                if (mat.map) {
-                                    mat.map.colorSpace = THREE.SRGBColorSpace;
-                                    
-                                    // ═══════════════════════════════════════════════════════════════
-                                    // 🎯 АНИЗОТРОПНАЯ ФИЛЬТРАЦИЯ — убирает рябь/чешуйчатость
-                                    // ═══════════════════════════════════════════════════════════════
-                                    // Получаем максимальную анизотропию для GPU (обычно 16)
-                                    const maxAnisotropy = this.renderer ? 
-                                        this.renderer.capabilities.getMaxAnisotropy() : 16;
-                                    
-                                    mat.map.anisotropy = maxAnisotropy;
-                                    mat.map.needsUpdate = true;
-                                    
-                                    console.log(`    🎯 Анизотропия: ${maxAnisotropy}x`);
-                                }
-                                
-                                // Применяем анизотропию ко ВСЕМ текстурам материала
-                                ['normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap'].forEach(texName => {
-                                    if (mat[texName]) {
-                                        const maxAnisotropy = this.renderer ? 
-                                            this.renderer.capabilities.getMaxAnisotropy() : 16;
-                                        mat[texName].anisotropy = maxAnisotropy;
-                                        mat[texName].needsUpdate = true;
-                                    }
-                                });
-                                
-                                // Увеличиваем яркость эмиссии (если есть)
-                                if (mat.emissive) {
-                                    mat.emissive.convertLinearToSRGB();
-                                }
-                                
-                                // ═══════════════════════════════════════════════════════════════
-                                // 🌍 ENVIRONMENT MAP INTENSITY — сила отражений/рефлексов
-                                // ═══════════════════════════════════════════════════════════════
-                                // Устанавливаем интенсивность environment map (1.0 = 100%)
-                                // Значение будет управляться через GUI → Rendering → Environment
-                                if (mat.envMapIntensity === undefined) {
-                                    mat.envMapIntensity = 1.0;  // По умолчанию нормальные отражения
-                                }
-                                
-                                mat.needsUpdate = true;
-                            });
-                            
-                            console.log(`  ✅ ${child.name}: цвет скорректирован`);
-                        }
-                    });
-                    console.log('✅ Материалы скорректированы для правильного отображения');
+                    // Установить позицию (центрировать по XZ, Y на полу)
+                    this.pivotOffset.set(-center.x, -box.min.y, -center.z);
+                    this.model.position.copy(this.pivotOffset);
+                    
+                    // 🔍 ДИАГНОСТИКА: Проверка размеров и смещений
+                    const size = box.getSize(new THREE.Vector3());
+                    console.log(`  📍 Pivot offset (центрирование):`);
+                    console.log(`     X: ${this.pivotOffset.x.toFixed(4)} м (центр: ${center.x.toFixed(4)})`);
+                    console.log(`     Y: ${this.pivotOffset.y.toFixed(4)} м (min.y: ${box.min.y.toFixed(4)})`);
+                    console.log(`     Z: ${this.pivotOffset.z.toFixed(4)} м (центр: ${center.z.toFixed(4)})`);
+                    console.log(`  📦 Размеры: ${size.x.toFixed(3)} × ${size.y.toFixed(3)} × ${size.z.toFixed(3)} м`);
+                    
+                    // Кешировать boundingBox (избегаем повторных вычислений)
+                    this.boundingBox = box.clone();
+                    
+                    console.log(`  ✅ Модель загружена: ${meshCount} mesh`);
+                    
+                    // Материалы уже обработаны в основном traverse выше (оптимизация)
                     
                     // ═══════════════════════════════════════════════════════════════
                     // ❌ ПЕРЕКРАСКА ОТКЛЮЧЕНА — используем материалы из KeyShot
@@ -392,16 +288,6 @@ export class CabinetModel {
             this.model.worldToLocal(localCenter);
         }
 
-        let localSize = size.clone();
-        if (this.model) {
-            const s = this.model.scale;
-            localSize.set(
-                size.x / (s.x || 1),
-                size.y / (s.y || 1),
-                size.z / (s.z || 1)
-            );
-        }
-
         const wasVisible = this.selectionBox ? this.selectionBox.visible : false;
 
         if (this.selectionBox) {
@@ -411,12 +297,11 @@ export class CabinetModel {
             this.selectionBox = null;
         }
         
-    const geometry = new THREE.BoxGeometry(localSize.x, localSize.y, localSize.z);
+        const geometry = new THREE.BoxGeometry(size.x, size.y, size.z);
         const edges = new THREE.EdgesGeometry(geometry);
         const material = new THREE.LineBasicMaterial({ color: 0x8b5cf6, linewidth: 2 });
-    this.selectionBox = new THREE.LineSegments(edges, material);
-    this.selectionBox.position.copy(localCenter);
-        this.selectionBox.scale.set(1, 1, 1);
+        this.selectionBox = new THREE.LineSegments(edges, material);
+        this.selectionBox.position.copy(localCenter);
         this.selectionBox.visible = wasVisible;
         this.model.add(this.selectionBox);
     }
@@ -479,7 +364,6 @@ export class CabinetModel {
     
     /**
      * Обеспечивает, чтобы модель не уходила ниже плоскости пола (y=0)
-     * Используется после масштабирования, чтобы скорректировать позицию
      */
     ensureOnFloor() {
         if (!this.model || this.config.type !== 'floor') return;
@@ -503,15 +387,9 @@ export class CabinetModel {
             // Пересчитать bounding box после изменения позиции
             this.updateBoundingBox();
             
-            // Пересчитать pivotOffset.y с учетом нового масштаба и позиции
-            // pivotOffset.y должен компенсировать смещение так, чтобы min.y = 0
             if (this.boundingBox.min.y >= 0) {
-                // Вычислить центр bounding box после коррекции
                 const center = new THREE.Vector3();
                 this.boundingBox.getCenter(center);
-                
-                // Обновить pivotOffset.y: разница между текущей позицией модели и центром
-                // плюс смещение до уровня пола
                 this.pivotOffset.y = this.model.position.y - center.y;
             }
             
@@ -604,26 +482,26 @@ export class CabinetModel {
         console.log('🚀 CabinetModel.enterAssemblyMode() начат');
         
         // Найти панель
-        const panel = this.model.getObjectByName('PANEL003') || 
-                      this.model.getObjectByName('PANEL.003');
+        const panel = this.model.getObjectByName('PANEL_003') || 
+                      this.model.getObjectByName('PANEL.003') ||
+                      this.model.getObjectByName('PANEL003');
         
         if (!panel) {
             console.error('❌ Панель для сборки не найдена');
             return Promise.reject(new Error('Panel not found'));
         }
         
-        // Найти BODY (корпус шкафа) для привязки границ
         const body = this.model.getObjectByName('BODY');
         if (!body) {
-            console.warn('⚠️ BODY не найден, масштабирование без ограничений');
+            console.warn('⚠️ BODY не найден');
         } else {
             const bodyBox = new THREE.Box3().setFromObject(body);
-            console.log('📦 BODY границы: minY =', bodyBox.min.y.toFixed(1), 'мм');
+            console.log('📦 BODY границы: minY =', bodyBox.min.y.toFixed(4), 'м');
         }
         
         // Проверка иерархии DIN-реек (для отладки)
         console.log('🔍 Проверка иерархии объектов:');
-        console.log('  PANEL.003:', panel.name);
+        console.log('  PANEL:', panel.name);
         this.dinRails.forEach(rail => {
             let isChildOfPanel = false;
             let parent = rail.parent;
@@ -641,33 +519,26 @@ export class CabinetModel {
             console.log(`  ${rail.name}: ${parentChain.reverse().join(' → ')} [дочерний панели: ${isChildOfPanel}]`);
         });
         
-        // Сохранить исходное состояние (только масштабы)
         this.assemblyState = {
             originalRotation: this.model.rotation.y,
             isDoorOpen: this.isDoorOpen,
             panelScale: panel.scale.clone(),
-            dinRailScales: this.dinRails.map(r => r.scale.clone())
+            panelPositionY: panel.position.y,
+            dinRailScales: this.dinRails.map(r => r.scale.clone()),
+            dinRailPositionsY: this.dinRails.map(r => r.position.y)
         };
         
         console.log('💾 Состояние сохранено:', this.assemblyState);
         
         return new Promise((resolve) => {
-            // 1. Открыть дверь (если не открыта)
             if (!this.isDoorOpen && this.door) {
-                console.log('🚪 Открытие двери...');
                 this.toggleDoor(true).then(() => {
-                    console.log('✅ Дверь открыта');
-                    
-                    // 2. Масштабировать панель и DIN-рейки (с привязкой к BODY)
                     this.scaleAssemblyPanelInternal(panel, 3.0, body, () => {
-                        console.log('✅ Режим сборки активирован');
                         resolve();
                     });
                 });
             } else {
-                // Если дверь уже открыта, сразу масштабируем
                 this.scaleAssemblyPanelInternal(panel, 3.0, body, () => {
-                    console.log('✅ Режим сборки активирован');
                     resolve();
                 });
             }
@@ -687,31 +558,25 @@ export class CabinetModel {
         }
         
         const state = this.assemblyState;
-        const panel = this.model.getObjectByName('PANEL003') || 
-                      this.model.getObjectByName('PANEL.003');
+        const panel = this.model.getObjectByName('PANEL_003') || 
+                      this.model.getObjectByName('PANEL.003') ||
+                      this.model.getObjectByName('PANEL003');
         
         if (!panel) {
             return Promise.reject(new Error('Panel not found'));
         }
         
-        const body = this.model.getObjectByName('BODY'); // Найти BODY для обратного масштабирования
+        const body = this.model.getObjectByName('BODY');
         
         return new Promise((resolve) => {
-            // 1. Вернуть масштаб панели и DIN-реек
-            console.log('📏 Возврат масштаба...');
             this.scaleAssemblyPanelInternal(panel, 1.0, body, () => {
-                console.log('✅ Масштаб восстановлен');
-                
-                // 2. Закрыть дверь (если была закрыта изначально)
                 if (!state.isDoorOpen && this.isDoorOpen && this.door) {
-                    console.log('🚪 Закрытие двери...');
                     this.toggleDoor(true).then(() => {
-                        console.log('✅ Дверь закрыта, режим сборки завершён');
+                        this.assemblyState = null;
                         resolve();
                     });
                 } else {
-                    // Если дверь не нужно закрывать, завершаем
-                    console.log('✅ Режим сборки завершён');
+                    this.assemblyState = null;
                     resolve();
                 }
             });
@@ -719,17 +584,9 @@ export class CabinetModel {
     }
     
     /**
-     * Внутренний метод масштабирования панели и DIN-реек
-     * 
-     * ВАЖНО: DIN-рейки могут быть дочерними объектами PANEL.003,
-     * поэтому нужно компенсировать наследование масштабирования.
-     * 
-     * Если панель масштабируется на 3.0x, а DIN-рейка является её дочерним объектом,
-     * то для достижения итогового масштаба 3.0x нужно установить scale DIN-рейки = 1.0
-     * (так как она унаследует 3.0x от родителя).
+     * Внутренний метод масштабирования панели и DIN-реек до 300% (режим сборки)
      */
     scaleAssemblyPanelInternal(panel, targetScale, body, callback) {
-        console.log(`📏 Масштабирование до ${targetScale * 100}%`);
         const duration = 800;
         let completed = 0;
         const total = 1 + this.dinRails.length; // панель + все рейки
@@ -741,28 +598,33 @@ export class CabinetModel {
             }
         };
         
-        // ═══════════════════════════════════════════════════════════════
-        // ПАНЕЛЬ: Простое масштабирование
-        // ═══════════════════════════════════════════════════════════════
+        const yOffset = (targetScale > 1.0) ? 0.001 : -0.001;
         
-        console.log(`  PANEL.003: scale ${panel.scale.x.toFixed(2)} → ${targetScale.toFixed(2)}`);
-        
-        // Анимация панели (только масштаб)
-        new Tween(panel.scale, tweenGroup)
-            .to({ x: targetScale, y: targetScale, z: targetScale }, duration)
+        // Анимация панели
+        new Tween({ 
+            scaleX: panel.scale.x, 
+            scaleY: panel.scale.y, 
+            scaleZ: panel.scale.z,
+            posY: panel.position.y
+        }, tweenGroup)
+            .to({ 
+                scaleX: targetScale, 
+                scaleY: targetScale, 
+                scaleZ: targetScale,
+                posY: panel.position.y + yOffset  // ← Простое смещение!
+            }, duration)
             .easing(Easing.Cubic.InOut)
-            .onUpdate(() => {
+            .onUpdate((obj) => {
+                panel.scale.set(obj.scaleX, obj.scaleY, obj.scaleZ);
+                panel.position.y = obj.posY;
                 panel.updateMatrixWorld(true);
             })
-            .onComplete(checkComplete)
+            .onComplete(() => {
+                checkComplete();
+            })
             .start();
         
-        // ═══════════════════════════════════════════════════════════════
-        // DIN-РЕЙКИ: Масштабирование с компенсацией наследования
-        // ═══════════════════════════════════════════════════════════════
-        
         this.dinRails.forEach(rail => {
-            // Проверяем, является ли рейка дочерним объектом панели
             let isChildOfPanel = false;
             let parent = rail.parent;
             while (parent) {
@@ -773,17 +635,25 @@ export class CabinetModel {
                 parent = parent.parent;
             }
             
-            // Если рейка является дочерней панели, компенсируем наследование масштаба
-            // (устанавливаем scale = 1.0, чтобы она унаследовала 3.0 от родителя)
             const railTargetScale = isChildOfPanel ? 1.0 : targetScale;
             
-            console.log(`  ${rail.name}: isChild=${isChildOfPanel}, scale ${rail.scale.x.toFixed(2)} → ${railTargetScale.toFixed(2)}`);
-            
-            // Анимация рейки (только масштаб)
-            new Tween(rail.scale, tweenGroup)
-                .to({ x: railTargetScale, y: railTargetScale, z: railTargetScale }, duration)
+            // Анимация рейки
+            new Tween({ 
+                scaleX: rail.scale.x, 
+                scaleY: rail.scale.y, 
+                scaleZ: rail.scale.z,
+                posY: rail.position.y
+            }, tweenGroup)
+                .to({ 
+                    scaleX: railTargetScale, 
+                    scaleY: railTargetScale, 
+                    scaleZ: railTargetScale,
+                    posY: rail.position.y + yOffset  // ← Простое смещение!
+                }, duration)
                 .easing(Easing.Cubic.InOut)
-                .onUpdate(() => {
+                .onUpdate((obj) => {
+                    rail.scale.set(obj.scaleX, obj.scaleY, obj.scaleZ);
+                    rail.position.y = obj.posY;
                     rail.updateMatrixWorld(true);
                 })
                 .onComplete(checkComplete)
@@ -826,39 +696,20 @@ export class CabinetModel {
         
         const rail = this.dinRails[railIndex];
         
-        console.log('🔧 addEquipment() начат:');
-        console.log('  Rail index:', railIndex);
-        console.log('  Rail name:', rail.name);
-        console.log('  Rail position (локальная):', rail.position);
-        console.log('  Equipment scale:', equipmentModel.scale);
-        
-        // Получить мировую позицию DIN-рейки
         const railWorldPos = new THREE.Vector3();
         rail.getWorldPosition(railWorldPos);
-        console.log('  Rail position (мировая):', railWorldPos);
         
-        // Позиция на рейке (упрощенно — в конце списка оборудования)
-        const offset = this.equipment.filter(eq => eq.railIndex === railIndex).length * 50; // 50мм интервал
-        console.log('  Offset по X:', offset, 'мм');
+        const offset = this.equipment.filter(eq => eq.railIndex === railIndex).length * 0.05;
         
         // Установить локальную позицию относительно шкафа
         equipmentModel.position.copy(rail.position);
         equipmentModel.position.x += offset;
         
-        // ВАЖНО: Сместить вперёд по Z, чтобы выключатель был виден спереди
-        equipmentModel.position.z += 100;  // 100мм вперёд от рейки
-        
-        console.log('  Equipment position (локальная, установлена):', equipmentModel.position);
+        equipmentModel.position.z += 0.1;
         
         this.model.add(equipmentModel);
         this.equipment.push({ model: equipmentModel, railIndex });
         
-        // Проверка мировой позиции после добавления
-        const eqWorldPos = new THREE.Vector3();
-        equipmentModel.getWorldPosition(eqWorldPos);
-        console.log('  Equipment position (мировая, финальная):', eqWorldPos);
-        
-        console.log(`✅ Оборудование добавлено на рейку ${railIndex}`);
         return true;
     }
     
@@ -867,7 +718,6 @@ export class CabinetModel {
         if (index !== -1) {
             this.model.remove(equipmentModel);
             this.equipment.splice(index, 1);
-            console.log('Оборудование удалено');
             return true;
         }
         return false;

@@ -21,12 +21,12 @@ export const EQUIPMENT_CATALOG = [
             manufacturer: 'IEK'
         },
         
-        // Физические размеры (для размещения на DIN-рейке)
+        // Физические размеры (в метрах для соответствия сцене)
         dimensions: {
-            width: 18,    // мм (модули: 1 модуль = 18 мм)
-            height: 80,   // мм
-            depth: 70,    // мм
-            modules: 1    // количество модулей на DIN-рейке
+            width: 0.018,    // м (18 мм, модули: 1 модуль = 18 мм)
+            height: 0.080,   // м (80 мм)
+            depth: 0.070,    // м (70 мм)
+            modules: 1       // количество модулей на DIN-рейке
         },
         
         // Параметры монтажа
@@ -37,13 +37,12 @@ export const EQUIPMENT_CATALOG = [
             snapToGrid: true       // примагничивание к сетке
         },
         
-        // 3D модель
         model: {
             path: '/assets/models/equipment/circuit_breaker/circuit_breaker.glb',
-            compressed: true,      // DRACO compression
+            compressed: true,
             fileSize: '156 KB',
-            scale: 1.0,            // масштаб по умолчанию
-            pivotOffset: { x: 0, y: 0, z: 0 } // смещение точки крепления
+            scale: 1.0,
+            pivotOffset: { x: 0, y: 0, z: 0 }
         },
         
         // UI данные

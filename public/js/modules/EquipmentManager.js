@@ -15,9 +15,9 @@ export class EquipmentManager {
         this.equipment = new Map(); // id -> EquipmentModel
         this.selectedEquipment = null;
         
-        // Параметры размещения на DIN-рейке
-        this.moduleWidth = 18; // мм — стандартная ширина модуля
-        this.snapTolerance = 5; // мм — допуск примагничивания
+        // Параметры размещения на DIN-рейке (в метрах)
+        this.moduleWidth = 0.018; // м (18 мм — стандартная ширина модуля)
+        this.snapTolerance = 0.005; // м (5 мм — допуск примагничивания)
         
         console.log('✅ EquipmentManager инициализирован');
     }
