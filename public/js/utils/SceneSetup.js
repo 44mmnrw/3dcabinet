@@ -49,12 +49,16 @@ export function createScene(options = {}) {
 export function createCamera(options = {}) {
     const {
         fov = 45,
-        position = [1.5, 1, 2]
+        position = [1.5, 1, 2],
+        container = null
     } = options;
+
+    const width = container ? container.clientWidth : window.innerWidth;
+    const height = container ? container.clientHeight : window.innerHeight;
 
     const camera = new THREE.PerspectiveCamera(
         fov,
-        window.innerWidth / window.innerHeight,
+        width / height,
         0.1,
         1000
     );
@@ -73,11 +77,17 @@ export function createCamera(options = {}) {
 export function createRenderer(options = {}) {
     const {
         antialias = true,
-        shadows = true
+        shadows = true,
+        container = null
     } = options;
 
     const renderer = new THREE.WebGLRenderer({ antialias });
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    
+    // Если есть контейнер, используем его размеры, иначе - размеры окна
+    const width = container ? container.clientWidth : window.innerWidth;
+    const height = container ? container.clientHeight : window.innerHeight;
+    
+    renderer.setSize(width, height);
     renderer.setPixelRatio(window.devicePixelRatio);
 
     if (shadows) {
@@ -85,7 +95,12 @@ export function createRenderer(options = {}) {
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     }
 
-    document.body.appendChild(renderer.domElement);
+    // Добавляем в контейнер если указан, иначе в body
+    if (container) {
+        container.appendChild(renderer.domElement);
+    } else {
+        document.body.appendChild(renderer.domElement);
+    }
 
     return renderer;
 }
@@ -142,11 +157,14 @@ export function createControls(camera, domElement, options = {}) {
  * @param {THREE.Camera} camera - Камера
  * @param {THREE.WebGLRenderer} renderer - Рендерер
  */
-export function setupResizeHandler(camera, renderer) {
+export function setupResizeHandler(camera, renderer, container = null) {
     window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
+        const width = container ? container.clientWidth : window.innerWidth;
+        const height = container ? container.clientHeight : window.innerHeight;
+        
+        camera.aspect = width / height;
         camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setSize(width, height);
     });
 }
 
@@ -156,13 +174,15 @@ export function setupResizeHandler(camera, renderer) {
  * @returns {Object} - {scene, camera, renderer, controls, lights}
  */
 export function initializeScene(options = {}) {
+    const { container = null } = options;
+    
     const scene = createScene(options);
-    const camera = createCamera(options);
-    const renderer = createRenderer(options);
+    const camera = createCamera({ ...options, container });
+    const renderer = createRenderer({ ...options, container });
     const lights = createLights(scene, options);
     const controls = createControls(camera, renderer.domElement, options);
 
-    setupResizeHandler(camera, renderer);
+    setupResizeHandler(camera, renderer, container);
 
     return { scene, camera, renderer, controls, lights };
 }

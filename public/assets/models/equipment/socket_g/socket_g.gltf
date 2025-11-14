@@ -3,6 +3,12 @@
 		"generator":"Khronos glTF Blender I/O v4.5.48",
 		"version":"2.0"
 	},
+	"extensionsUsed":[
+		"KHR_draco_mesh_compression"
+	],
+	"extensionsRequired":[
+		"KHR_draco_mesh_compression"
+	],
 	"scene":0,
 	"scenes":[
 		{
@@ -15,14 +21,20 @@
 	"nodes":[
 		{
 			"mesh":0,
-			"name":"din_mesh"
+			"name":"rail_mesh"
 		},
 		{
 			"children":[
 				0
 			],
 			"mesh":1,
-			"name":"socket_g"
+			"name":"socket_g",
+			"rotation":[
+				0,
+				-1,
+				0,
+				4.371138828673793e-08
+			]
 		}
 	],
 	"materials":[
@@ -42,15 +54,25 @@
 	],
 	"meshes":[
 		{
-			"name":"din_mesh",
+			"name":"rail_mesh",
 			"primitives":[
 				{
 					"attributes":{
 						"POSITION":0,
 						"NORMAL":1
 					},
+					"extensions":{
+						"KHR_draco_mesh_compression":{
+							"bufferView":0,
+							"attributes":{
+								"POSITION":0,
+								"NORMAL":1
+							}
+						}
+					},
 					"indices":2,
-					"material":0
+					"material":0,
+					"mode":4
 				}
 			]
 		},
@@ -62,65 +84,69 @@
 						"POSITION":3,
 						"NORMAL":4
 					},
+					"extensions":{
+						"KHR_draco_mesh_compression":{
+							"bufferView":1,
+							"attributes":{
+								"POSITION":0,
+								"NORMAL":1
+							}
+						}
+					},
 					"indices":5,
-					"material":0
+					"material":0,
+					"mode":4
 				}
 			]
 		}
 	],
 	"accessors":[
 		{
-			"bufferView":0,
 			"componentType":5126,
 			"count":12,
 			"max":[
-				0.02225000038743019,
-				0.06161746382713318,
-				0.05595026910305023
+				0.022250015288591385,
+				0.07143387198448181,
+				-0.0453236848115921
 			],
 			"min":[
-				-0.02225000038743019,
-				0.025617461651563644,
-				0.05595026910305023
+				-0.022249985486268997,
+				0.035433873534202576,
+				-0.0453236848115921
 			],
 			"type":"VEC3"
 		},
 		{
-			"bufferView":1,
 			"componentType":5126,
 			"count":12,
 			"type":"VEC3"
 		},
 		{
-			"bufferView":2,
 			"componentType":5123,
 			"count":30,
 			"type":"SCALAR"
 		},
 		{
-			"bufferView":3,
 			"componentType":5126,
-			"count":1684,
+			"count":1780,
 			"max":[
-				0.02225000225007534,
-				0.08186746388673782,
-				0.06095027178525925
+				0.022250011563301086,
+				0.09168387949466705,
+				-0.04032368212938309
 			],
 			"min":[
-				-0.02225000225007534,
-				0.003867462044581771,
-				-0.00224972958676517
+				-0.022249992936849594,
+				0.013683874160051346,
+				-0.10352368652820587
 			],
 			"type":"VEC3"
 		},
 		{
-			"bufferView":4,
 			"componentType":5126,
-			"count":1684,
+			"count":1780,
 			"type":"VEC3"
 		},
 		{
-			"bufferView":5,
 			"componentType":5123,
 			"count":4260,
 			"type":"SCALAR"
@@ -129,44 +155,18 @@
 	"bufferViews":[
 		{
 			"buffer":0,
-			"byteLength":144,
-			"byteOffset":0,
-			"target":34962
+			"byteLength":183,
+			"byteOffset":0
 		},
 		{
 			"buffer":0,
-			"byteLength":144,
-			"byteOffset":144,
-			"target":34962
-		},
-		{
-			"buffer":0,
-			"byteLength":60,
-			"byteOffset":288,
-			"target":34963
-		},
-		{
-			"buffer":0,
-			"byteLength":20208,
-			"byteOffset":348,
-			"target":34962
-		},
-		{
-			"buffer":0,
-			"byteLength":20208,
-			"byteOffset":20556,
-			"target":34962
-		},
-		{
-			"buffer":0,
-			"byteLength":8520,
-			"byteOffset":40764,
-			"target":34963
+			"byteLength":8163,
+			"byteOffset":184
 		}
 	],
 	"buffers":[
 		{
-			"byteLength":49284,
+			"byteLength":8348,
 			"uri":"socket_g.bin"
 		}
 	]

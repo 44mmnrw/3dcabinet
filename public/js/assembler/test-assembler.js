@@ -3,8 +3,12 @@ import { getAssetLoader } from '../loaders/AssetLoader.js';
 import { DINRailStrategy, RackUnitStrategy, MountingPlateStrategy } from '../strategies/MountingStrategies.js';
 import { initializeScene } from '../utils/SceneSetup.js';
 
+// Получаем контейнер для сцены
+const sceneContainer = document.getElementById('scene-container');
+
 // Инициализация сцены через универсальный модуль
 const { scene, camera, renderer, controls } = initializeScene({
+    container: sceneContainer,
     backgroundColor: 0xf5f5f5,
     showGrid: true,
     showAxes: true,
@@ -296,7 +300,18 @@ class EquipmentManager {
 
             // Добавляем оборудование внутрь шкафа (важно для координат!)
             cabinet.assembly.add(glbGroup);
-            this.positionEquipment(id);
+            
+            try {
+                this.positionEquipment(id);
+            } catch (positionError) {
+                // Не удалось разместить — удаляем оборудование
+                cabinet.assembly.remove(glbGroup);
+                this.equipment.delete(id);
+                console.error(`❌ ${positionError.message}`);
+                alert(`⚠️ ${positionError.message}`);
+                return null;
+            }
+            
             this.updateUI();
 
             console.log(`✅ ${config.name || type}: ${id} → шкаф ${cabinetId}, рейка ${railIndex}`);
@@ -312,6 +327,15 @@ class EquipmentManager {
         if (!item) {
             console.warn(`Оборудование ${id} не найдено`);
             return false;
+        }
+
+        // Освобождаем занятое место в стратегии монтажа
+        const cabinet = this.cabinetManager.cabinets.get(item.cabinetId);
+        if (cabinet && cabinet.instance && cabinet.instance.mountingStrategy) {
+            const strategy = cabinet.instance.mountingStrategy;
+            if (typeof strategy.unmount === 'function' && item.railIndex !== undefined) {
+                strategy.unmount(id, item.railIndex);
+            }
         }
 
         // Удаляем из parent (шкафа)
@@ -440,10 +464,19 @@ async function loadInitialScene() {
         // Helper-функции
         window.addBreakers = async (count = 5, railIndex = 0) => {
             console.log(`🔧 Добавляем ${count} автоматов на DIN-рейку #${railIndex}...`);
+            let added = 0;
             for (let i = 0; i < count; i++) {
-                await equipmentManager.addEquipment('circuit_breaker', railIndex);
+                const result = await equipmentManager.addEquipment('circuit_breaker', railIndex);
+                if (!result) {
+                    // Не удалось добавить (рейка переполнена)
+                    console.log(`⚠️ Остановлено: добавлено ${added} из ${count} автоматов`);
+                    break;
+                }
+                added++;
             }
-            console.log(`✅ Добавлено ${count} автоматов`);
+            if (added === count) {
+                console.log(`✅ Добавлено ${count} автоматов`);
+            }
         };
 
         window.showRailOccupancy = (railIndex = 0) => {

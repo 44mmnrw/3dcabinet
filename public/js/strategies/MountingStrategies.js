@@ -122,8 +122,16 @@ export class DINRailStrategy extends MountingStrategy {
             return searchX;
         }
 
-        console.warn(`⚠️ DIN-рейка ${railIndex} переполнена! Занято ${(searchX * 1000).toFixed(1)}мм из ${(railWidth * 1000).toFixed(1)}мм`);
-        return searchX;  // Всё равно размещаем (выйдет за границы)
+        // Места нет — выбрасываем ошибку
+        const occupiedMM = (searchX - railBBox.min.x) * 1000;
+        const railWidthMM = railWidth * 1000;
+        const neededMM = equipmentWidth * 1000;
+        throw new Error(
+            `DIN-рейка ${railIndex} переполнена! ` +
+            `Занято: ${occupiedMM.toFixed(0)}мм, ` +
+            `длина рейки: ${railWidthMM.toFixed(0)}мм, ` +
+            `требуется: ${neededMM.toFixed(0)}мм`
+        );
     }
 
     _registerOccupiedSpace(railIndex, startX, endX, equipmentId) {
@@ -131,6 +139,27 @@ export class DINRailStrategy extends MountingStrategy {
             this.occupiedSpaces.set(railIndex, []);
         }
         this.occupiedSpaces.get(railIndex).push({ startX, endX, equipmentId });
+    }
+
+    unmount(equipmentId, railIndex) {
+        if (!this.occupiedSpaces.has(railIndex)) {
+            console.warn(`⚠️ Рейка ${railIndex} не найдена в occupiedSpaces`);
+            return;
+        }
+
+        const occupied = this.occupiedSpaces.get(railIndex);
+        const initialLength = occupied.length;
+        
+        // Удаляем запись с этим equipmentId
+        const filtered = occupied.filter(space => space.equipmentId !== equipmentId);
+        this.occupiedSpaces.set(railIndex, filtered);
+        
+        const removed = initialLength - filtered.length;
+        if (removed > 0) {
+            console.log(`🔓 Освобождено место на рейке ${railIndex}: удалено ${removed} записей для ${equipmentId}`);
+        } else {
+            console.warn(`⚠️ Не найдено записи для ${equipmentId} на рейке ${railIndex}`);
+        }
     }
 
     getRailOccupancy(railIndex) {
