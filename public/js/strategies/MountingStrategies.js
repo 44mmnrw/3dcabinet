@@ -39,28 +39,45 @@ export class DINRailStrategy extends MountingStrategy {
         equipmentMesh.position.set(0, 0, 0);
         equipmentMesh.updateMatrixWorld(true);
 
-        // Ищем anchor mesh по имени (если указан)
-        let anchorMesh = null;
-        const anchorMeshName = equipmentConfig?.mounting?.anchorPoint?.meshName;
-        if (anchorMeshName) {
+        // Ищем anchor mesh (rail_mesh) для крепления к DIN-рейке (только для Y/Z)
+        let railMesh = null;
+        const railMeshName = equipmentConfig?.mounting?.anchorPoint?.meshName;
+        if (railMeshName) {
             equipmentMesh.traverse((child) => {
-                if (child.name === anchorMeshName && child.isMesh) {
-                    anchorMesh = child;
+                if (child.name === railMeshName && child.isMesh) {
+                    railMesh = child;
                 }
             });
-            if (!anchorMesh) {
-                console.warn(`⚠️ Anchor mesh "${anchorMeshName}" не найден, используем bbox всей группы`);
-            }
         }
 
-        // Считаем bbox в локальных координатах (после сброса position)
-        const targetObject = anchorMesh || equipmentMesh;
-        const equipmentBBox = new THREE.Box3().setFromObject(targetObject);
+        // Временно скрываем rail_mesh для расчёта РЕАЛЬНЫХ габаритов оборудования
+        let railMeshVisible = null;
+        if (railMesh) {
+            railMeshVisible = railMesh.visible;
+            railMesh.visible = false;
+        }
         
-        // Ширина оборудования = используем dimensions из конфига (точнее) или bbox
-        const equipmentWidth = equipmentConfig?.dimensions?.width || (equipmentBBox.max.x - equipmentBBox.min.x);
+        // Реальные габариты оборудования (БЕЗ rail_mesh плоскости)
+        const equipmentBBox = new THREE.Box3().setFromObject(equipmentMesh);
+        
+        // Восстанавливаем видимость rail_mesh
+        if (railMesh) {
+            railMesh.visible = railMeshVisible;
+        }
+        
+        // BBox самого rail_mesh (для Y/Z крепления)
+        const railMeshBBox = railMesh ? new THREE.Box3().setFromObject(railMesh) : null;
+        
+        // Ширина оборудования из конфига (для поиска свободного места)
+        const equipmentWidthConfig = equipmentConfig?.dimensions?.width;
+        
+        // Реальная ширина bbox (для регистрации занятого пространства)
+        const equipmentWidthReal = equipmentBBox.max.x - equipmentBBox.min.x;
+        
+        // Используем бОльшую из двух (чтобы учесть реальные габариты)
+        const equipmentWidth = Math.max(equipmentWidthConfig || 0, equipmentWidthReal);
 
-        // Определяем X-позицию на рейке
+        // Определяем X-позицию на рейке (АБСОЛЮТНАЯ координата в assembly)
         let targetX;
         if (xOffset !== null) {
             targetX = railBBox.min.x + xOffset;
@@ -68,16 +85,26 @@ export class DINRailStrategy extends MountingStrategy {
             targetX = this._findNextFreePosition(railIndex, railBBox, equipmentWidth);
         }
 
-        // Anchor point на рейке (локальные координаты рейки)
-        const railAnchorX = targetX;
+        // Anchor point на рейке (АБСОЛЮТНЫЕ координаты в assembly)
+        const railAnchorX = targetX;  // targetX уже абсолютная координата
         const railAnchorY = (railBBox.min.y + railBBox.max.y) / 2;
         const railAnchorZ = railBBox.max.z;  // передняя грань рейки
 
         // Anchor point на оборудовании (локальные координаты)
         const configOffset = equipmentConfig?.mounting?.anchorPoint?.offset || [0, 0, 0];
-        const equipmentAnchorX = equipmentBBox.min.x + configOffset[0];  // левый край
-        const equipmentAnchorY = (equipmentBBox.min.y + equipmentBBox.max.y) / 2 + configOffset[1];  // центр по Y
-        const equipmentAnchorZ = equipmentBBox.min.z + configOffset[2];  // задняя грань (клипса)
+        
+        // X: используем РЕАЛЬНЫЙ левый край из bbox (он уже учитывает все внутренние трансформации GLTF)
+        const equipmentAnchorX = equipmentBBox.min.x + configOffset[0];
+        
+        // Y и Z: используем rail_mesh если есть (точка крепления к DIN-рейке), иначе реальное оборудование
+        let equipmentAnchorY, equipmentAnchorZ;
+        if (railMeshBBox) {
+            equipmentAnchorY = (railMeshBBox.min.y + railMeshBBox.max.y) / 2 + configOffset[1];
+            equipmentAnchorZ = railMeshBBox.min.z + configOffset[2];
+        } else {
+            equipmentAnchorY = (equipmentBBox.min.y + equipmentBBox.max.y) / 2 + configOffset[1];
+            equipmentAnchorZ = equipmentBBox.min.z + configOffset[2];
+        }
 
         // Вычисляем итоговую позицию оборудования (оба объекта в одной системе координат - assembly)
         equipmentMesh.position.set(
@@ -86,12 +113,11 @@ export class DINRailStrategy extends MountingStrategy {
             railAnchorZ - equipmentAnchorZ
         );
 
-        // Регистрируем занятое место на рейке
-        this._registerOccupiedSpace(railIndex, targetX, targetX + equipmentWidth, equipmentMesh.name);
+        // Обновляем матрицу для точного bbox
+        equipmentMesh.updateMatrixWorld(true);
 
-        console.log(`📍 DIN-рейка ${railIndex}: ${equipmentMesh.name} на X=${targetX.toFixed(3)}м (${(targetX * 1000).toFixed(1)}мм от начала), ширина=${(equipmentWidth * 1000).toFixed(1)}мм`);
-        console.log(`   equipmentBBox: min=[${equipmentBBox.min.x.toFixed(3)}, ${equipmentBBox.min.y.toFixed(3)}, ${equipmentBBox.min.z.toFixed(3)}], max=[${equipmentBBox.max.x.toFixed(3)}, ${equipmentBBox.max.y.toFixed(3)}, ${equipmentBBox.max.z.toFixed(3)}]`);
-        console.log(`   finalPosition: [${equipmentMesh.position.x.toFixed(3)}, ${equipmentMesh.position.y.toFixed(3)}, ${equipmentMesh.position.z.toFixed(3)}]`);
+        // Регистрируем занятое место на рейке (АБСОЛЮТНЫЕ координаты в assembly)
+        this._registerOccupiedSpace(railIndex, targetX, targetX + equipmentWidth, equipmentMesh.name);
     }
 
     _findNextFreePosition(railIndex, railBBox, equipmentWidth) {
