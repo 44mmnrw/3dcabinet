@@ -103,21 +103,25 @@
             <span class="slider-value" id="doorValue">0°</span>
         </div>
         
-        <button onclick="cabinetModel.setDoorRotation(0); updateSlider(0)">Закрыть дверь</button>
-        <button onclick="cabinetModel.setDoorRotation(-Math.PI/2); updateSlider(90)">Открыть 90°</button>
-        <button onclick="cabinetModel.setDoorRotation(-Math.PI); updateSlider(180)">Открыть 180°</button>
+        <button onclick="setDoor(0, 0)">Закрыть дверь</button>
+        <button onclick="setDoor(-Math.PI/2, 90)">Открыть 90°</button>
+        <button onclick="setDoor(-Math.PI, 180)">Открыть 180°</button>
         
         <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
-            <button onclick="breakerModel.setVisibility(!breakerModel.getComponent().visible)">
-                Показать/Скрыть автомат
-            </button>
+            <h4>Управление оборудованием</h4>
+            <button onclick="window.equipmentManager.addEquipment('circuit_breaker')">➕ Добавить автомат</button>
+            <button onclick="window.equipmentManager.removeLastEquipment()">➖ Убрать последний</button>
+            <button onclick="window.equipmentManager.removeAllEquipment()">🗑️ Убрать все</button>
+            <div style="margin-top: 10px; font-size: 10px; color: #666;">
+                Оборудование на сцене: <strong id="equipment-count">0</strong>
+            </div>
         </div>
     </div>
     
-    <script type="module" src="js/test-assembler.js"></script>
+    <script type="module" src="js/assembler/test-assembler.js"></script>
     
     <script>
-        // Обработчик слайдера. ЭТОЙ ФУНКЦЦИИ НЕ ДОЛЖНО БЫТЬ В HTML, она должна быть в JS
+        // Обработчик слайдера двери
         const slider = document.getElementById('doorSlider');
         const valueDisplay = document.getElementById('doorValue');
         
@@ -125,8 +129,12 @@
             const degrees = parseInt(e.target.value);
             const radians = -(degrees * Math.PI / 180); // Минус для открытия в другую сторону
             
-            if (window.cabinetModel) {
-                window.cabinetModel.setDoorRotation(radians);
+            // Используем новую архитектуру через cabinetManager
+            if (window.cabinetManager) {
+                const activeCabinet = window.cabinetManager.getActiveCabinet();
+                if (activeCabinet?.instance?.setDoorRotation) {
+                    activeCabinet.instance.setDoorRotation(radians);
+                }
             }
             
             valueDisplay.textContent = degrees + '°';
@@ -138,8 +146,18 @@
             valueDisplay.textContent = degrees + '°';
         }
         
-        // Глобальная функция для кнопок
+        // Функция управления дверью (для кнопок)
+        function setDoor(radians, degrees) {
+            const cabinet = window.cabinetManager?.getActiveCabinet();
+            if (cabinet?.instance?.setDoorRotation) {
+                cabinet.instance.setDoorRotation(radians);
+            }
+            updateSlider(degrees);
+        }
+        
+        // Глобальные функции для кнопок
         window.updateSlider = updateSlider;
+        window.setDoor = setDoor;
         
         // ===== TEMP: скрыть автомат со сцены после загрузки =====
         (function hideBreakerOnce() {

@@ -1,0 +1,22 @@
+{
+  "cabinets": [
+    {
+      "id": "TS_700_500_250",
+      "name": "Шкаф TS 700×500×250",
+      "className": "test_TS_700_500_250",
+      "modulePath": "../../../js/cabinets/TS_700_500_250/test_TS_700_500_250.js",
+      "mountingType": "din_rail",
+      "mounting": {
+        "rails": 3,
+        "moduleWidth": 18
+      },
+      "dimensions": {
+        "width": 700,
+        "height": 500,
+        "depth": 250
+      },
+      "thumbnail": "/assets/models/cabinets/TS_700_500_250/thumb.jpg",
+      "description": "Компактный шкаф для небольших помещений"
+    }
+  ]
+}

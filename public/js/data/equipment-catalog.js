@@ -42,7 +42,7 @@ export const EQUIPMENT_CATALOG = [
             compressed: true,
             fileSize: '156 KB',
             scale: 1.0,
-            pivotOffset: { x: 0, y: 0, z: 0 }
+            pivotOffset: { x: 0, y: 0.007, z: 0 }
         },
         
         // UI данные

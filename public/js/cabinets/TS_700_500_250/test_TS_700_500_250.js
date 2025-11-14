@@ -1,5 +1,5 @@
 import * as THREE from '../../libs/three.module.js';
-import { FreeCADGeometryLoader } from '../../modules/FreeCADGeometryLoader.js';
+import { FreeCADGeometryLoader } from '../../loaders/FreeCADGeometryLoader.js';
 
 // Тестовая копия модели TS_700_500_250 (для экспериментов)
 export class test_TS_700_500_250 {
@@ -78,22 +78,7 @@ export class test_TS_700_500_250 {
             
             // Центрируем всю сборку относительно нижней плоскости
             this._alignAssemblyToFloor();
-
-            // ========== DEBUG: КРАСНАЯ ЛИНИЯ ВДОЛЬ ОСИ Y ==========
-            const lineMaterial = new THREE.LineBasicMaterial({ 
-                color: 0xff0000,
-                linewidth: 5  // Примечание: linewidth работает только в WebGLRenderer
-            });
-            const lineGeometry = new THREE.BufferGeometry().setFromPoints([
-                new THREE.Vector3(hingeX, -2, hingeZ),  // Начало линии (ниже модели)
-                new THREE.Vector3(hingeX, 2, hingeZ)    // Конец линии (выше модели)
-            ]);
-            const redLine = new THREE.Line(lineGeometry, lineMaterial);
-            redLine.name = 'DEBUG_Y_Axis_Line';
-            this.assembly.add(redLine);
-            console.log('🔴 DEBUG: Красная линия в координатах петель:', { hingeX, hingeZ });
-            // ========== КОНЕЦ DEBUG ==========
-
+            
             return this.assembly;
         } catch (error) {
             console.error('❌ Ошибка сборки TS_700_500_250:', error);
@@ -150,7 +135,6 @@ export class test_TS_700_500_250 {
     setDoorRotation(angleRadians) {
         if (this.components.door) {
             this.components.door.rotation.y = angleRadians;
-            console.log('🚪 Door rotation:', (angleRadians * 180 / Math.PI).toFixed(1) + '°');
         }
     }
     
