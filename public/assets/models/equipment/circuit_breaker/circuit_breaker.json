@@ -1,13 +1,14 @@
 {
   "id": "circuit_breaker",
   "name": "Автоматический выключатель",
-  "model": "circuit_breaker.glb",
+  "model": "circuit_breaker.gltf",
   "mounting": {
     "type": "din_rail",
     "anchorPoint": {
-      "description": "Клипса для крепления на DIN-рейку (задняя нижняя точка)",
-      "offset": [0, -0.035, 0.025],
-      "method": "bbox_calculated"
+      "meshName": "rail_mesh",
+      "description": "Плоскость для крепления на DIN-рейку (mesh rail_mesh)",
+      "offset": [0, 0, 0],
+      "method": "mesh_anchor"
     },
     "clearance": {
       "front": 0.002,

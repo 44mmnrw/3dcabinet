@@ -228,7 +228,7 @@ class EquipmentManager {
         }
 
         try {
-            const configPath = `/assets/models/equipment/${type}.json`;
+            const configPath = `/assets/models/equipment/${type}/${type}.json`;
             const response = await fetch(configPath);
             if (!response.ok) {
                 throw new Error(`Конфиг не найден: ${configPath}`);
@@ -251,7 +251,7 @@ class EquipmentManager {
         }
     }
 
-    async addEquipment(type, railIndex = 0, moduleIndex = null, cabinetId = null) {
+    async addEquipment(type, railIndex = 0, xOffset = null, cabinetId = null) {
         try {
             // Если шкаф не указан, используем активный
             if (!cabinetId) {
@@ -269,7 +269,7 @@ class EquipmentManager {
             // Загружаем конфигурацию
             const config = await this.loadEquipmentConfig(type);
 
-            // Загружаем GLB модель
+            // Загружаем GLTF/GLB модель
             const modelPath = `/assets/models/equipment/${type}/${config.model}`;
             const glbGroup = await this.assetLoader.load(modelPath, {
                 useCache: true,
@@ -279,9 +279,10 @@ class EquipmentManager {
             alignGroupToFloor(glbGroup);
             glbGroup.name = id;
 
-            // Автоматическое позиционирование
-            if (moduleIndex === null) {
-                moduleIndex = this.equipment.size; // каждый следующий на новую позицию
+            // Получаем шкаф, куда будем добавлять оборудование
+            const cabinet = this.cabinetManager.getCabinet(cabinetId);
+            if (!cabinet) {
+                throw new Error(`Шкаф ${cabinetId} не найден`);
             }
 
             this.equipment.set(id, {
@@ -289,15 +290,16 @@ class EquipmentManager {
                 type: type,
                 config: config,
                 railIndex: railIndex,
-                moduleIndex: moduleIndex,
+                xOffset: xOffset,  // null = автоматически найдёт свободное место
                 cabinetId: cabinetId
             });
 
-            this.scene.add(glbGroup);
+            // Добавляем оборудование внутрь шкафа (важно для координат!)
+            cabinet.assembly.add(glbGroup);
             this.positionEquipment(id);
             this.updateUI();
 
-            console.log(`✅ ${config.name || type}: ${id} → шкаф ${cabinetId}, рейка ${railIndex}, модуль ${moduleIndex}`);
+            console.log(`✅ ${config.name || type}: ${id} → шкаф ${cabinetId}, рейка ${railIndex}`);
             return id;
         } catch (error) {
             console.error('❌ Ошибка добавления оборудования:', error);
@@ -312,7 +314,11 @@ class EquipmentManager {
             return false;
         }
 
-        this.scene.remove(item.mesh);
+        // Удаляем из parent (шкафа)
+        if (item.mesh.parent) {
+            item.mesh.parent.remove(item.mesh);
+        }
+
         item.mesh.traverse(child => {
             if (child.geometry) child.geometry.dispose();
             if (child.material) {
@@ -362,41 +368,19 @@ class EquipmentManager {
             try {
                 const position = {
                     railIndex: item.railIndex,
-                    moduleIndex: item.moduleIndex,
+                    xOffset: item.xOffset,
                     unitIndex: item.unitIndex,
                     depth: item.depth
                 };
                 cabinet.instance.mountingStrategy.mount(equipmentGroup, item.config, position);
                 return;
             } catch (e) {
-                console.warn('⚠️ Ошибка стратегии монтажа, используем fallback:', e.message);
+                console.error('❌ Ошибка стратегии монтажа:', e);
+                throw e;
             }
         }
 
-        // Fallback: DIN-рейки
-        const components = cabinet.instance.getComponents();
-        const rails = [components.dinRail1, components.dinRail2, components.dinRail3].filter(Boolean);
-        if (!rails.length) {
-            console.warn('В шкафу нет DIN-реек (fallback не сработал)');
-            return;
-        }
-
-        const rail = rails[Math.min(item.railIndex, rails.length - 1)];
-
-        const railBBox = new THREE.Box3().setFromObject(rail);
-        const railAnchorLocal = new THREE.Vector3(
-            railBBox.min.x,
-            (railBBox.min.y + railBBox.max.y) / 2,
-            railBBox.max.z
-        );
-
-        const equipmentBBox = new THREE.Box3().setFromObject(equipmentGroup);
-        const configOffset = item.config?.mounting?.anchorPoint?.offset || [0, 0, 0];
-        const equipmentAnchorLocal = new THREE.Vector3(
-            (equipmentBBox.min.x + equipmentBBox.max.x) / 2 + configOffset[0],
-            equipmentBBox.min.y + configOffset[1],
-            equipmentBBox.min.z + configOffset[2]
-        );
+        console.warn('⚠️ Шкаф не имеет стратегии монтажа');
 
         const railAnchorWorld = rail.localToWorld(railAnchorLocal.clone());
         const equipmentAnchorWorld = equipmentGroup.localToWorld(equipmentAnchorLocal.clone());
@@ -452,6 +436,33 @@ async function loadInitialScene() {
         }
 
         console.log('✅ Сцена инициализирована');
+
+        // Helper-функции
+        window.addBreakers = async (count = 5, railIndex = 0) => {
+            console.log(`🔧 Добавляем ${count} автоматов на DIN-рейку #${railIndex}...`);
+            for (let i = 0; i < count; i++) {
+                await equipmentManager.addEquipment('circuit_breaker', railIndex);
+            }
+            console.log(`✅ Добавлено ${count} автоматов`);
+        };
+
+        window.showRailOccupancy = (railIndex = 0) => {
+            const cabinet = cabinetManager.getActiveCabinet();
+            if (!cabinet?.instance?.mountingStrategy) {
+                console.warn('⚠️ Нет активного шкафа со стратегией монтажа');
+                return;
+            }
+            const occupancy = cabinet.instance.mountingStrategy.getRailOccupancy(railIndex);
+            if (!occupancy) {
+                console.warn(`⚠️ DIN-рейка #${railIndex} не найдена`);
+                return;
+            }
+            console.log(`📊 DIN-рейка #${railIndex}:`);
+            console.log(`   Длина: ${(occupancy.railWidth * 1000).toFixed(1)}мм`);
+            console.log(`   Занято: ${(occupancy.occupiedWidth * 1000).toFixed(1)}мм (${occupancy.fillPercent}%)`);
+            console.log(`   Свободно: ${(occupancy.freeWidth * 1000).toFixed(1)}мм`);
+            console.log(`   Установлено: ${occupancy.items} шт.`);
+        };
 
     } catch (error) {
         console.error('❌ Ошибка загрузки сцены:', error);
@@ -512,8 +523,10 @@ console.log('    • cabinetManager.removeCabinet("id") - удалить шка�
 console.log('    • cabinetManager.setActiveCabinet("id") - переключить активный');
 console.log('    • cabinetManager.getAllCabinets() - список загруженных шкафов');
 console.log('  ⚡ ОБОРУДОВАНИЕ:');
-console.log('    • equipmentManager.addEquipment("type", railIndex, moduleIndex, cabinetId) - добавить');
+console.log('    • equipmentManager.addEquipment("type", railIndex, xOffset, cabinetId) - добавить (xOffset=null = auto)');
 console.log('    • equipmentManager.removeLastEquipment() - удалить последнее');
 console.log('    • equipmentManager.getEquipmentByCabinet("id") - оборудование конкретного шкафа');
+console.log('    • addBreakers(count, railIndex=0) - добавить N автоматов на рейку (helper)');
 console.log('  🧭 ОТЛАДКА:');
 console.log('    • dumpSceneHierarchy(6) - напечатать иерархию сцены (ASCII)');
+console.log('    • showRailOccupancy(railIndex) - показать заполненность DIN-рейки');
