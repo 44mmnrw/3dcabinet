@@ -4,9 +4,6 @@
   "description": "Веб-приложение для виртуального проектирования размещения оборудования в серверном шкафу.",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
     "build:icons": "node build-icons.mjs",
     "icons:watch": "chokidar \"public/assets/icons/**/*.svg\" -c \"node build-icons.mjs\"",
     "icons:dev": "npm run build:icons && npm run icons:watch",
@@ -24,8 +21,6 @@
     "ktx-parse": "^1.1.0",
     "lil-gui": "^0.21.0",
     "postprocessing": "^6.37.8",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
     "stats.js": "^0.17.0",
     "sweetalert2": "^11.26.3",
     "three": "^0.169.0",
@@ -33,16 +28,13 @@
     "troika-three-text": "^0.52.4"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^5.1.1",
     "chokidar-cli": "^3.0.0",
     "glob": "^11.0.0",
-    "laravel-vite-plugin": "^2.0.1",
-    "svgstore": "^3.0.1",
-    "vite": "^7.2.2"
+    "svgstore": "^3.0.1"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/44mmnrw/3dcabinet.git"
+    "url": "https://github.com/44mmnrw/3dcabinet.git"
   },
   "keywords": [],
   "author": "",
@@ -50,9 +42,5 @@
   "bugs": {
     "url": "https://github.com/44mmnrw/3dcabinet/issues"
   },
-  "homepage": "https://github.com/44mmnrw/3dcabinet#readme",
-  "main": "index.js",
-  "directories": {
-    "doc": "docs"
-  }
+  "homepage": "https://github.com/44mmnrw/3dcabinet#readme"
 }
