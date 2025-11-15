@@ -167,6 +167,51 @@ export class DINRailStrategy extends MountingStrategy {
         this.occupiedSpaces.get(railIndex).push({ startX, endX, equipmentId });
     }
 
+    /**
+     * Автоматический поиск следующей свободной позиции на рейках (0 → 1 → 2 → 3)
+     * @param {number} equipmentWidth - Ширина оборудования в метрах
+     * @param {number} preferredRailIndex - Предпочитаемая рейка (начинаем с неё)
+     * @returns {Object|null} { railIndex, xOffset } или null если нет места
+     */
+    findNextAvailableSlot(equipmentWidth, preferredRailIndex = 0) {
+        const components = this.cabinet.getComponents();
+        const rails = [components.dinRail1, components.dinRail2, components.dinRail3, components.dinRail4].filter(Boolean);
+        
+        if (rails.length === 0) {
+            console.error('❌ В шкафу нет DIN-реек');
+            return null;
+        }
+
+        // Порядок поиска: preferredRailIndex → 0 → 1 → 2 → 3
+        const searchOrder = [preferredRailIndex];
+        for (let i = 0; i < rails.length; i++) {
+            if (i !== preferredRailIndex) searchOrder.push(i);
+        }
+
+        console.log(`🔍 Поиск места для оборудования (ширина ${(equipmentWidth * 1000).toFixed(1)}мм)`);
+        console.log(`   Порядок поиска по рейкам: ${searchOrder.join(' → ')}`);
+
+        for (const railIndex of searchOrder) {
+            if (railIndex >= rails.length) continue;
+
+            const rail = rails[railIndex];
+            const railBBox = new THREE.Box3().setFromObject(rail);
+            
+            try {
+                const xOffset = this._findNextFreePosition(railIndex, railBBox, equipmentWidth);
+                console.log(`✅ Найдено свободное место: рейка ${railIndex}, X=${xOffset.toFixed(3)}м`);
+                return { railIndex, xOffset };
+            } catch (e) {
+                // Рейка заполнена, пробуем следующую
+                console.log(`   ⚠️ Рейка ${railIndex}: ${e.message}`);
+                continue;
+            }
+        }
+
+        console.error('❌ Нет свободного места ни на одной DIN-рейке');
+        return null;
+    }
+
     unmount(equipmentId, railIndex) {
         if (!this.occupiedSpaces.has(railIndex)) {
             console.warn(`⚠️ Рейка ${railIndex} не найдена в occupiedSpaces`);

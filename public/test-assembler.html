@@ -205,10 +205,14 @@
         <div class="catalog-content">
             <!-- Панель: Автоматы -->
             <div class="catalog-panel active" id="panel-breakers">
-                <div class="equipment-card" onclick="window.equipmentManager?.addEquipment('circuit_breaker')">
+
+                <div class="equipment-card"
+                    data-equipment-type="circuit_breaker">
+                    <img src="/assets/icons/circuit-breaker.svg" alt="Автомат" />
                     <h5>🔌 Автоматический выключатель</h5>
                     <p>Ширина: 18мм<br>Монтаж: DIN-рейка</p>
                 </div>
+                
                 <div class="equipment-card" style="opacity: 0.5; cursor: not-allowed;" title="В разработке">
                     <h5>🔌 Дифавтомат</h5>
                     <p>Ширина: 36мм<br>Монтаж: DIN-рейка</p>
@@ -229,7 +233,8 @@
             
             <!-- Панель: Розетки -->
             <div class="catalog-panel" id="panel-sockets">
-                <div class="equipment-card" onclick="window.equipmentManager?.addEquipment('socket_g')">
+                <div class="equipment-card" 
+                     data-equipment-type="socket_g">
                     <h5>⚡ Розетка 220В Schuko</h5>
                     <p>Ширина: 44.5мм<br>Монтаж: DIN-рейка</p>
                 </div>

@@ -17,7 +17,8 @@ public/js/
 │       └── circuit_breaker.js
 │
 ├── core/                   # Ядро (менеджеры, основная логика)
-│   └── [будущие CabinetManager, EquipmentManager как отдельные модули]
+│   ├── DragDropController.js       # Контроллер drag & drop для оборудования
+│   └── ContextMenuManager.js       # Контекстное меню (ПКМ) для удаления оборудования
 │
 ├── strategies/             # Стратегии монтажа (паттерн Strategy)
 │   └── MountingStrategies.js  # DINRailStrategy, RackUnitStrategy, MountingPlateStrategy
@@ -28,6 +29,7 @@ public/js/
 │
 ├── utils/                  # Утилиты
 │   ├── SceneSetup.js       # Инициализация сцены (камера, свет, renderer)
+│   ├── RailHighlighter.js  # Подсветка DIN-реек (dim/bright режимы)
 │   ├── ShaderUtils.js      # Хелперы для шейдеров
 │   ├── ModelSceneManager.js  # Менеджер сцен для моделей
 │   └── progress-animation.js
@@ -73,6 +75,7 @@ FreeCADGeometryLoader  → three.module.js
 Зависят от `libs/`:
 ```
 SceneSetup.js          → three.module.js, OrbitControls.js
+RailHighlighter.js     → three.module.js
 ShaderUtils.js         → three.module.js
 ModelSceneManager.js   → three.module.js
 ```
@@ -83,22 +86,31 @@ ModelSceneManager.js   → three.module.js
 MountingStrategies.js  → three.module.js
 ```
 
-### **5. Классы шкафов (cabinets/)**
+### **5. Core модули (core/)**
+Зависят от `libs/` и `utils/`:
+```
+DragDropController.js  → three.module.js, RailHighlighter.js
+ContextMenuManager.js  → three.module.js
+```
+
+### **6. Классы шкафов (cabinets/)**
 Зависят от `loaders/`:
 ```
 test_TS_700_500_250.js → AssetLoader.js, FreeCADGeometryLoader
 ```
 
-### **6. Классы оборудования (equipment/)**
+### **7. Классы оборудования (equipment/)**
 Зависят от `loaders/`:
 ```
 circuit_breaker.js     → AssetLoader.js
 ```
 
-### **7. Assembler (assembler/)**
+### **8. Assembler (assembler/)**
 Объединяет всё:
 ```
-test-assembler.js      → SceneSetup, AssetLoader, MountingStrategies, cabinets/*, equipment/*
+test-assembler.js      → SceneSetup, AssetLoader, MountingStrategies, 
+                          DragDropController, ContextMenuManager, 
+                          cabinets/*, equipment/*
 ```
 
 ---

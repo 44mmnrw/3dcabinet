@@ -2,6 +2,8 @@ import * as THREE from '../libs/three.module.js';
 import { getAssetLoader } from '../loaders/AssetLoader.js';
 import { DINRailStrategy, RackUnitStrategy, MountingPlateStrategy } from '../strategies/MountingStrategies.js';
 import { initializeScene } from '../utils/SceneSetup.js';
+import { DragDropController } from '../core/DragDropController.js';
+import { ContextMenuManager } from '../core/ContextMenuManager.js';
 
 // Получаем контейнер для сцены
 const sceneContainer = document.getElementById('scene-container');
@@ -404,16 +406,6 @@ class EquipmentManager {
         }
 
         console.warn('⚠️ Шкаф не имеет стратегии монтажа');
-
-        const railAnchorWorld = rail.localToWorld(railAnchorLocal.clone());
-        const equipmentAnchorWorld = equipmentGroup.localToWorld(equipmentAnchorLocal.clone());
-        const delta = railAnchorWorld.clone().sub(equipmentAnchorWorld);
-        equipmentGroup.position.add(delta);
-
-        const equipmentPosInRail = rail.worldToLocal(equipmentGroup.position.clone());
-        const moduleStep = item.config?.dimensions?.width || 0.018;
-        equipmentPosInRail.x = railBBox.min.x + item.moduleIndex * moduleStep;
-        equipmentGroup.position.copy(rail.localToWorld(equipmentPosInRail));
     }
 
     updateUI() {
@@ -545,6 +537,44 @@ function alignGroupToFloor(group) {
     console.log('📐 GLB aligned to floor, offset Y:', offsetY.toFixed(3));
 }
 
+// ========== DRAG & DROP и КОНТЕКСТНОЕ МЕНЮ ==========
+
+// Инициализация Drag & Drop контроллера
+const dragDropController = new DragDropController({
+    scene,
+    camera,
+    renderer,
+    cabinetManager,
+    equipmentManager
+});
+
+// Инициализация контекстного меню (ПКМ для удаления оборудования)
+const contextMenuManager = new ContextMenuManager({
+    scene,
+    camera,
+    renderer,
+    equipmentManager
+});
+
+// Инициализация после загрузки DOM
+window.addEventListener('DOMContentLoaded', () => {
+    // Привязка drag & drop к карточкам оборудования
+    dragDropController.initialize('.equipment-card');
+    
+    // Привязка контекстного меню
+    contextMenuManager.initialize();
+    
+    console.log('✅ Drag & Drop и контекстное меню инициализированы');
+    console.log('💡 Перетащите карточку оборудования из панели на DIN-рейку');
+    console.log('💡 ПКМ на оборудовании → контекстное меню');
+});
+
+// Экспорт в window для отладки
+window.dragDropController = dragDropController;
+window.contextMenuManager = contextMenuManager;
+
+// ========================================================
+
 console.log('🎮 Используйте controls для управления сценой');
 console.log('📊 Доступные команды:');
 console.log('  🏗️ ШКАФЫ:');
@@ -559,6 +589,9 @@ console.log('    • equipmentManager.addEquipment("type", railIndex, xOffset, c
 console.log('    • equipmentManager.removeLastEquipment() - удалить последнее');
 console.log('    • equipmentManager.getEquipmentByCabinet("id") - оборудование конкретного шкафа');
 console.log('    • addBreakers(count, railIndex=0) - добавить N автоматов на рейку (helper)');
+console.log('  🖱️ DRAG & DROP:');
+console.log('    • dragDropController.initialize(".equipment-card") - привязать к карточкам');
+console.log('    • contextMenuManager.initialize() - включить ПКМ меню');
 console.log('  🧭 ОТЛАДКА:');
 console.log('    • dumpSceneHierarchy(6) - напечатать иерархию сцены (ASCII)');
 console.log('    • showRailOccupancy(railIndex) - показать заполненность DIN-рейки');
