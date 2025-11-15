@@ -23,10 +23,10 @@ export const EQUIPMENT_CATALOG = [
         
         // Физические размеры (в метрах для соответствия сцене)
         dimensions: {
-            width: 0.018,    // м (18 мм, модули: 1 модуль = 18 мм)
+            width: 0.028,    // м (28 мм, реальная ширина корпуса IEK, хотя 1 модуль=18мм)
             height: 0.080,   // м (80 мм)
             depth: 0.070,    // м (70 мм)
-            modules: 1       // количество модулей на DIN-рейке
+            modules: 1       // количество модульных мест на DIN-рейке (по спецификации)
         },
         
         // Параметры монтажа
@@ -55,6 +55,58 @@ export const EQUIPMENT_CATALOG = [
         inStock: true,
         vendor: 'IEK',
         article: 'MVK10-1-016-C'
+    },
+    
+    {
+        id: 'socket_g',
+        name: 'Розетка с заземлением',
+        description: 'Розетка 16А с заземлением для DIN-рейки',
+        category: 'accessories',
+        subcategory: 'sockets',
+        
+        // Технические характеристики
+        specifications: {
+            current: 16,           // А
+            voltage: 230,          // В
+            grounding: true,       // заземление
+            standard: 'GOST R 51322',
+            manufacturer: 'Generic'
+        },
+        
+        // Физические размеры (в метрах для соответствия сцене)
+        dimensions: {
+            width: 0.0445,   // м (44.5 мм, измерено через bbox модели)
+            height: 0.080,   // м (80 мм)
+            depth: 0.070,    // м (70 мм)
+            modules: 2.5     // количество модульных мест на DIN-рейке (44.5/18 ≈ 2.5)
+        },
+        
+        // Параметры монтажа
+        mounting: {
+            type: 'din_rail',
+            orientation: 'vertical',
+            requiresSpace: true,
+            snapToGrid: true
+        },
+        
+        model: {
+            path: '/assets/models/equipment/socket_g/socket_g.glb',
+            compressed: true,
+            fileSize: '85 KB',
+            scale: 1.0,
+            pivotOffset: { x: 0, y: 0.007, z: 0 }
+        },
+        
+        // UI данные
+        thumbnail: '/assets/images/equipment/socket_g_thumb.jpg',
+        icon: 'power-plug',
+        color: '#4CAF50',
+        
+        // Коммерческие данные
+        price: 450,        // руб
+        inStock: true,
+        vendor: 'Generic',
+        article: 'SOCKET-DIN-16A'
     }
     
     // Шаблон для будущего оборудования:

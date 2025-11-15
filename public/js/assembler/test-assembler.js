@@ -18,9 +18,8 @@ const { scene, camera, renderer, controls } = initializeScene({
 
 // Менеджер шкафов
 class CabinetManager {
-    constructor(scene, assetLoader) {
+    constructor(scene) {
         this.scene = scene;
-        this.assetLoader = assetLoader;
         this.cabinets = new Map(); // cabinetId -> { instance, assembly, position }
         this.activeCabinetId = null;
         this.catalog = null; // Каталог доступных шкафов
@@ -443,7 +442,7 @@ async function loadInitialScene() {
         const assetLoader = getAssetLoader();
         
         // Инициализируем менеджеры
-        cabinetManager = new CabinetManager(scene, assetLoader);
+        cabinetManager = new CabinetManager(scene);
         equipmentManager = new EquipmentManager(scene, assetLoader, cabinetManager);
 
         // Глобальный доступ для отладки и расширения
