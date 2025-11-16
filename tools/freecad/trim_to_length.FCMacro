@@ -1,0 +1,157 @@
+# Trim selected solid to a target length along its longest axis (centered)
+# Works in FreeCAD GUI. Keeps the original cross-section (no distortion).
+# Usage: Select a solid (e.g., DIN rail), run macro, enter desired length in mm.
+
+import FreeCAD as App
+import FreeCADGui as Gui
+import Part
+
+# Try PySide2 first (FreeCAD 0.20+), fallback to PySide (0.19)
+try:
+    from PySide2 import QtWidgets
+except Exception:
+    from PySide import QtGui as QtWidgets  # type: ignore
+
+
+def _msg(title, text):
+    try:
+        QtWidgets.QMessageBox.information(Gui.getMainWindow(), title, text)
+    except Exception:
+        print(f"[INFO] {title}: {text}")
+
+
+def _err(title, text):
+    try:
+        QtWidgets.QMessageBox.critical(Gui.getMainWindow(), title, text)
+    except Exception:
+        print(f"[ERROR] {title}: {text}")
+
+
+def _ask_length(default_mm=450.0):
+    try:
+        length, ok = QtWidgets.QInputDialog.getDouble(
+            Gui.getMainWindow(),
+            "Обрезать до длины",
+            "Длина, мм:",
+            default_mm,
+            1.0,
+            10000.0,
+            1,
+        )
+        return (length, ok)
+    except Exception:
+        # Headless fallback
+        return (default_mm, True)
+
+
+def _longest_axis(bb: App.BoundBox):
+    lengths = {
+        "X": bb.XLength,
+        "Y": bb.YLength,
+        "Z": bb.ZLength,
+    }
+    axis = max(lengths, key=lengths.get)
+    return axis, lengths
+
+
+def _make_keeper_box(bb: App.BoundBox, axis: str, target_len: float, margin: float = 2.0):
+    cx = (bb.XMin + bb.XMax) * 0.5
+    cy = (bb.YMin + bb.YMax) * 0.5
+    cz = (bb.ZMin + bb.ZMax) * 0.5
+
+    if axis == "X":
+        Lx = float(target_len)
+        Ly = float(bb.YLength + margin)
+        Lz = float(bb.ZLength + margin)
+        base = App.Vector(cx - Lx * 0.5, cy - Ly * 0.5, cz - Lz * 0.5)
+        box = Part.makeBox(Lx, Ly, Lz, base)
+    elif axis == "Y":
+        Lx = float(bb.XLength + margin)
+        Ly = float(target_len)
+        Lz = float(bb.ZLength + margin)
+        base = App.Vector(cx - Lx * 0.5, cy - Ly * 0.5, cz - Lz * 0.5)
+        box = Part.makeBox(Lx, Ly, Lz, base)
+    else:  # "Z"
+        Lx = float(bb.XLength + margin)
+        Ly = float(bb.YLength + margin)
+        Lz = float(target_len)
+        base = App.Vector(cx - Lx * 0.5, cy - Ly * 0.5, cz - Lz * 0.5)
+        box = Part.makeBox(Lx, Ly, Lz, base)
+
+    return box
+
+
+def trim_selected_solid():
+    sel_ex = Gui.Selection.getSelectionEx()
+    if not sel_ex:
+        _err("Обрезка до длины", "Выберите один твердотельный объект (solid) и повторите.")
+        return
+
+    # find first solid object in selection
+    obj = None
+    for s in sel_ex:
+        try:
+            if hasattr(s.Object, "Shape") and len(s.Object.Shape.Solids) > 0:
+                obj = s.Object
+                break
+        except Exception:
+            continue
+
+    if obj is None:
+        _err("Обрезка до длины", "В выборе не найден твёрдый объект (solid).")
+        return
+
+    bb = obj.Shape.BoundBox
+    axis, lengths = _longest_axis(bb)
+
+    default_len = 450.0
+    length_mm, ok = _ask_length(default_mm=default_len)
+    if not ok:
+        return
+
+    if length_mm <= 0:
+        _err("Обрезка до длины", "Длина должна быть больше 0 мм.")
+        return
+
+    current_len = lengths[axis]
+    if length_mm > current_len:
+        _msg(
+            "Обрезка до длины",
+            f"Требуемая длина ({length_mm:.1f} мм) больше текущей ({current_len:.1f} мм). Будет выполнено центрирование без удлинения.",
+        )
+        # We will still center a keeper box longer than the object; common() will just keep original
+
+    # Build keeper box and intersect
+    box = _make_keeper_box(bb, axis, length_mm, margin=2.0)
+    try:
+        common_shape = obj.Shape.common(box)
+    except Exception as e:
+        _err("Обрезка до длины", f"Ошибка булевой операции: {e}")
+        return
+
+    if common_shape.isNull():
+        _err("Обрезка до длины", "Результат пуст. Проверьте, что выбран корректный solid.")
+        return
+
+    doc = App.ActiveDocument
+    res = doc.addObject("Part::Feature", f"{obj.Name}_Trimmed")
+    res.Shape = common_shape
+
+    # Keep placement aligned to original (optional)
+    try:
+        res.Placement = obj.Placement
+    except Exception:
+        pass
+
+    # Hide original for clarity
+    try:
+        obj.ViewObject.Visibility = False
+    except Exception:
+        pass
+
+    doc.recompute()
+    _msg("Обрезка до длины", f"Готово. Ось: {axis}, исходная: {current_len:.1f} мм, новая: {length_mm:.1f} мм.")
+
+
+if __name__ == "__main__":
+    trim_selected_solid()

@@ -31,19 +31,19 @@
   "components": {
     "body": {
       "type": "body",
-      "file": "body_700_500_250.json",
+      "file": "tsh_700_500_250/body_700_500_250.json",
       "position": [0, 0, 0],
       "scale": [0.001, 0.001, 0.001]
     },
     "door": {
       "type": "door",
-      "file": "door_700_500_250.json",
+      "file": "tsh_700_500_250/door_700_500_250.json",
       "pivotOffset": [0.009, 0, 0.025],
       "scale": [0.001, 0.001, 0.001]
     },
     "panel": {
       "type": "panel",
-      "file": "panel_700_500_250.json",
+      "file": "tsh_700_500_250/panel_700_500_250.json",
       "position": [0, 0, 0],
       "scale": [0.001, 0.001, 0.001]
     }

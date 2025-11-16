@@ -1,13 +1,22 @@
 import * as THREE from '../libs/three.module.js';
 
 export class MountingStrategy {
-    constructor(cabinetInstance, cabinetDef = {}) {
+    constructor(cabinetInstance, cabinetType = null) {
         this.cabinet = cabinetInstance;
-        this.cabinetDef = cabinetDef;
+        this.cabinetType = cabinetType;  // Экземпляр CabinetType (NEW!)
     }
 
     mount(equipmentMesh, equipmentConfig, position) {
         throw new Error('mount() must be implemented by strategy');
+    }
+
+    /**
+     * Проверить возможность монтажа (заглушка для Phase 1)
+     * @param {Object} equipmentConfig - Конфигурация оборудования
+     * @returns {Promise<boolean>}
+     */
+    async canMount(equipmentConfig) {
+        return true;
     }
 
     getAvailablePositions() {
@@ -16,17 +25,53 @@ export class MountingStrategy {
 }
 
 export class DINRailStrategy extends MountingStrategy {
-    constructor(cabinetInstance, cabinetDef = {}) {
-        super(cabinetInstance, cabinetDef);
+    constructor(cabinetInstance, cabinetType = null) {
+        super(cabinetInstance, cabinetType);
         // Карта занятых позиций: railIndex -> массив [startX, endX, equipmentId]
         this.occupiedSpaces = new Map();
+    }
+
+    /**
+     * Получить список DIN-реек через CabinetType или fallback на компоненты
+     * @returns {Array<THREE.Object3D>}
+     */
+    _getRails() {
+        // Новый путь: через CabinetType.getMountingZones() (если есть)
+        if (this.cabinetType) {
+            const zones = this.cabinetType.getMountingZones('din_rail');
+            if (zones.length > 0) {
+                const components = this.cabinet.getComponents();
+                const rails = [];
+                
+                zones.forEach(zone => {
+                    zone.componentNames.forEach(name => {
+                        const rail = components[name];
+                        if (rail) rails.push(rail);
+                    });
+                });
+                
+                if (rails.length > 0) {
+                    console.log(`✅ Найдено ${rails.length} DIN-реек через mountingZones`);
+                    return rails;
+                }
+            }
+        }
+        
+        // Fallback: старый путь (hardcoded dinRail1/2/3)
+        const components = this.cabinet.getComponents();
+        const rails = [components.dinRail1, components.dinRail2, components.dinRail3].filter(Boolean);
+        
+        if (rails.length > 0) {
+            console.warn(`⚠️ Используется fallback на hardcoded DIN-рейки (dinRail1/2/3)`);
+        }
+        
+        return rails;
     }
 
     mount(equipmentMesh, equipmentConfig, position = {}) {
         const { railIndex = 0, xOffset = null } = position;
 
-        const components = this.cabinet.getComponents();
-        const rails = [components.dinRail1, components.dinRail2, components.dinRail3].filter(Boolean);
+        const rails = this._getRails();
         if (!rails.length) {
             throw new Error('В шкафу нет DIN-реек');
         }
@@ -174,8 +219,7 @@ export class DINRailStrategy extends MountingStrategy {
      * @returns {Object|null} { railIndex, xOffset } или null если нет места
      */
     findNextAvailableSlot(equipmentWidth, preferredRailIndex = 0) {
-        const components = this.cabinet.getComponents();
-        const rails = [components.dinRail1, components.dinRail2, components.dinRail3, components.dinRail4].filter(Boolean);
+        const rails = this._getRails();
         
         if (rails.length === 0) {
             console.error('❌ В шкафу нет DIN-реек');
@@ -235,8 +279,7 @@ export class DINRailStrategy extends MountingStrategy {
 
     getRailOccupancy(railIndex) {
         const occupied = this.occupiedSpaces.get(railIndex) || [];
-        const components = this.cabinet.getComponents();
-        const rails = [components.dinRail1, components.dinRail2, components.dinRail3].filter(Boolean);
+        const rails = this._getRails();
         if (railIndex >= rails.length) return null;
 
         const rail = rails[railIndex];
@@ -256,6 +299,26 @@ export class DINRailStrategy extends MountingStrategy {
             items: occupied.length
         };
     }
+
+    /**
+     * Валидация монтажа для DIN-рейки
+     * @param {Object} equipmentConfig
+     * @returns {Promise<boolean>}
+     */
+    async canMount(equipmentConfig) {
+        if (!equipmentConfig.mounting || equipmentConfig.mounting.type !== 'din_rail') {
+            return false;
+        }
+
+        const rails = this._getRails();
+        if (rails.length === 0) {
+            console.warn('[DINRailStrategy] Нет DIN-реек в шкафу');
+            return false;
+        }
+
+        // Дополнительные проверки можно добавить здесь
+        return true;
+    }
 }
 
 export class RackUnitStrategy extends MountingStrategy {
@@ -267,7 +330,10 @@ export class RackUnitStrategy extends MountingStrategy {
             throw new Error('В шкафу нет rack-направляющих');
         }
 
-        const unitHeightMM = this.cabinetDef?.mounting?.unitHeight || 44.45;
+        // Используем cabinetType если доступен
+        const unitHeightMM = this.cabinetType 
+            ? (this.cabinetType.specs.rackUnits || 42) * 44.45 / 42  // 44.45mm per U
+            : 44.45;
         const unitHeight = unitHeightMM / 1000;
         const equipmentHeight = equipmentConfig?.dimensions?.height || unitHeight;
         const yPosition = unitIndex * unitHeight;
@@ -288,6 +354,23 @@ export class RackUnitStrategy extends MountingStrategy {
 
         const delta = rackAnchor.clone().sub(equipmentAnchor);
         equipmentMesh.position.add(delta);
+    }
+
+    /**
+     * Валидация для rack-монтажа
+     */
+    async canMount(equipmentConfig) {
+        if (!equipmentConfig.mounting || equipmentConfig.mounting.type !== 'rack_unit') {
+            return false;
+        }
+
+        const components = this.cabinet.getComponents();
+        if (!components.rackRails || components.rackRails.length === 0) {
+            console.warn('[RackUnitStrategy] Нет rack-направляющих');
+            return false;
+        }
+
+        return true;
     }
 }
 
@@ -312,5 +395,22 @@ export class MountingPlateStrategy extends MountingStrategy {
 
         const delta = plate.localToWorld(anchor).sub(equipmentMesh.localToWorld(equipmentAnchor));
         equipmentMesh.position.add(delta);
+    }
+
+    /**
+     * Валидация для монтажной пластины
+     */
+    async canMount(equipmentConfig) {
+        if (!equipmentConfig.mounting || equipmentConfig.mounting.type !== 'mounting_plate') {
+            return false;
+        }
+
+        const components = this.cabinet.getComponents();
+        if (!components.mountingPlate) {
+            console.warn('[MountingPlateStrategy] Нет монтажной пластины');
+            return false;
+        }
+
+        return true;
     }
 }

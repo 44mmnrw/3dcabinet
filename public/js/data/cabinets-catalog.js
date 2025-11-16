@@ -8,7 +8,8 @@ export const CABINETS_CATALOG = [
         id: 'tsh_700_500_240',
         name: 'ТШ-7-IP54',
         description: 'Термошкаф уличный 700×500×240 мм',
-        category: 'outdoor',
+        category: 'thermal',  // Для Type System (было 'outdoor')
+        schemaVersion: 2,     // Версионирование схемы
         dimensions: {
             width: 700,   // мм
             height: 500,  // мм
@@ -20,8 +21,39 @@ export const CABINETS_CATALOG = [
             material: 'Сталь 1.5 мм',
             weight: 18,   // кг
             maxLoad: 50,  // кг
+            maxPower: 3000, // Вт (добавлено)
             temperatureRange: '-40°C до +50°C'
         },
+        // Возможности монтажа (для Type System)
+        mountingCapabilities: ['din_rail', 'mounting_plate'],
+        
+        // Абстракция монтажных зон (NEW!)
+        mountingZones: [
+            {
+                type: 'din_rail',
+                componentNames: ['dinRail1', 'dinRail2']  // Рейки в 3D-модели
+            },
+            {
+                type: 'mounting_plate',
+                componentNames: ['mountingPlate']
+            }
+        ],
+        
+        // Специфичные параметры термошкафа
+        thermal: {
+            heatingPower: 800,
+            coolingPower: 0,
+            insulation: 'standard',
+            operatingTemp: { min: -40, max: 55 }
+        },
+        
+        climate: {
+            hasHeater: true,
+            hasCooler: false,
+            hasThermostat: false,
+            hasHumidityControl: false
+        },
+        
         features: {
             hasDoor: true,
             hasDinRails: true,

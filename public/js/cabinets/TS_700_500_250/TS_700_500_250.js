@@ -36,8 +36,9 @@ export class TS_700_500_250 {
                 for (const panel of config.panels) {
                     if (panel.dinRails && panel.dinRails.length > 0) {
                         const size = config.name.split('_').slice(1).join('_');
+                        const cabinetFolder = 'tsh_' + size; // tsh_700_500_250
                         for (const rail of panel.dinRails) {
-                            const mesh = await this.loader.load(`${basePath}/din_rail40_${size}.json`);
+                            const mesh = await this.loader.load(`${basePath}/${cabinetFolder}/din_rail40_${size}.json`);
                             mesh.name = rail.id || `DIN_Rail`;
                             if (rail.localPosition) mesh.position.set(...rail.localPosition);
                             if (rail.rotation) mesh.rotation.set(...rail.rotation);

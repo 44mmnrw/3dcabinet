@@ -1,4 +1,9 @@
-import { DINRailStrategy } from '../strategies/MountingStrategies.js';
+import { DINRailStrategy, RackUnitStrategy, MountingPlateStrategy } from '../strategies/MountingStrategies.js';
+import { strategyRegistry } from '../strategies/StrategyRegistry.js';
+import { StrategyFactory } from '../strategies/StrategyFactory.js';
+import { typeRegistry } from '../types/index.js';
+import { eventBus, ConfiguratorEvents } from '../events/EventBus.js';
+import { createDefaultLogicEngine } from '../logic/index.js';
 
 /**
  * Менеджер шкафов на 3D-сцене
@@ -6,15 +11,39 @@ import { DINRailStrategy } from '../strategies/MountingStrategies.js';
  * Функциональность:
  * - Динамическая загрузка классов шкафов из catalog.json
  * - Управление несколькими экземплярами шкафов
- * - Присваивание стратегий монтажа (DIN-rail, rack unit, mounting plate)
+ * - Присваивание стратегий монтажа через StrategyFactory (NEW!)
+ * - Интеграция с Type System для универсальной поддержки типов (NEW!)
+ * - Event-driven архитектура через EventBus (NEW!)
+ * - Расчёты через LogicEngine (NEW!)
  * - Управление жизненным циклом (добавление, удаление, dispose)
  */
 export class CabinetManager {
-    constructor(scene) {
+    constructor(scene, options = {}) {
         this.scene = scene;
-        this.cabinets = new Map(); // cabinetId -> { instance, assembly, position }
+        this.cabinets = new Map(); // cabinetId -> { instance, assembly, position, cabinetType, strategies }
         this.activeCabinetId = null;
         this.catalog = null; // Каталог доступных шкафов
+        
+        // Event-driven (NEW!)
+        this.eventBus = options.eventBus || eventBus;
+        
+        // Logic Engine (NEW!)
+        this.logicEngine = options.logicEngine || createDefaultLogicEngine();
+        
+        // Регистрация стратегий при инициализации
+        this._registerStrategies();
+    }
+
+    /**
+     * Регистрация всех стратегий монтажа в реестре
+     * @private
+     */
+    _registerStrategies() {
+        strategyRegistry.register('din_rail', DINRailStrategy, ['din', 'rail']);
+        strategyRegistry.register('rack_unit', RackUnitStrategy, ['rack', '19inch']);
+        strategyRegistry.register('mounting_plate', MountingPlateStrategy, ['plate']);
+        
+        console.log('✅ Зарегистрировано стратегий:', strategyRegistry.getRegisteredTypes().length);
     }
 
     /**
@@ -56,7 +85,7 @@ export class CabinetManager {
 
     /**
      * Добавить шкаф по ID из каталога (упрощённый API)
-     * @param {string} catalogId - ID шкафа из каталога (например, 'TS_700_500_250')
+     * @param {string} catalogId - ID шкафа из каталога (например, 'tsh_700_500_240')
      * @param {string} instanceId - Уникальный ID экземпляра (опционально)
      * @returns {Promise<string>} ID добавленного шкафа
      */
@@ -72,32 +101,9 @@ export class CabinetManager {
         const newId = await this.addCabinet(
             cabinetDef.className,
             cabinetDef.modulePath,
-            instanceId || `${catalogId}_${Date.now()}`
+            instanceId || `${catalogId}_${Date.now()}`,
+            cabinetDef  // Передаём определение (NEW!)
         );
-
-        // Присваиваем стратегию монтажа в зависимости от типа
-        const stored = this.cabinets.get(newId);
-        if (stored) {
-            stored.definition = cabinetDef;
-            stored.mountingType = cabinetDef.mountingType || 'din_rail';
-            
-            // Динамический импорт стратегий по мере необходимости
-            switch (stored.mountingType) {
-                case 'din_rail':
-                    stored.instance.mountingStrategy = new DINRailStrategy(stored.instance, cabinetDef);
-                    break;
-                case 'rack_unit':
-                    // TODO: импортировать RackUnitStrategy когда понадобится
-                    console.warn(`⚠️ RackUnitStrategy не реализована`);
-                    break;
-                case 'mounting_plate':
-                    // TODO: импортировать MountingPlateStrategy когда понадобится
-                    console.warn(`⚠️ MountingPlateStrategy не реализована`);
-                    break;
-                default:
-                    console.warn(`⚠️ Неизвестный mountingType: ${stored.mountingType}. Позиционирование будет по умолчанию.`);
-            }
-        }
 
         return newId;
     }
@@ -105,11 +111,12 @@ export class CabinetManager {
     /**
      * Динамическая загрузка класса шкафа (прямой метод)
      * @param {string} cabinetType - Имя класса шкафа (например, 'test_TS_700_500_250')
-     * @param {string} modulePath - Путь к модулю (например, './models/TS_700_500_250/test_TS_700_500_250.js')
+     * @param {string} modulePath - Путь к модулю
      * @param {string} cabinetId - Уникальный ID экземпляра
+     * @param {Object} cabinetDef - Определение из каталога (NEW!)
      * @returns {Promise<string>} ID добавленного шкафа
      */
-    async addCabinet(cabinetType, modulePath, cabinetId = null) {
+    async addCabinet(cabinetType, modulePath, cabinetId = null, cabinetDef = null) {
         try {
             if (!cabinetId) {
                 cabinetId = `${cabinetType}_${Date.now()}`;
@@ -130,18 +137,65 @@ export class CabinetManager {
             const assembly = await cabinetInstance.assemble();
             
             assembly.name = cabinetId;
-            assembly.position.set(0, 0, 0); // Дефолтная позиция
+            assembly.position.set(0, 0, 0);
             
             this.scene.add(assembly);
+            
+            // Создание типа через TypeRegistry (NEW!)
+            let cabinetTypeInstance = null;
+            if (cabinetDef && cabinetDef.category) {
+                try {
+                    cabinetTypeInstance = await typeRegistry.createType(
+                        cabinetDef.category,
+                        cabinetDef
+                    );
+                    console.log(`✅ Создан тип: ${cabinetTypeInstance.toString()}`);
+                } catch (error) {
+                    console.warn('⚠️ Ошибка создания типа:', error);
+                }
+            }
+            
+            // Создание стратегий через StrategyFactory (NEW!)
+            const strategies = cabinetTypeInstance 
+                ? StrategyFactory.createForCabinet(cabinetTypeInstance, cabinetInstance)
+                : new Map();
+            
+            // Fallback: если нет стратегий, создаём DIN-rail по умолчанию
+            if (strategies.size === 0 && cabinetDef?.mountingType === 'din_rail') {
+                const dinStrategy = strategyRegistry.create('din_rail', cabinetInstance, cabinetTypeInstance);
+                if (dinStrategy) {
+                    strategies.set('din_rail', dinStrategy);
+                }
+            }
+            
+            // Устанавливаем основную стратегию на instance (для обратной совместимости)
+            const primaryStrategy = strategies.values().next().value;
+            if (primaryStrategy) {
+                cabinetInstance.mountingStrategy = primaryStrategy;
+            }
+            
             this.cabinets.set(cabinetId, {
                 type: cabinetType,
                 instance: cabinetInstance,
                 assembly: assembly,
-                position: assembly.position.clone()
+                position: assembly.position.clone(),
+                definition: cabinetDef,
+                cabinetType: cabinetTypeInstance,  // NEW!
+                strategies: strategies,            // NEW!
+                equipmentList: []                   // NEW!
             });
 
             this.activeCabinetId = cabinetId;
             console.log(`✅ Шкаф ${cabinetType} загружен: ${cabinetId}`);
+            console.log(`   Тип: ${cabinetTypeInstance?.constructor.name || 'CabinetType'}`);
+            console.log(`   Стратегии: ${Array.from(strategies.keys()).join(', ') || 'нет'}`);
+            
+            // Emit event (NEW!)
+            this.eventBus.emit(ConfiguratorEvents.CABINET_ADDED, {
+                cabinetId,
+                cabinetType: cabinetTypeInstance,
+                strategies: Array.from(strategies.keys())
+            });
             
             return cabinetId;
         } catch (error) {
@@ -183,6 +237,10 @@ export class CabinetManager {
         }
 
         console.log(`🗑️ Шкаф удалён: ${cabinetId}`);
+        
+        // Emit event (NEW!)
+        this.eventBus.emit(ConfiguratorEvents.CABINET_REMOVED, { cabinetId });
+        
         return true;
     }
 
@@ -208,6 +266,36 @@ export class CabinetManager {
     }
 
     /**
+     * Получить CabinetType активного шкафа (NEW!)
+     * @returns {CabinetType|null}
+     */
+    getActiveCabinetType() {
+        const cabinet = this.getActiveCabinet();
+        return cabinet ? cabinet.cabinetType : null;
+    }
+
+    /**
+     * Получить стратегию по типу монтажа для активного шкафа (NEW!)
+     * @param {string} mountType - Тип монтажа (din_rail, rack_unit, mounting_plate)
+     * @returns {MountingStrategy|null}
+     */
+    getStrategy(mountType) {
+        const cabinet = this.getActiveCabinet();
+        if (!cabinet || !cabinet.strategies) return null;
+        
+        return cabinet.strategies.get(mountType) || null;
+    }
+
+    /**
+     * Получить все стратегии активного шкафа (NEW!)
+     * @returns {Map<string, MountingStrategy>}
+     */
+    getAllStrategies() {
+        const cabinet = this.getActiveCabinet();
+        return cabinet ? cabinet.strategies : new Map();
+    }
+
+    /**
      * Получить шкаф по ID
      */
     getCabinet(cabinetId) {
@@ -223,5 +311,82 @@ export class CabinetManager {
             type: data.type,
             position: data.position
         }));
+    }
+
+    /**
+     * Обновить расчёты для активного шкафа (NEW!)
+     * Вызывает LogicEngine и отправляет события
+     */
+    updateCalculations() {
+        const cabinet = this.getActiveCabinet();
+        if (!cabinet || !cabinet.cabinetType) {
+            console.warn('[CabinetManager] Нет активного шкафа или типа для расчёта');
+            return null;
+        }
+
+        const equipmentList = cabinet.equipmentList || [];
+        const result = this.logicEngine.calculate(cabinet.cabinetType, equipmentList);
+        
+        // Emit events
+        this.eventBus.emit(ConfiguratorEvents.CALCULATIONS_UPDATED, {
+            cabinetId: this.activeCabinetId,
+            calculations: result.calculations
+        });
+        
+        this.eventBus.emit(ConfiguratorEvents.RECOMMENDATIONS_UPDATED, {
+            cabinetId: this.activeCabinetId,
+            recommendations: result.recommendations
+        });
+        
+        // Warnings as validation events
+        if (result.warnings && result.warnings.length > 0) {
+            this.eventBus.emit(ConfiguratorEvents.VALIDATION_WARNING, {
+                cabinetId: this.activeCabinetId,
+                warnings: result.warnings
+            });
+        }
+        
+        return result;
+    }
+
+    /**
+     * Добавить оборудование в список активного шкафа (NEW!)
+     * Для интеграции с EquipmentManager
+     * @param {Object} equipment - Объект оборудования
+     */
+    addEquipment(equipment) {
+        const cabinet = this.getActiveCabinet();
+        if (!cabinet) {
+            console.warn('[CabinetManager] Нет активного шкафа');
+            return;
+        }
+
+        if (!cabinet.equipmentList) {
+            cabinet.equipmentList = [];
+        }
+
+        cabinet.equipmentList.push(equipment);
+        
+        // Автоматически обновляем расчёты
+        this.updateCalculations();
+    }
+
+    /**
+     * Удалить оборудование из списка активного шкафа (NEW!)
+     * @param {string} equipmentId - ID оборудования
+     */
+    removeEquipment(equipmentId) {
+        const cabinet = this.getActiveCabinet();
+        if (!cabinet || !cabinet.equipmentList) {
+            return;
+        }
+
+        const index = cabinet.equipmentList.findIndex(eq => eq.id === equipmentId);
+        if (index > -1) {
+            cabinet.equipmentList.splice(index, 1);
+            
+            // Автоматически обновляем расчёты
+            this.updateCalculations();
+        }
     }
 }
