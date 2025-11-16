@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:full": "concurrently \"npm run dev\" \"php artisan serve\" -n \"VITE,PHP\" -c \"cyan,green\"",
     "build": "vite build",
     "preview": "vite preview",
+    "deploy": "npm run build && echo 'Production build готов! Теперь можно коммитить.'",
     "build:icons": "node build-icons.mjs",
     "icons:watch": "chokidar \"public/assets/icons/**/*.svg\" -c \"node build-icons.mjs\"",
     "icons:dev": "npm run build:icons && npm run icons:watch",
@@ -35,6 +37,7 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^5.1.1",
     "chokidar-cli": "^3.0.0",
+    "concurrently": "^9.2.1",
     "glob": "^11.0.0",
     "laravel-vite-plugin": "^2.0.1",
     "svgstore": "^3.0.1",

@@ -2,19 +2,9 @@ import React from 'react';
 
 function Controls({ doorAngle, onDoorChange, equipmentCount, onRemoveAll }) {
   return (
-    <div style={{
-      position: 'absolute',
-      top: '20px',
-      right: '20px',
-      background: '#fff',
-      borderRadius: '12px',
-      padding: '20px',
-      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-      minWidth: '250px',
-      zIndex: 10
-    }}>
+    <div className="controls-panel">
       {/* Управление дверью */}
-      <div style={{ marginBottom: '20px' }}>
+      <div className="control-group">
         <div style={{
           fontSize: '14px',
           fontWeight: '600',
@@ -34,10 +24,7 @@ function Controls({ doorAngle, onDoorChange, equipmentCount, onRemoveAll }) {
           max="120"
           value={doorAngle}
           onChange={e => onDoorChange(Number(e.target.value))}
-          style={{
-            width: '100%',
-            accentColor: '#6c63ff'
-          }}
+          className="range-slider"
         />
         
         <div style={{
@@ -54,25 +41,14 @@ function Controls({ doorAngle, onDoorChange, equipmentCount, onRemoveAll }) {
       </div>
 
       {/* Счётчик оборудования */}
-      <div style={{
-        padding: '12px',
-        background: '#f8f9fa',
-        borderRadius: '8px',
-        marginBottom: '15px'
-      }}>
-        <div style={{
-          fontSize: '12px',
-          color: '#6c757d',
-          marginBottom: '4px'
-        }}>
-          Установлено
-        </div>
-        <div style={{
-          fontSize: '24px',
-          fontWeight: '700',
-          color: '#6c63ff'
-        }}>
-          {equipmentCount}
+      <div className="control-group">
+        <div className="equipment-counter">
+          <div className="equipment-counter-label">
+            Установлено
+          </div>
+          <div className="equipment-counter-value">
+            {equipmentCount}
+          </div>
         </div>
       </div>
 
@@ -80,20 +56,7 @@ function Controls({ doorAngle, onDoorChange, equipmentCount, onRemoveAll }) {
       {equipmentCount > 0 && (
         <button
           onClick={onRemoveAll}
-          style={{
-            width: '100%',
-            padding: '10px',
-            border: 'none',
-            borderRadius: '8px',
-            background: '#dc3545',
-            color: '#fff',
-            fontSize: '14px',
-            fontWeight: '500',
-            cursor: 'pointer',
-            transition: 'all 0.2s'
-          }}
-          onMouseEnter={e => e.target.style.background = '#c82333'}
-          onMouseLeave={e => e.target.style.background = '#dc3545'}
+          className="btn btn-danger"
         >
           Удалить всё
         </button>

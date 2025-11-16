@@ -8,11 +8,11 @@ use App\Http\Controllers\AdminController;
 // Главная страница (Landing)
 Route::get('/', [LandingController::class, 'index'])->name('landing');
 
-// 3D Конфигуратор (старая версия Blade)
-Route::get('/app', [ConfiguratorController::class, 'index'])->name('configurator');
+// 3D Конфигуратор (React - основная версия)
+Route::get('/configurator', [ConfiguratorController::class, 'index'])->name('configurator');
 
-// 3D Конфигуратор React (новая версия)
-Route::get('/react', [ConfiguratorController::class, 'react'])->name('configurator.react');
+// Legacy конфигуратор (Vanilla JS - для совместимости)
+Route::get('/legacy', [ConfiguratorController::class, 'legacy'])->name('configurator.legacy');
 
 // ТЕСТ: Минимальная загрузка
 Route::get('/test', function () {

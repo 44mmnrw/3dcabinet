@@ -3,32 +3,11 @@ import React from 'react';
 function EquipmentCard({ id, name, width, icon, available, onClick }) {
   return (
     <div
-      data-equipment-type={id}  // Для DragDropController
+      data-equipment-type={id}
       onClick={onClick}
       draggable={available}
-      style={{
-        padding: '12px',
-        marginBottom: '10px',
-        background: '#fff',
-        borderRadius: '8px',
-        border: '1px solid #dee2e6',
-        cursor: available ? 'grab' : 'not-allowed',
-        opacity: available ? 1 : 0.5,
-        transition: 'all 0.2s',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px'
-      }}
-      onMouseEnter={e => {
-        if (available) {
-          e.currentTarget.style.borderColor = '#6c63ff';
-          e.currentTarget.style.boxShadow = '0 2px 8px rgba(108, 99, 255, 0.15)';
-        }
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.borderColor = '#dee2e6';
-        e.currentTarget.style.boxShadow = 'none';
-      }}
+      className="equipment-card"
+      style={{ opacity: available ? 1 : 0.5, cursor: available ? 'grab' : 'not-allowed' }}
     >
       <div style={{
         width: '40px',
@@ -44,32 +23,17 @@ function EquipmentCard({ id, name, width, icon, available, onClick }) {
         {icon}
       </div>
       
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{
-          fontSize: '14px',
-          fontWeight: '500',
-          color: '#212529',
-          marginBottom: '4px',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis'
-        }}>
+      <div className="equipment-card-content">
+        <div className="equipment-card-name">
           {name}
         </div>
-        <div style={{
-          fontSize: '12px',
-          color: '#6c757d'
-        }}>
+        <div className="equipment-card-info">
           {width} мм
         </div>
       </div>
       
       {!available && (
-        <div style={{
-          fontSize: '11px',
-          color: '#dc3545',
-          fontWeight: '500'
-        }}>
+        <div style={{ fontSize: '11px', color: '#dc3545', fontWeight: '500' }}>
           Недоступно
         </div>
       )}

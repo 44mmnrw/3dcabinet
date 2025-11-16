@@ -48,7 +48,7 @@ function App() {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', margin: 0, overflow: 'hidden', fontFamily: 'Arial, sans-serif' }}>
+    <div className="configurator-container">
       {/* Левая панель: Каталог оборудования */}
       <EquipmentCatalog onAdd={handleAddEquipment} />
 

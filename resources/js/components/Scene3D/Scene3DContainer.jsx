@@ -41,12 +41,7 @@ function Scene3DContainer({ managers }) {
     <div
       id="scene-container"
       ref={containerRef}
-      style={{
-        flex: 1,
-        position: 'relative',
-        background: '#ffffff',
-        overflow: 'hidden'
-      }}
+      className="scene-panel"
     />
   );
 }

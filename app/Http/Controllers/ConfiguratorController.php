@@ -7,18 +7,18 @@ use Illuminate\Http\Request;
 class ConfiguratorController extends Controller
 {
     /**
-     * Отображение 3D конфигуратора (старая Blade-версия)
+     * Главный конфигуратор (React)
      */
     public function index()
     {
-        return view('configurator.index');
+        return view('configurator.react-new');
     }
 
     /**
-     * Отображение 3D конфигуратора (React-версия)
+     * Legacy конфигуратор (Vanilla JS) - для совместимости
      */
-    public function react()
+    public function legacy()
     {
-        return view('configurator.react-new');
+        return view('configurator.legacy');
     }
 }

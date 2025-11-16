@@ -14,25 +14,13 @@ function EquipmentCatalog({ onAdd }) {
   const filteredItems = EQUIPMENT_DATA.filter(item => item.category === activeTab);
 
   return (
-    <div style={{
-      width: '300px',
-      height: '100vh',
-      background: '#f8f9fa',
-      borderRight: '1px solid #dee2e6',
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: 'hidden'
-    }}>
+    <div className="catalog-panel">
       <CategoryTabs
         active={activeTab}
         onChange={setActiveTab}
       />
       
-      <div style={{
-        flex: 1,
-        overflowY: 'auto',
-        padding: '15px'
-      }}>
+      <div className="equipment-grid">
         {filteredItems.map(item => (
           <EquipmentCard
             key={item.id}
