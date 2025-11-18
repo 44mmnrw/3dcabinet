@@ -99,14 +99,21 @@ export class {class_name} {{
      * Выровнять сборку так, чтобы origin был на нижней плоскости
      */
     _alignAssemblyToFloor() {{
+        // Обновляем матрицы перед расчётом bbox (КРИТИЧНО для вложенных трансформаций)
+        this.assembly.updateMatrixWorld(true);
+        
+        // Получаем Bounding Box всей сборки
         const bbox = new THREE.Box3().setFromObject(this.assembly);
+        
+        // Вычисляем смещение: нижняя точка должна быть на Y=0
         const offsetY = -bbox.min.y;
         
-        this.assembly.children.forEach(child => {{
-            child.position.y += offsetY;
-        }});
+        // Смещаем саму сборку (не дочерние элементы!)
+        this.assembly.position.y += offsetY;
         
-        console.log('📐 Assembly aligned to floor, offset Y:', offsetY.toFixed(3));
+        console.log(`📐 Assembly aligned to floor. Offset Y: ${{offsetY.toFixed(3)}}м`);
+        
+        return offsetY;
     }}
 
     /**
@@ -114,6 +121,29 @@ export class {class_name} {{
      */
     setAssemblyPosition(x, y, z) {{
         this.assembly.position.set(x, y, z);
+    }}
+
+    /**
+     * Получить позицию сборки
+     */
+    getAssemblyPosition() {{
+        return this.assembly.position.clone();
+    }}
+
+    /**
+     * Переместить сборку на величину (относительное смещение)
+     */
+    moveAssemblyBy(dx, dy, dz) {{
+        this.assembly.position.x += dx;
+        this.assembly.position.y += dy;
+        this.assembly.position.z += dz;
+    }}
+
+    /**
+     * Сбросить позицию в начало координат (0, 0, 0)
+     */
+    resetAssemblyPosition() {{
+        this.assembly.position.set(0, 0, 0);
     }}
 
     /**

@@ -15,8 +15,13 @@ export default defineConfig({
     manifest: true
   },
   server: {
-    port: 5174,  // Используем 5174 (5173 занят)
-    strictPort: false,  // Автоматически переключаться на другой порт, если занят
+    host: '127.0.0.1',  // Явно указываем localhost
+    port: 5174,
+    strictPort: false,
+    cors: true,  // Включаем CORS для Laravel
+    hmr: {
+      host: 'localhost',  // HMR через localhost
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:8000',

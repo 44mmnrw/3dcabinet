@@ -5,6 +5,7 @@ import { CabinetManager } from './CabinetManager.js';
 import { EquipmentManager } from './EquipmentManager.js';
 import { DragDropController } from '../core/DragDropController.js';
 import { ContextMenuManager } from '../core/ContextMenuManager.js';
+import { GeometryUtils } from '../utils/ModelUtils.js';
 
 /**
  * Инициализация Three.js сцены и менеджеров
@@ -98,6 +99,7 @@ export async function initializeManagers(containerId = 'scene-container') {
     window.equipmentManager = equipmentManager;
     window.dragDropController = dragDropController;
     window.contextMenuManager = contextMenuManager;
+    window.GeometryUtils = GeometryUtils;  // Доступ к утилитам геометрии из консоли
 
     console.log('✅ Three.js сцена инициализирована');
     console.log('💡 Доступны: window.equipmentManager, window.cabinetManager, window.dragDropController');

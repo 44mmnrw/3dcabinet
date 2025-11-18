@@ -1,5 +1,6 @@
 import * as THREE from '../../libs/three.module.js';
-import { FreeCADGeometryLoader } from '../../modules/FreeCADGeometryLoader.js';
+import { FreeCADGeometryLoader } from '../../loaders/FreeCADGeometryLoader.js';
+import { GeometryUtils } from '../../utils/ModelUtils.js';
 
 // Модельный сборщик для TS_700_500_250
 export class TS_700_500_250 {
@@ -8,12 +9,19 @@ export class TS_700_500_250 {
         this.assembly = new THREE.Group();
         this.assembly.name = 'TS_700_500_250_Assembly';
         this.components = {};
+        // Состояние двери
+        this.doorState = {
+            targetAngle: 0,
+            currentAngle: 0,
+            isAnimating: false,
+            animationSpeed: 0.05
+        };
     }
 
     // Сборка компонентов конкретной модели TS_700_500_250
     async assemble(options = {}) {
         const basePath = options.basePath || './assets/models/freecad';
-        const configPath = options.configPath || './js/models/TS_700_500_250/TS_700_500_250.json';
+        const configPath = options.configPath || './js/cabinets/TS_700_500_250/TS_700_500_250.json';
 
         try {
             // Загружаем JSON-конфиг
@@ -26,9 +34,26 @@ export class TS_700_500_250 {
                 mesh.name = key.charAt(0).toUpperCase() + key.slice(1);
                 if (comp.scale) mesh.scale.set(...comp.scale);
                 if (comp.position) mesh.position.set(...comp.position);
-                this.components[key] = mesh;
-                this.assembly.add(mesh);
-                console.log(`✅ Загружен компонент: ${mesh.name}`);
+
+                // Если это дверь — создаём pivot для вращения вокруг петель
+                if (key === 'door') {
+                    const bbox = GeometryUtils.getBoundingBox(mesh, true);
+                    const hingeX = bbox.min.x + 0.009;
+                    const hingeY = bbox.min.y;
+                    const hingeZ = bbox.min.z + 0.025;
+                    const pivot = new THREE.Group();
+                    pivot.name = 'Door_Pivot';
+                    pivot.position.set(hingeX, hingeY, hingeZ);
+                    mesh.position.set(-hingeX, -hingeY, -hingeZ);
+                    pivot.add(mesh);
+                    this.components[key] = pivot;
+                    this.assembly.add(pivot);
+                    console.log(`🚪 Дверь с pivot создана (hinge: ${hingeX.toFixed(3)}, ${hingeY.toFixed(3)}, ${hingeZ.toFixed(3)})`);
+                } else {
+                    this.components[key] = mesh;
+                    this.assembly.add(mesh);
+                    console.log(`✅ Загружен компонент: ${mesh.name}`);
+                }
             }
 
             // --- DIN-рейки (через панели) ---
@@ -133,4 +158,41 @@ export class TS_700_500_250 {
 
     getComponents() { return this.components; }
     getAssembly() { return this.assembly; }
+
+    // === Управление дверью ===
+    setDoorRotation(angleRadians) {
+        if (this.components.door) {
+            this.components.door.rotation.y = angleRadians;
+            this.doorState.currentAngle = angleRadians;
+            this.doorState.targetAngle = angleRadians;
+        }
+    }
+
+    openDoor(angle = -Math.PI / 2) { // отрицательный для открытия вправо как в legacy UI
+        this.doorState.targetAngle = angle;
+        this.doorState.isAnimating = true;
+    }
+
+    closeDoor() {
+        this.doorState.targetAngle = 0;
+        this.doorState.isAnimating = true;
+    }
+
+    update() {
+        if (this.doorState.isAnimating && this.components.door) {
+            const diff = this.doorState.targetAngle - this.doorState.currentAngle;
+            if (Math.abs(diff) > 0.001) {
+                this.doorState.currentAngle += diff * this.doorState.animationSpeed;
+                this.components.door.rotation.y = this.doorState.currentAngle;
+            } else {
+                this.doorState.currentAngle = this.doorState.targetAngle;
+                this.components.door.rotation.y = this.doorState.targetAngle;
+                this.doorState.isAnimating = false;
+            }
+        }
+    }
+
+    getDoorRotation() {
+        return this.components.door ? this.components.door.rotation.y : 0;
+    }
 }

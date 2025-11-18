@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3Cabinet React</title>
+    
+    <!-- КРИТИЧНО: загружаем initializeManagers ДО React приложения -->
+    <script type="module">
+        import { initializeManagers } from '/js/managers/init.js';
+        window.initializeManagers = initializeManagers;
+        console.log('✅ initializeManagers загружен глобально');
+    </script>
+    
     @viteReactRefresh
     {!! app('Illuminate\Foundation\Vite')('resources/js/app.jsx') !!}
 </head>

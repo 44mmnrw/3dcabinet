@@ -125,7 +125,11 @@ export class CabinetManager {
             console.log(`🔄 Загрузка шкафа: ${cabinetType} (${cabinetId})`);
 
             // Динамический импорт класса
-            const module = await import(/* @vite-ignore */ modulePath);
+            // Преобразуем абсолютный путь (/js/...) в относительный от текущего модуля
+            const resolvedPath = modulePath.startsWith('/') 
+                ? new URL(modulePath, window.location.origin).href
+                : modulePath;
+            const module = await import(/* @vite-ignore */ resolvedPath);
             const CabinetClass = module[cabinetType];
 
             if (!CabinetClass) {

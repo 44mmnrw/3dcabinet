@@ -273,7 +273,20 @@
         </div>
     </div>
     
-    <script type="module" src="js/assembler/test-assembler.js"></script>
+    <script type="module">
+        import { initializeManagers } from './js/managers/init.js';
+        
+        // Инициализация после загрузки DOM
+        document.addEventListener('DOMContentLoaded', async () => {
+            const managers = await initializeManagers('scene-container');
+            
+            if (managers) {
+                // Загружаем шкаф
+                await managers.cabinet.addCabinetById('TS_700_500_250');
+                console.log('✅ Шкаф загружен через CabinetManager');
+            }
+        });
+    </script>
     
     <script>
         // Переключение вкладок каталога

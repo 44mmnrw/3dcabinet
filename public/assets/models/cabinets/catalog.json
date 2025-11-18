@@ -3,8 +3,8 @@
     {
       "id": "TS_700_500_250",
       "name": "Шкаф TS 700×500×250",
-      "className": "test_TS_700_500_250",
-      "modulePath": "../../../js/cabinets/TS_700_500_250/test_TS_700_500_250.js",
+      "className": "TS_700_500_250",
+      "modulePath": "/js/cabinets/TS_700_500_250/TS_700_500_250.js",
       "mountingType": "din_rail",
       "mounting": {
         "rails": 3,
