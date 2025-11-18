@@ -37,6 +37,13 @@ function App() {
           setEquipmentCount(count);
         };
       }
+      
+      // Глобальная функция для реинициализации DND (вызывается при смене вкладок)
+      window.reinitializeDragDrop = () => {
+        if (managersRef.current?.initializeDragDrop) {
+          managersRef.current.initializeDragDrop();
+        }
+      };
     });
   }, []);
 
@@ -85,6 +92,13 @@ function App() {
           );
         }
         
+        // Инициализировать Drag & Drop ПОСЛЕ монтирования React компонентов
+        // Это необходимо потому что карточки оборудования в это время уже в DOM
+        if (managersRef.current?.initializeDragDrop) {
+          managersRef.current.initializeDragDrop();
+          console.log('✅ Drag & Drop инициализирован');
+        }
+        
         console.log('✅ Шкаф загружен');
       } catch (err) {
         console.error('❌ Ошибка загрузки шкафа:', err);
@@ -103,7 +117,10 @@ function App() {
       />
 
       {/* Центр: 3D сцена */}
-      <Scene3DContainer managers={managersRef.current} />
+      <Scene3DContainer 
+        managers={managersRef.current}
+        onEquipmentDrop={handleAddEquipment}
+      />
 
       {/* Правая панель: Управление */}
       <Controls

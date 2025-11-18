@@ -78,13 +78,9 @@ export async function initializeManagers(containerId = 'scene-container') {
     }
     animate();
 
-    // Привязка Drag & Drop к карточкам (СРАЗУ при загрузке)
-    const cards = document.querySelectorAll('[data-equipment-type]');
-    if (cards.length > 0) {
-        dragDropController.initialize('[data-equipment-type]');
-        contextMenuManager.initialize();
-        console.log(`✅ Drag & Drop привязан к ${cards.length} карточкам`);
-    }
+    // Инициализация DND перенесена в React App - вызывается из useEffect
+    // это необходимо потому что React компоненты ещё не смонтированы
+    // (см. App.jsx useEffect с managersRef.current.initializeDragDrop())
 
     // Глобальный доступ для отладки
     window.scene = scene;
@@ -109,7 +105,12 @@ export async function initializeManagers(containerId = 'scene-container') {
         cabinet: cabinetManager,
         equipment: equipmentManager,
         dragDrop: dragDropController,
-        contextMenu: contextMenuManager
+        contextMenu: contextMenuManager,
+        // Функция для инициализации DND ПОСЛЕ монтирования React
+        initializeDragDrop: () => {
+            dragDropController.initialize('.equipment-card');
+            contextMenuManager.initialize();
+        }
     };
 }
 

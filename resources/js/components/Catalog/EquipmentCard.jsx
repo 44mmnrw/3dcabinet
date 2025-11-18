@@ -1,11 +1,30 @@
 import React from 'react';
 
-function EquipmentCard({ id, name, width, icon, available, onClick }) {
+function EquipmentCard({ id, name, width, icon, available, onClick, onDragStart }) {
+  const handleDragStart = (e) => {
+    if (!available) {
+      e.preventDefault();
+      return;
+    }
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('equipment-id', id);
+    e.dataTransfer.setData('equipment-name', name);
+    if (onDragStart) onDragStart(id);
+  };
+
+  const handleClick = (e) => {
+    if (available && onClick) {
+      onClick(id);
+    }
+  };
+
   return (
     <div
       data-equipment-type={id}
       draggable={available}
       className="equipment-card"
+      onClick={handleClick}
+      onDragStart={handleDragStart}
       style={{ 
         opacity: available ? 1 : 0.5, 
         cursor: available ? 'grab' : 'not-allowed',
@@ -13,15 +32,16 @@ function EquipmentCard({ id, name, width, icon, available, onClick }) {
       }}
     >
       <div style={{
-        width: '40px',
-        height: '40px',
-        borderRadius: '8px',
-        background: '#f1f3f5',
+        width: '50px',
+        height: '50px',
+        borderRadius: '6px',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: '20px',
-        flexShrink: 0
+        fontSize: '28px',
+        flexShrink: 0,
+        boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)'
       }}>
         {icon}
       </div>

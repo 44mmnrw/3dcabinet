@@ -82,13 +82,17 @@ export class EquipmentManager {
 
             // Загружаем конфигурацию
             const config = await this.loadEquipmentConfig(type);
+            console.log(`  📋 Конфиг загружен:`, config);
 
             // Загружаем GLTF/GLB модель
             const modelPath = `/assets/models/equipment/${type}/${config.model}`;
+            console.log(`  🔄 Загрузка модели: ${modelPath}`);
+            
             const glbGroup = await this.assetLoader.load(modelPath, {
                 useCache: true,
                 clone: true
             });
+            console.log(`  ✅ Модель загружена:`, glbGroup);
 
             alignGroupToFloor(glbGroup);
             glbGroup.name = id;
@@ -127,7 +131,9 @@ export class EquipmentManager {
             console.log(`✅ ${config.name || type}: ${id} → шкаф ${cabinetId}, рейка ${railIndex}`);
             return id;
         } catch (error) {
-            console.error('❌ Ошибка добавления оборудования:', error);
+            console.error(`❌ Ошибка добавления оборудования [${type}]:`, error);
+            console.error('  Error stack:', error.stack);
+            console.error('  Error message:', error.message);
             return null;
         }
     }

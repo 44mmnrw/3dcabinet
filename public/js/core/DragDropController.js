@@ -41,6 +41,9 @@ export class DragDropController {
         // Привязка контекста для обработчиков событий
         this._boundDragMove = this._onDragMove.bind(this);
         this._boundDragEnd = this._onDragEnd.bind(this);
+        
+        // Хранилище bound-обработчиков mousedown для каждой карточки (предотвращение дубликатов)
+        this._cardHandlers = new WeakMap();
     }
 
     /**
@@ -56,11 +59,20 @@ export class DragDropController {
         }
 
         cards.forEach(card => {
+            // Пропускаем если обработчик уже назначен (защита от дубликатов)
+            if (this._cardHandlers.has(card)) {
+                return;
+            }
+            
             // Отключаем нативный HTML5 drag & drop
             card.draggable = false;
             
+            // Создаём bound-обработчик и сохраняем в WeakMap
+            const handler = (e) => this._onDragStart(e, card);
+            this._cardHandlers.set(card, handler);
+            
             // Слушаем mousedown для начала перетаскивания
-            card.addEventListener('mousedown', (e) => this._onDragStart(e, card));
+            card.addEventListener('mousedown', handler);
         });
 
         console.log(`✅ DragDropController: инициализировано для ${cards.length} карточек`);
@@ -72,6 +84,12 @@ export class DragDropController {
     async _onDragStart(event, card) {
         // Игнорируем правый клик
         if (event.button !== 0) return;
+
+        // Предотвращаем наложение drag операций
+        if (this.dragState.active) {
+            console.warn('⚠️ Drag уже активен, игнорируем новый клик');
+            return;
+        }
 
         // Проверяем активный шкаф НАПРЯМУЮ (не через флаг)
         const cabinetData = this.cabinetManager.getActiveCabinet();
@@ -123,8 +141,18 @@ export class DragDropController {
             document.body.style.cursor = 'grabbing';
 
         } catch (error) {
-            console.error('❌ Ошибка загрузки конфига оборудования:', error);
-            alert(`Ошибка: ${error.message}`);
+            console.error(`❌ Ошибка загрузки конфига оборудования [${equipmentType}]:`, error);
+            console.error('  Stack trace:', error.stack);
+            alert(`Ошибка загрузки ${equipmentType}: ${error.message}`);
+            
+            // Очистка при ошибке: отвязываем обработчики и сбрасываем состояние
+            document.removeEventListener('mousemove', this._boundDragMove);
+            document.removeEventListener('mouseup', this._boundDragEnd);
+            document.body.style.cursor = '';
+            if (card) card.classList.remove('dragging');
+            this._resetDragState();
+            
+            console.log('♻️ DragState сброшен после ошибки');
         }
     }
 
@@ -183,6 +211,12 @@ export class DragDropController {
 
         console.log('🖱️ Конец drag');
 
+        // КРИТИЧЕСКИ ВАЖНО: отвязываем обработчики В САМОМ НАЧАЛЕ
+        // это предотвращает накопление обработчиков при множественных drag
+        document.removeEventListener('mousemove', this._boundDragMove);
+        document.removeEventListener('mouseup', this._boundDragEnd);
+        document.body.style.cursor = '';
+
         const railMeshes = this._getRailMeshes();
         const targetRailIndex = this.dragState.targetRailIndex;
 
@@ -198,13 +232,6 @@ export class DragDropController {
 
         // Сбрасываем подсветку реек
         this.railHighlighter.reset(railMeshes);
-
-        // Восстанавливаем курсор
-        document.body.style.cursor = '';
-
-        // Отвязываем глобальные обработчики
-        document.removeEventListener('mousemove', this._boundDragMove);
-        document.removeEventListener('mouseup', this._boundDragEnd);
 
         // Если курсор НЕ над рейкой — отмена
         if (targetRailIndex === null) {
