@@ -66,7 +66,7 @@ class CabinetManager {
 
     /**
      * Добавить шкаф по ID из каталога (упрощённый API)
-     * @param {string} catalogId - ID шкафа из каталога (например, 'TS_700_500_250')
+     * @param {string} catalogId - ID шкафа из каталога (например, 'tsh_700_500_250')
      * @param {string} instanceId - Уникальный ID экземпляра (опционально)
      * @returns {Promise<string>} ID добавленного шкафа
      */
@@ -110,8 +110,8 @@ class CabinetManager {
 
     /**
      * Динамическая загрузка класса шкафа (прямой метод)
-     * @param {string} cabinetType - Имя класса шкафа (например, 'test_TS_700_500_250')
-     * @param {string} modulePath - Путь к модулю (например, './models/TS_700_500_250/test_TS_700_500_250.js')
+     * @param {string} cabinetType - Имя класса шкафа (например, 'tsh_700_500_250')
+     * @param {string} modulePath - Путь к модулю (например, './cabinets/tsh_700_500_250/tsh_700_500_250.js')
      * @param {string} cabinetId - Уникальный ID экземпляра
      * @returns {Promise<string>} ID добавленного шкафа
      */

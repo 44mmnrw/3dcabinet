@@ -42,8 +42,6 @@ export class CabinetManager {
         strategyRegistry.register('din_rail', DINRailStrategy, ['din', 'rail']);
         strategyRegistry.register('rack_unit', RackUnitStrategy, ['rack', '19inch']);
         strategyRegistry.register('mounting_plate', MountingPlateStrategy, ['plate']);
-        
-        console.log('✅ Зарегистрировано стратегий:', strategyRegistry.getRegisteredTypes().length);
     }
 
     /**
@@ -110,7 +108,7 @@ export class CabinetManager {
 
     /**
      * Динамическая загрузка класса шкафа (прямой метод)
-     * @param {string} cabinetType - Имя класса шкафа (например, 'test_TS_700_500_250')
+     * @param {string} cabinetType - Имя класса шкафа (например, 'tsh_700_500_250')
      * @param {string} modulePath - Путь к модулю
      * @param {string} cabinetId - Уникальный ID экземпляра
      * @param {Object} cabinetDef - Определение из каталога (NEW!)
@@ -138,10 +136,13 @@ export class CabinetManager {
 
             // Создание и сборка экземпляра
             const cabinetInstance = new CabinetClass();
-            const assembly = await cabinetInstance.assemble();
+            const assembly = await cabinetInstance.assemble({
+                basePath: window.location.origin + '/assets/models/freecad'
+            });
             
+            // ⚠️ НЕ переопределяем позицию — assemble() уже выровнял по полу (_alignAssemblyToFloor)
             assembly.name = cabinetId;
-            assembly.position.set(0, 0, 0);
+            // assembly.position.set(0, 0, 0); // УДАЛЕНО: это перечеркивало выравнивание
             
             this.scene.add(assembly);
             
@@ -189,7 +190,9 @@ export class CabinetManager {
                 equipmentList: []                   // NEW!
             });
 
+            // ⚡ Теперь можно устанавливать как активный (он в Map!)
             this.activeCabinetId = cabinetId;
+
             console.log(`✅ Шкаф ${cabinetType} загружен: ${cabinetId}`);
             console.log(`   Тип: ${cabinetTypeInstance?.constructor.name || 'CabinetType'}`);
             console.log(`   Стратегии: ${Array.from(strategies.keys()).join(', ') || 'нет'}`);

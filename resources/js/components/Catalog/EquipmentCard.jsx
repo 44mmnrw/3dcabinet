@@ -4,10 +4,13 @@ function EquipmentCard({ id, name, width, icon, available, onClick }) {
   return (
     <div
       data-equipment-type={id}
-      onClick={onClick}
       draggable={available}
       className="equipment-card"
-      style={{ opacity: available ? 1 : 0.5, cursor: available ? 'grab' : 'not-allowed' }}
+      style={{ 
+        opacity: available ? 1 : 0.5, 
+        cursor: available ? 'grab' : 'not-allowed',
+        userSelect: 'none'
+      }}
     >
       <div style={{
         width: '40px',

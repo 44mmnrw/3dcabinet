@@ -57,12 +57,22 @@ export class DINRailStrategy extends MountingStrategy {
             }
         }
         
-        // Fallback: старый путь (hardcoded dinRail1/2/3)
+        // Fallback: ищем все компоненты, которые выглядят как DIN-рейки
         const components = this.cabinet.getComponents();
-        const rails = [components.dinRail1, components.dinRail2, components.dinRail3].filter(Boolean);
+        const rails = Object.entries(components)
+            .filter(([name, component]) => {
+                // Проверяем по именам: dinRail*, din_rail*, rail*
+                return component && (
+                    name.includes('dinRail') || 
+                    name.includes('din_rail') || 
+                    name.includes('rail')
+                );
+            })
+            .map(([name, component]) => component)
+            .sort(); // Сортируем для консистентности
         
         if (rails.length > 0) {
-            console.warn(`⚠️ Используется fallback на hardcoded DIN-рейки (dinRail1/2/3)`);
+            console.warn(`⚠️ Используется fallback. Найдено ${rails.length} DIN-реек: ${Object.keys(components).filter(n => n.includes('rail')).join(', ')}`);
         }
         
         return rails;

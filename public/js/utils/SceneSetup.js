@@ -63,6 +63,12 @@ export function createCamera(options = {}) {
         1000
     );
     camera.position.set(...position);
+    
+    // ⚠️ ВАЖНО: зафиксировать ось Y вертикально (не дать ей вращаться)
+    camera.up.set(0, 1, 0);  // Y-axis всегда вверх
+    
+    // Камера смотрит на центр сцены
+    camera.lookAt(0, 0, 0);
 
     return camera;
 }
@@ -142,12 +148,21 @@ export function createLights(scene, options = {}) {
 export function createControls(camera, domElement, options = {}) {
     const {
         enableDamping = true,
-        dampingFactor = 0.05
+        dampingFactor = 0.05,
+        polarAngle = Math.PI / 2.5  // Угол камеры (по умолчанию ~68°, немного ниже горизонта)
     } = options;
 
     const controls = new OrbitControls(camera, domElement);
     controls.enableDamping = enableDamping;
     controls.dampingFactor = dampingFactor;
+    
+    // ⚠️ Заблокировать вращение вверх-вниз (только влево-вправо)
+    // Устанавливаем фиксированный полярный угол
+    controls.minPolarAngle = polarAngle;
+    controls.maxPolarAngle = polarAngle;
+    
+    // Отключить auto-rotate
+    controls.autoRotate = false;
 
     return controls;
 }

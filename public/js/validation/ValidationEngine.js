@@ -14,12 +14,10 @@ export class ValidationEngine {
      */
     addRule(rule) {
         if (!rule || typeof rule.validate !== 'function') {
-            console.error('[ValidationEngine] Invalid rule: must have validate() method');
             return;
         }
         
         this.rules.push(rule);
-        console.log(`[ValidationEngine] Added rule: ${rule.name || 'unnamed'}`);
     }
 
     /**
@@ -29,10 +27,6 @@ export class ValidationEngine {
     removeRule(name) {
         const initialLength = this.rules.length;
         this.rules = this.rules.filter(rule => rule.name !== name);
-        
-        if (this.rules.length < initialLength) {
-            console.log(`[ValidationEngine] Removed rule: ${name}`);
-        }
     }
 
     /**
@@ -70,7 +64,6 @@ export class ValidationEngine {
                 }
                 
             } catch (error) {
-                console.error(`[ValidationEngine] Rule '${rule.name}' failed:`, error);
                 result.errors.push({
                     rule: rule.name,
                     message: `Internal error: ${error.message}`
@@ -107,7 +100,6 @@ export class ValidationEngine {
      */
     clearRules() {
         this.rules = [];
-        console.log('[ValidationEngine] All rules cleared');
     }
 
     /**

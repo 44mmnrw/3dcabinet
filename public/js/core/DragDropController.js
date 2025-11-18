@@ -10,14 +10,16 @@ import { RailHighlighter } from '../utils/RailHighlighter.js';
  * - Raycasting для определения ближайшей рейки
  * - Автоматический поиск свободной позиции на рейках
  * - Ghost-элемент (миниатюра) следующий за курсором
+ * - Race condition fix: ждёт первого кабинета перед first drag
  */
 export class DragDropController {
-    constructor({ scene, camera, renderer, cabinetManager, equipmentManager }) {
+    constructor({ scene, camera, renderer, cabinetManager, equipmentManager, eventBus = null }) {
         this.scene = scene;
         this.camera = camera;
         this.renderer = renderer;
         this.cabinetManager = cabinetManager;
         this.equipmentManager = equipmentManager;
+        this.eventBus = eventBus;
         
         // Raycasting для определения позиции курсора в 3D
         this.raycaster = new THREE.Raycaster();
@@ -71,12 +73,13 @@ export class DragDropController {
         // Игнорируем правый клик
         if (event.button !== 0) return;
 
-        // Проверяем активный шкаф
-        const cabinet = this.cabinetManager.getActiveCabinet();
-        if (!cabinet) {
-            alert('⚠️ Сначала добавьте шкаф на сцену!');
-            return;
+        // Проверяем активный шкаф НАПРЯМУЮ (не через флаг)
+        const cabinetData = this.cabinetManager.getActiveCabinet();
+        if (!cabinetData || !cabinetData.instance) {
+            console.warn('⚠️ Шкаф не готов. activeCabinetId:', this.cabinetManager.activeCabinetId, 'cabinets.size:', this.cabinetManager.cabinets.size);
+            return; // Просто выход, БЕЗ alert
         }
+        const cabinet = cabinetData.instance;
 
         // Извлекаем данные из data-атрибутов
         const equipmentType = card.dataset.equipmentType;
@@ -90,6 +93,7 @@ export class DragDropController {
         // Загружаем конфиг оборудования
         try {
             const config = await this.equipmentManager.loadEquipmentConfig(equipmentType);
+            console.log(`📋 Загружена конфигурация:`, config);
             
             this.dragState = {
                 active: true,
@@ -309,9 +313,9 @@ export class DragDropController {
         Object.entries(components).forEach(([name, object]) => {
             const lowerName = name.toLowerCase();
             if (lowerName.includes('dinrail') || lowerName.includes('rail')) {
-                // Извлекаем индекс из имени (dinRail1 → 0, dinRail2 → 1, etc.)
-                const match = name.match(/\d+/);
-                const index = match ? parseInt(match[0]) - 1 : railMeshes.length;
+                // Извлекаем ПОСЛЕДНИЙ индекс из имени (din_rail40_700_500_250_1 → 1, din_rail40_700_500_250_2 → 2, etc.)
+                const matches = name.match(/\d+/g);
+                const index = matches ? parseInt(matches[matches.length - 1]) - 1 : railMeshes.length;
                 
                 // Рейки — это Group → Group → [Line, Line, ..., Mesh]
                 // Mesh находится глубоко внутри для raycasting

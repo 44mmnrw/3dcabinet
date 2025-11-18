@@ -46,28 +46,61 @@ const cabinetManager = new CabinetManager(scene);
 // Экспорт в глобальную область для legacy UI
 window.cabinetManager = cabinetManager;
 
-// Загрузка шкафа из каталога
-cabinetManager.addCabinetById('TS_700_500_250')
-  .then(() => {
-    // Скрыть индикатор загрузки после успешной загрузки
+/**
+ * Загрузить шкаф по ID из каталога
+ * @param {string} cabinetId - ID шкафа из каталога (по умолчанию первый доступный)
+ */
+async function loadCabinet(cabinetId = null) {
+  try {
     const loadingEl = document.getElementById('loading');
+    
+    // Получить список доступных шкафов
+    const cabinets = await cabinetManager.getAvailableCabinets();
+    
+    if (!cabinets || cabinets.length === 0) {
+      console.warn('⚠️ Каталог шкафов пуст');
+      if (loadingEl) {
+        loadingEl.innerHTML = '<p style="color: orange;">Каталог шкафов не содержит моделей</p>';
+      }
+      return;
+    }
+    
+    // Если ID не указан, использовать первый
+    const selectedCabinet = cabinetId 
+      ? cabinets.find(c => c.id === cabinetId)
+      : cabinets[0];
+    
+    if (!selectedCabinet) {
+      throw new Error(`Шкаф с ID "${cabinetId}" не найден в каталоге`);
+    }
+    
+    console.log(`🔄 Загружаю шкаф: ${selectedCabinet.name} (${selectedCabinet.id})`);
+    
+    // Добавить шкаф по ID из каталога
+    await cabinetManager.addCabinetById(selectedCabinet.id, 'cabinet_main');
+    
+    // Скрыть индикатор загрузки после успешной загрузки
     if (loadingEl) loadingEl.classList.add('hidden');
     console.log('✅ Шкаф загружен успешно');
     
-    // Инициализация UI после загрузки (с задержкой для уверенности что DOM готов)
+    // Инициализация UI после загрузки
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', initializeUI);
     } else {
       initializeUI();
     }
-  })
-  .catch(e => {
-    console.error('Cabinet load error', e);
+    
+  } catch (error) {
+    console.error('❌ Cabinet load error', error);
     const loadingEl = document.getElementById('loading');
     if (loadingEl) {
-      loadingEl.innerHTML = '<p style="color: red;">Ошибка загрузки шкафа! Проверьте консоль (F12).</p>';
+      loadingEl.innerHTML = `<p style="color: red;">Ошибка загрузки шкафа! ${error.message}</p>`;
     }
-  });
+  }
+}
+
+// Загрузка шкафа из каталога (первый доступный или конкретный по ID)
+loadCabinet('tsh_700_500_250');
 
 // Инициализация обработчиков UI
 function initializeUI() {
@@ -243,3 +276,12 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(container.clientWidth, container.clientHeight);
 });
+
+// Экспорт функции для изменения шкафа в runtime
+window.loadCabinet = loadCabinet;
+
+console.log('✅ testCabinetScene.js инициализирован');
+console.log('💡 Использование:');
+console.log('   window.loadCabinet("tsh_700_500_250") - загрузить конкретный шкаф');
+console.log('   window.loadCabinet() - загрузить первый доступный шкаф');
+console.log('   window.cabinetManager.getAvailableCabinets() - список доступных');

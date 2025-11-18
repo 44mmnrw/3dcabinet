@@ -41,6 +41,12 @@ function App() {
   }, []);
 
   const handleAddEquipment = async (type) => {
+    // Проверяем, загружен ли кабинет
+    if (!managersRef.current?.cabinet?.getActiveCabinet()) {
+      console.warn('⚠️ Сначала загрузите шкаф');
+      return;
+    }
+    
     if (managersRef.current?.equipment) {
       await managersRef.current.equipment.addEquipment(type);
     }
@@ -49,9 +55,9 @@ function App() {
   const handleDoorChange = (angle) => {
     setDoorAngle(angle);
     const radians = -(angle * Math.PI / 180);
-    const cabinet = managersRef.current?.cabinet?.getActiveCabinet();
-    if (cabinet?.instance?.setDoorRotation) {
-      cabinet.instance.setDoorRotation(radians);
+    const cabinetData = managersRef.current?.cabinet?.getActiveCabinet();
+    if (cabinetData?.instance?.setDoorRotation) {
+      cabinetData.instance.setDoorRotation(radians);
     }
   };
 
@@ -67,8 +73,18 @@ function App() {
     if (managersRef.current?.cabinet) {
       try {
         await managersRef.current.cabinet.loadCatalog();
-        await managersRef.current.cabinet.addCabinetById('TS_700_500_250');
+        await managersRef.current.cabinet.addCabinetById('tsh_700_500_250');
         setCabinetLoaded(true);
+        
+        // Инициализировать UI контроллер (для слайдера двери и кнопок)
+        if (window.initCabinetControls) {
+          window.initCabinetControls(
+            managersRef.current.cabinet,
+            managersRef.current.scene.camera,
+            managersRef.current.controls
+          );
+        }
+        
         console.log('✅ Шкаф загружен');
       } catch (err) {
         console.error('❌ Ошибка загрузки шкафа:', err);

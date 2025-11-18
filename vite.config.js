@@ -12,7 +12,14 @@ export default defineConfig({
   ],
   build: {
     outDir: 'public/build',
-    manifest: true
+    manifest: 'manifest.json',
+    rollupOptions: {
+      output: {
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash][extname]'
+      }
+    }
   },
   server: {
     host: '127.0.0.1',  // Явно указываем localhost

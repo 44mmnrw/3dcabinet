@@ -19,6 +19,7 @@ function Controls({ doorAngle, onDoorChange, equipmentCount, onRemoveAll }) {
         </div>
         
         <input
+          id="door-angle"
           type="range"
           min="0"
           max="120"

@@ -6,6 +6,8 @@ import { EquipmentManager } from './EquipmentManager.js';
 import { DragDropController } from '../core/DragDropController.js';
 import { ContextMenuManager } from '../core/ContextMenuManager.js';
 import { GeometryUtils } from '../utils/ModelUtils.js';
+import { eventBus, ConfiguratorEvents } from '../events/EventBus.js';
+import { initCabinetControls } from '../ui/cabinetControls.js';
 
 /**
  * Инициализация Three.js сцены и менеджеров
@@ -17,7 +19,6 @@ export async function initializeManagers(containerId = 'scene-container') {
     const container = document.getElementById(containerId);
     
     if (!container) {
-        console.error(`❌ Контейнер #${containerId} не найден`);
         return null;
     }
 
@@ -28,7 +29,8 @@ export async function initializeManagers(containerId = 'scene-container') {
         showGrid: true,
         showAxes: true,
         ambientIntensity: 0.6,
-        directionalIntensity: 0.8
+        directionalIntensity: 0.8,
+        polarAngle: Math.PI / 2.5  // Угол камеры (вертикальный лок, ~68° от горизонта)
     });
 
     const assetLoader = getAssetLoader();
@@ -43,7 +45,8 @@ export async function initializeManagers(containerId = 'scene-container') {
         camera,
         renderer,
         cabinetManager,
-        equipmentManager
+        equipmentManager,
+        eventBus  // Передаём EventBus для слушания cabinet:added
     });
 
     // Инициализация контекстного меню (ПКМ для удаления)
@@ -60,17 +63,12 @@ export async function initializeManagers(containerId = 'scene-container') {
     try {
         const available = await cabinetManager.getAvailableCabinets();
         if (available.length > 0) {
-            console.log(`📋 Доступно шкафов: ${available.length}`);
             await cabinetManager.addCabinetById(available[0].id, 'cabinet_main');
-        } else {
-            console.warn('⚠️ Каталог шкафов пуст');
         }
     } catch (error) {
-        console.error('❌ Ошибка загрузки каталога:', error);
+        // Ошибка загрузки каталога
     }
     */
-    console.log('⚠️ Автозагрузка шкафа отключена (Laravel API не запущен)');
-    console.log('💡 Для загрузки: await window.cabinetManager.addCabinetById("TS_700_500_250")');
 
     // Запуск анимационного цикла
     function animate() {
@@ -80,15 +78,13 @@ export async function initializeManagers(containerId = 'scene-container') {
     }
     animate();
 
-    // Привязка Drag & Drop к карточкам (после монтирования React компонентов)
-    setTimeout(() => {
-        const cards = document.querySelectorAll('[data-equipment-type]');
-        if (cards.length > 0) {
-            dragDropController.initialize('[data-equipment-type]');
-            contextMenuManager.initialize();
-            console.log(`✅ Drag & Drop инициализирован для ${cards.length} карточек`);
-        }
-    }, 500);
+    // Привязка Drag & Drop к карточкам (СРАЗУ при загрузке)
+    const cards = document.querySelectorAll('[data-equipment-type]');
+    if (cards.length > 0) {
+        dragDropController.initialize('[data-equipment-type]');
+        contextMenuManager.initialize();
+        console.log(`✅ Drag & Drop привязан к ${cards.length} карточкам`);
+    }
 
     // Глобальный доступ для отладки
     window.scene = scene;
@@ -100,6 +96,7 @@ export async function initializeManagers(containerId = 'scene-container') {
     window.dragDropController = dragDropController;
     window.contextMenuManager = contextMenuManager;
     window.GeometryUtils = GeometryUtils;  // Доступ к утилитам геометрии из консоли
+    window.initCabinetControls = initCabinetControls;  // Для инициализации UI
 
     console.log('✅ Three.js сцена инициализирована');
     console.log('💡 Доступны: window.equipmentManager, window.cabinetManager, window.dragDropController');

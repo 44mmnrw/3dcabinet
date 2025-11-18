@@ -1,22 +1,17 @@
 {
   "cabinets": [
     {
-      "id": "TS_700_500_250",
-      "name": "Шкаф TS 700×500×250",
-      "className": "TS_700_500_250",
-      "modulePath": "/js/cabinets/TS_700_500_250/TS_700_500_250.js",
-      "mountingType": "din_rail",
-      "mounting": {
-        "rails": 3,
-        "moduleWidth": 18
-      },
+      "id": "tsh_700_500_250",
+      "name": "Шкаф tsh 700 500 250",
+      "className": "tsh_700_500_250",
+      "modulePath": "../cabinets/tsh_700_500_250/tsh_700_500_250.js",
       "dimensions": {
-        "width": 700,
-        "height": 500,
-        "depth": 250
+        "width": 0,
+        "height": 0,
+        "depth": 0
       },
-      "thumbnail": "/assets/models/cabinets/TS_700_500_250/thumb.jpg",
-      "description": "Компактный шкаф для небольших помещений"
+      "mountingType": "din_rail",
+      "description": "Шкаф 0×0×0 мм (автоматически сгенерирован)"
     }
   ]
 }

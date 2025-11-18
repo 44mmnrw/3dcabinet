@@ -19,32 +19,87 @@ from typing import Dict, List, Tuple
 # Шаблон JavaScript класса
 CLASS_TEMPLATE = """import * as THREE from '../../libs/three.module.js';
 import {{ FreeCADGeometryLoader }} from '../../loaders/FreeCADGeometryLoader.js';
+import {{ config as defaultConfig }} from './config.js';
+import {{ CabinetBase }} from '../CabinetBase.js';
 
 /**
  * Класс шкафа {class_name}
  * Автоматически сгенерирован из FreeCAD JSON-схем
  * Размеры: {width}×{height}×{depth} мм
- * Компоненты: {component_list}
+ * Конфиг: config.json
+ * 
+ * Структура: config содержит компоненты и рейки с позициями
  */
-export class {class_name} {{
+export class {class_name} extends CabinetBase {{
     constructor() {{
+        super(); // Вызиваем конструктор базового класса
         this.loader = new FreeCADGeometryLoader();
-        this.assembly = new THREE.Group();
         this.assembly.name = '{class_name}_Assembly';
-        this.components = {{}};
+        
+        // Настройки двери из конфига (переопределяются в _loadConfig)
+        // Указывай имя компонента двери для своего шкафа:
+        this.doorComponentName = 'door_{class_name}'; // ← Измени если нужно
     }}
 
     /**
-     * Сборка компонентов шкафа из JSON-схем
+     * Загрузить конфиг (по умолчанию из встроенного модуля)
+     * @param {{Object}} customConfig - Пользовательский конфиг (если не указан, использует встроенный)
+     * @returns {{Object}} Загруженный конфиг
+     */
+    async _loadConfig(customConfig) {{
+        try {{
+            if (customConfig) {{
+                this.config = customConfig;
+                console.log('✅ Конфиг загружен (пользовательский):', this.config.name);
+            }} else {{
+                this.config = defaultConfig;
+                console.log('✅ Конфиг загружен (встроенный):', this.config.name);
+            }}
+            
+            // Инициализируем настройки двери из конфига
+            if (this.config.door) {{
+                this.doorComponentName = this.config.door.componentName || null;
+                this.doorRotationAxis = this.config.door.rotationAxis || 'y';
+                
+                if (this.config.door.pivotOffset) {{
+                    this.doorPivotOffset.set(
+                        this.config.door.pivotOffset.x || 0,
+                        this.config.door.pivotOffset.y || 0,
+                        this.config.door.pivotOffset.z || 0
+                    );
+                    console.log(`🚪 Настройки двери загружены (pivot: [${{this.doorPivotOffset.x.toFixed(3)}}, ${{this.doorPivotOffset.y.toFixed(3)}}, ${{this.doorPivotOffset.z.toFixed(3)}}])`);
+                }}
+            }}
+            
+            return this.config;
+        }} catch (error) {{
+            console.error('❌ Ошибка загрузки конфига:', error);
+            throw error;
+        }}
+    }}
+
+    /**
+     * Сборка компонентов шкафа на основе конфига
      * @param {{Object}} options - Опции сборки
-     * @param {{string}} options.basePath - Базовый путь к моделям
+     * @param {{string}} options.basePath - Полный путь к папке моделей (например http://localhost:5173/assets/models/freecad)
+     * @param {{Object}} options.config - Пользовательский конфиг (если не указан, используется встроенный)
      * @returns {{Promise<THREE.Group>}} Собранный шкаф
      */
     async assemble(options = {{}}) {{
-        const basePath = options.basePath || './assets/models/freecad';
+        const basePath = options.basePath || (window.location.origin + '/assets/models/freecad');
+        
+        // Если конфиг не загружен — загружаем (по умолчанию встроенный)
+        if (!this.config) {{
+            await this._loadConfig(options.config);
+            // Загружаем настройки двери из конфига (ось вращения, pivot и т.д.)
+            this._initDoorSettingsFromConfig();
+        }}
 
         try {{
-{assembly_code}
+            await this._assembleFromConfig(basePath);
+            
+            // Инициализируем pivot для двери (должно быть после загрузки компонентов)
+            this._initializeDoorPivot();
             
             // Центрируем всю сборку относительно нижней плоскости
             this._alignAssemblyToFloor();
@@ -58,93 +113,56 @@ export class {class_name} {{
         }}
     }}
 
-    // ========== Методы управления компонентами ==========
-
     /**
-     * Установить позицию компонента
+     * Внутренний метод сборки на основе конфига
      */
-    setComponentPosition(componentName, x, y, z) {{
-        const c = this.components[componentName];
-        if (c) c.position.set(x, y, z);
+    async _assembleFromConfig(basePath) {{
+        if (!this.config) throw new Error('Конфиг не загружен');
+
+        const folderName = this.config.name;
+
+        // Обычные компоненты
+        if (this.config.components) {{
+            for (const [varName, compDef] of Object.entries(this.config.components)) {{
+                const filename = compDef.file;
+                this.components[varName] = await this.loader.load(`${{basePath}}/${{folderName}}/${{filename}}`);
+                this.components[varName].name = varName;
+                
+                const scale = compDef.scale || [0.001, 0.001, 0.001];
+                const pos = compDef.position || [0, 0, 0];
+                
+                this.components[varName].scale.set(...scale);
+                this.components[varName].position.set(...pos);
+                this.assembly.add(this.components[varName]);
+                
+                console.log(`  📦 ${{varName}} загружен`);
+            }}
+        }}
+
+        // Рейки (может быть несколько с разными позициями!)
+        if (this.config.rails && Array.isArray(this.config.rails)) {{
+            for (const railDef of this.config.rails) {{
+                const railId = railDef.id;
+                const filename = railDef.file;
+                
+                this.components[railId] = await this.loader.load(`${{basePath}}/${{folderName}}/${{filename}}`);
+                this.components[railId].name = railId;
+                
+                const scale = railDef.scale || [0.001, 0.001, 0.001];
+                const pos = railDef.position || [0, 0, 0];
+                const rot = railDef.rotation || [0, 0, 0];
+                
+                this.components[railId].scale.set(...scale);
+                this.components[railId].position.set(...pos);
+                this.components[railId].rotation.set(...rot);
+                this.assembly.add(this.components[railId]);
+                
+                console.log(`  🔗 ${{railId}} загружен (pos: [${{pos.join(', ')}}])`);
+            }}
+        }}
     }}
 
-    /**
-     * Получить локальную позицию компонента
-     */
-    getComponentPosition(componentName) {{
-        const c = this.components[componentName];
-        return c ? c.position.clone() : null;
-    }}
-
-    /**
-     * Получить мировую позицию компонента
-     */
-    getComponentWorldPosition(componentName) {{
-        const c = this.components[componentName];
-        if (!c) return null;
-        const v = new THREE.Vector3();
-        c.getWorldPosition(v);
-        return v;
-    }}
-
-    /**
-     * Показать/скрыть компонент
-     */
-    setComponentVisibility(componentName, visible) {{
-        const c = this.components[componentName];
-        if (c) c.visible = visible;
-    }}
-
-    /**
-     * Выровнять сборку так, чтобы origin был на нижней плоскости
-     */
-    _alignAssemblyToFloor() {{
-        // Обновляем матрицы перед расчётом bbox (КРИТИЧНО для вложенных трансформаций)
-        this.assembly.updateMatrixWorld(true);
-        
-        // Получаем Bounding Box всей сборки
-        const bbox = new THREE.Box3().setFromObject(this.assembly);
-        
-        // Вычисляем смещение: нижняя точка должна быть на Y=0
-        const offsetY = -bbox.min.y;
-        
-        // Смещаем саму сборку (не дочерние элементы!)
-        this.assembly.position.y += offsetY;
-        
-        console.log(`📐 Assembly aligned to floor. Offset Y: ${{offsetY.toFixed(3)}}м`);
-        
-        return offsetY;
-    }}
-
-    /**
-     * Переместить всю сборку
-     */
-    setAssemblyPosition(x, y, z) {{
-        this.assembly.position.set(x, y, z);
-    }}
-
-    /**
-     * Получить позицию сборки
-     */
-    getAssemblyPosition() {{
-        return this.assembly.position.clone();
-    }}
-
-    /**
-     * Переместить сборку на величину (относительное смещение)
-     */
-    moveAssemblyBy(dx, dy, dz) {{
-        this.assembly.position.x += dx;
-        this.assembly.position.y += dy;
-        this.assembly.position.z += dz;
-    }}
-
-    /**
-     * Сбросить позицию в начало координат (0, 0, 0)
-     */
-    resetAssemblyPosition() {{
-        this.assembly.position.set(0, 0, 0);
-    }}
+    // ========== Методы получения информации ==========
 
     /**
      * Информация о сборке и компонентах
@@ -192,35 +210,63 @@ export class {class_name} {{
 """
 
 
-def generate_assembly_code(components: List[Dict[str, str]], folder_name: str) -> str:
+def generate_config_json(components: List[Dict[str, str]], folder_name: str, 
+                        width: int, height: int, depth: int) -> Dict:
     """
-    Генерирует код загрузки и сборки компонентов
+    Генерирует конфиг-файл JSON для шкафа
     
     Args:
         components: Список компонентов из analyze_components()
         folder_name: Имя папки с компонентами
+        width, height, depth: Размеры шкафа
     
     Returns:
-        Сгенерированный JavaScript код
+        Словарь конфига (можно сериализовать в JSON)
     """
-    code_lines = []
+    config = {
+        "name": folder_name,
+        "dimensions": {
+            "width": width / 1000,  # Переводим в метры
+            "height": height / 1000,
+            "depth": depth / 1000
+        },
+        "components": {},
+        "rails": [],
+        "door": {
+            "componentName": "door_" + folder_name,  # Автоматически определяем имя двери
+            "pivotOffset": {
+                "x": -width / 2000,  # Левая сторона шкафа (половина ширины)
+                "y": 0.0,             # Центр по высоте (можно скорректировать)
+                "z": 0.0              # Центр по глубине
+            },
+            "rotationAxis": "y"  # Y-ось (вращение туда-сюда)
+        }
+    }
     
-    for idx, comp in enumerate(components, 1):
+    # Разделяем компоненты на обычные и рейки
+    for comp in components:
         var_name = comp['var_name']
         filename = comp['filename']
         
-        # Определяем позицию (по умолчанию 0,0,0)
-        position = "0, 0, 0"
-        
-        code_lines.append(f"""            // {filename}
-            this.components.{var_name} = await this.loader.load(`${{basePath}}/{folder_name}/{filename}`);
-            this.components.{var_name}.name = '{var_name}';
-            this.components.{var_name}.scale.set(0.001, 0.001, 0.001);
-            this.components.{var_name}.position.set({position});
-            this.assembly.add(this.components.{var_name});
-""")
+        # Если это DIN-рейка, добавляем в массив rails (позже можно задать позиции)
+        if 'din' in filename.lower() or 'rail' in filename.lower():
+            # Значения по умолчанию — потом пользователь отредактирует конфиг
+            config["rails"].append({
+                "id": var_name,
+                "file": filename,
+                "scale": [0.001, 0.001, 0.001],
+                "position": [0, 0, 0],
+                "rotation": [0, 0, 0]
+            })
+        else:
+            # Обычные компоненты
+            config["components"][var_name] = {
+                "file": filename,
+                "scale": [0.001, 0.001, 0.001],
+                "position": [0, 0, 0]
+            }
     
-    return "\n".join(code_lines)
+    return config
 
 
 def analyze_components(source_path: Path) -> List[Dict[str, str]]:
@@ -342,6 +388,31 @@ def update_catalog(catalog_path: Path, new_entry: Dict) -> None:
         json.dump(catalog, f, indent=2, ensure_ascii=False)
 
 
+def _generate_config_js(config: Dict) -> str:
+    """
+    Генерирует JavaScript модуль конфига из Python словаря
+    
+    Args:
+        config: Конфиг-словарь
+    
+    Returns:
+        JavaScript код с экспортом конфига
+    """
+    import json
+    
+    # Сериализуем словарь в JSON, затем обёрнем в JS экспорт
+    config_json = json.dumps(config, indent=2, ensure_ascii=False)
+    
+    js_code = f"""/**
+ * Конфиг шкафа {config['name']}
+ * Автоматически сгенерирован из FreeCAD компонентов
+ */
+export const config = {config_json};
+"""
+    
+    return js_code
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Генератор классов шкафов для 3DCabinet',
@@ -423,9 +494,12 @@ def main():
     width, height, depth = calculate_cabinet_dimensions(source_path, components)
     print(f"📏 Размеры шкафа: {width}×{height}×{depth} мм (вычислено из vertices)")
     
-    # Генерируем код сборки
-    assembly_code = generate_assembly_code(components, folder_name)
-    component_list = ', '.join([c['var_name'] for c in components])
+    # Генерируем конфиг JSON
+    print(f"⚙️  Генерация конфига JSON...")
+    config = generate_config_json(components, folder_name, width, height, depth)
+    
+    # Формируем список компонентов для документации
+    component_list = ', '.join(list(config['components'].keys()) + [r['id'] for r in config['rails']])
     
     class_code = CLASS_TEMPLATE.format(
         class_name=class_name,
@@ -433,7 +507,6 @@ def main():
         height=height,
         depth=depth,
         folder_name=folder_name,
-        assembly_code=assembly_code,
         component_list=component_list
     )
     
@@ -448,6 +521,17 @@ def main():
     
     print(f"✅ Создан класс: {output_file.relative_to(project_root)}")
     
+    # Сохраняем конфиг как JavaScript модуль (не JSON!)
+    config_file = output_dir / 'config.js'
+    
+    # Конвертируем Python словарь в JavaScript объект
+    config_js_code = _generate_config_js(config)
+    
+    with open(config_file, 'w', encoding='utf-8') as f:
+        f.write(config_js_code)
+    
+    print(f"✅ Создан конфиг: {config_file.relative_to(project_root)}")
+    
     # Обновляем каталог
     if not args.no_catalog:
         catalog_path = project_root / 'public' / 'assets' / 'models' / 'cabinets' / 'catalog.json'
@@ -459,6 +543,13 @@ def main():
         print(f"✅ Обновлён каталог: {catalog_path.relative_to(project_root)}")
     
     print(f"\n🎉 Генерация завершена успешно!")
+    print(f"\n📋 Созданные файлы:")
+    print(f"   • Класс: {output_file.relative_to(project_root)}")
+    print(f"   • Конфиг: {config_file.relative_to(project_root)}")
+    print(f"\n🔧 Рекомендации:")
+    print(f"   1. Отредактируйте config.js для точной настройки позиций компонентов")
+    print(f"   2. Если рейки (rails) — укажите корректные Y-позиции")
+    print(f"   3. Пример для 3 рейлок: position: [0, 0, 0], [0, -0.2, 0], [0, -0.4, 0]")
     print(f"\n💡 Для использования в коде:")
     print(f"   await cabinetManager.addCabinetById('{class_name}');")
     

@@ -1,51 +1,53 @@
 /**
- * UI контроллер для управления шкафом
+ * UI контроллер для управления шкафом (универсальный для любых шкафов)
+ * Автоматически работает с любым шкафом, если он наследует CabinetBase
  */
 export function initCabinetControls(cabinetManager, camera, controls) {
-  console.log('🎛️ Инициализация UI контроллера...');
-  
   const cabinet = cabinetManager.getActiveCabinet();
   if (!cabinet || !cabinet.instance) {
-    console.error('❌ Активный шкаф не найден');
     return;
   }
 
-  // === ДВЕРЬ ===
+  // === ДВЕРЬ (Универсальная поддержка) ===
   const btnOpenDoor = document.getElementById('btn-open-door');
   const btnCloseDoor = document.getElementById('btn-close-door');
   const doorSlider = document.getElementById('door-angle');
   const doorValue = document.getElementById('door-angle-value');
 
+  // Вспомогательная функция для установки значения слайдера и текста
+  const updateDoorDisplay = (degrees) => {
+    if (doorSlider) doorSlider.value = degrees;
+    if (doorValue) doorValue.textContent = degrees + '°';
+  };
+
+  // Функция для открытия двери (универсальная)
+  const openDoor = (angle = -Math.PI / 2) => {
+    cabinet.instance.setDoorRotation(angle);
+    const degrees = Math.abs(Math.round(angle * 180 / Math.PI));
+    updateDoorDisplay(degrees);
+  };
+
+  // Функция для закрытия двери (универсальная)
+  const closeDoor = () => {
+    cabinet.instance.setDoorRotation(0);
+    updateDoorDisplay(0);
+  };
+
   if (btnOpenDoor) {
-    btnOpenDoor.onclick = () => {
-      console.log('🚪 Открываем дверь');
-      if (cabinet.instance.openDoor) cabinet.instance.openDoor(-Math.PI / 2);
-      if (doorSlider) doorSlider.value = 90;
-      if (doorValue) doorValue.textContent = '90°';
-    };
-    console.log('✅ Кнопка "Открыть дверь" подключена');
+    btnOpenDoor.onclick = openDoor;
   }
 
   if (btnCloseDoor) {
-    btnCloseDoor.onclick = () => {
-      console.log('🚪 Закрываем дверь');
-      if (cabinet.instance.closeDoor) cabinet.instance.closeDoor();
-      if (doorSlider) doorSlider.value = 0;
-      if (doorValue) doorValue.textContent = '0°';
-    };
-    console.log('✅ Кнопка "Закрыть дверь" подключена');
+    btnCloseDoor.onclick = closeDoor;
   }
 
   if (doorSlider) {
     doorSlider.oninput = (e) => {
       const degrees = parseInt(e.target.value);
       const radians = -(degrees * Math.PI / 180);
-      if (cabinet.instance.setDoorRotation) {
-        cabinet.instance.setDoorRotation(radians);
-      }
-      if (doorValue) doorValue.textContent = degrees + '°';
+      cabinet.instance.setDoorRotation(radians);
+      updateDoorDisplay(degrees);
     };
-    console.log('✅ Слайдер двери подключен');
   }
 
   // === ВИДИМОСТЬ ===
@@ -125,7 +127,6 @@ export function initCabinetControls(cabinetManager, camera, controls) {
   if (btnShowInfo) {
     btnShowInfo.onclick = () => {
       if (cabinet.instance.getInfo) {
-        console.log('📋 Информация о шкафе:', cabinet.instance.getInfo());
         alert('Информация выведена в консоль (F12)');
       }
     };
@@ -154,6 +155,4 @@ export function initCabinetControls(cabinetManager, camera, controls) {
     requestAnimationFrame(updateFPS);
   }
   if (fpsDisplay) updateFPS();
-
-  console.log('✅ Все UI обработчики подключены');
 }

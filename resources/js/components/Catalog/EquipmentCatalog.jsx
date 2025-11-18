@@ -47,7 +47,7 @@ function EquipmentCatalog({ onAdd, onLoadCabinet, cabinetLoaded }) {
           <EquipmentCard
             key={item.id}
             {...item}
-            onClick={() => item.available && onAdd(item.id)}
+            onClick={() => {}} // Клик отключен - только drag-and-drop
           />
         ))}
       </div>

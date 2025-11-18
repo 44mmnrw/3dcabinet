@@ -13,7 +13,7 @@ export class ModelSceneManager {
     /**
      * Добавить модель в сцену
      * @param {string} id - Уникальный идентификатор модели
-     * @param {Object} assembler - Экземпляр сборщика (TS_700_500_250 и т.д.)
+     * @param {Object} assembler - Экземпляр сборщика (tsh_700_500_250 и т.д.)
      * @param {Object} position - Позиция в сцене {x, y, z}
      * @param {Object} metadata - Дополнительные данные
      */

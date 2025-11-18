@@ -24,7 +24,7 @@ export class GeometryUtils {
     console.log(`📐 Модель выровнена по полу. Смещение Y: ${offsetY.toFixed(3)}м`);
     
     return {
-      bbox,ы
+      bbox,
       offset: { x: 0, y: offsetY, z: 0 }
     };
   }
