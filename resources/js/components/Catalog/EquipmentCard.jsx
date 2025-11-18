@@ -1,16 +1,6 @@
 import React from 'react';
 
-function EquipmentCard({ id, name, width, icon, available, onClick, onDragStart }) {
-  const handleDragStart = (e) => {
-    if (!available) {
-      e.preventDefault();
-      return;
-    }
-    e.dataTransfer.effectAllowed = 'copy';
-    e.dataTransfer.setData('equipment-id', id);
-    e.dataTransfer.setData('equipment-name', name);
-    if (onDragStart) onDragStart(id);
-  };
+function EquipmentCard({ id, name, width, icon, available, onClick, onMouseDown }) {
 
   const handleClick = (e) => {
     if (available && onClick) {
@@ -21,10 +11,10 @@ function EquipmentCard({ id, name, width, icon, available, onClick, onDragStart 
   return (
     <div
       data-equipment-type={id}
-      draggable={available}
+      draggable={false}
       className="equipment-card"
       onClick={handleClick}
-      onDragStart={handleDragStart}
+      onMouseDown={available ? onMouseDown : undefined}
       style={{ 
         opacity: available ? 1 : 0.5, 
         cursor: available ? 'grab' : 'not-allowed',

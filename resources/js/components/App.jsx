@@ -37,13 +37,7 @@ function App() {
           setEquipmentCount(count);
         };
       }
-      
-      // Глобальная функция для реинициализации DND (вызывается при смене вкладок)
-      window.reinitializeDragDrop = () => {
-        if (managersRef.current?.initializeDragDrop) {
-          managersRef.current.initializeDragDrop();
-        }
-      };
+      // DnD теперь управляется через React onMouseDown → DragDropController.onReactMouseDown
     });
   }, []);
 
@@ -92,12 +86,7 @@ function App() {
           );
         }
         
-        // Инициализировать Drag & Drop ПОСЛЕ монтирования React компонентов
-        // Это необходимо потому что карточки оборудования в это время уже в DOM
-        if (managersRef.current?.initializeDragDrop) {
-          managersRef.current.initializeDragDrop();
-          console.log('✅ Drag & Drop инициализирован');
-        }
+        // Drag & Drop инициализация через React — отдельного вызова не требуется
         
         console.log('✅ Шкаф загружен');
       } catch (err) {
@@ -114,6 +103,10 @@ function App() {
         onAdd={handleAddEquipment}
         onLoadCabinet={handleLoadCabinet}
         cabinetLoaded={cabinetLoaded}
+        onCardMouseDown={(e) => {
+          e.preventDefault();
+          managersRef.current?.dragDrop?.onReactMouseDown(e);
+        }}
       />
 
       {/* Центр: 3D сцена */}

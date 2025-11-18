@@ -47,6 +47,20 @@ export class DragDropController {
     }
 
     /**
+     * Публичная точка входа для React: обрабатывает onMouseDown карточки
+     * Использует event.currentTarget как карточку
+     */
+    onReactMouseDown(event) {
+        try {
+            const card = event.currentTarget?.closest?.('.equipment-card') || event.currentTarget;
+            if (!card) return;
+            this._onDragStart(event, card);
+        } catch (e) {
+            console.error('❌ onReactMouseDown error:', e);
+        }
+    }
+
+    /**
      * Инициализация — привязка событий к DOM-элементам
      * @param {string} equipmentCardsSelector - Селектор карточек оборудования
      */

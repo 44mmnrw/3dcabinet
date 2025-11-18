@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import CategoryTabs from './CategoryTabs';
 import EquipmentCard from './EquipmentCard';
 
@@ -8,19 +8,8 @@ const EQUIPMENT_DATA = [
   { id: 'socket_g', name: 'Розетка 220В Schuko', category: 'sockets', width: 44.5, icon: '⚡', available: true },
 ];
 
-function EquipmentCatalog({ onAdd, onLoadCabinet, cabinetLoaded }) {
+function EquipmentCatalog({ onAdd, onLoadCabinet, cabinetLoaded, onCardMouseDown }) {
   const [activeTab, setActiveTab] = useState('breakers');
-
-  // Реинициализация DragDrop при смене вкладки (новые DOM элементы)
-  useEffect(() => {
-    if (window.reinitializeDragDrop) {
-      // Даём React время отрендерить новые карточки
-      setTimeout(() => {
-        window.reinitializeDragDrop();
-        console.log('🔄 DragDrop реинициализирован после смены вкладки');
-      }, 0);
-    }
-  }, [activeTab]);
 
   const filteredItems = EQUIPMENT_DATA.filter(item => item.category === activeTab);
 
@@ -59,9 +48,7 @@ function EquipmentCatalog({ onAdd, onLoadCabinet, cabinetLoaded }) {
             key={item.id}
             {...item}
             onClick={null}
-            onDragStart={(id) => {
-              // При начале dragging можно добавить визуальный эффект
-            }}
+            onMouseDown={onCardMouseDown}
           />
         ))}
       </div>
