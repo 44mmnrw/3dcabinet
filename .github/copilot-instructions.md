@@ -1,123 +1,28 @@
-# Инструкции для AI-ассистента — 3Cabinet
+# 3Cabinet — Copilot Guide (коротко)
 
-## Архитектура проекта
+- Архитектура: Laravel 11 + Blade на сервере; фронт — Vanilla JS + Three.js r167 как ES-модули без сборки. Данные — MySQL через Eloquent. Вся статика в `public/`.
+- Роуты: `/` → `LandingController` → `resources/views/landing/index.blade.php`; `/app` → `ConfiguratorController` → `configurator/index.blade.php`; `/admin` → `AdminController` → `admin/index.blade.php` (см. `routes/web.php`).
+- Ключевые файлы: `public/js/app.js` (Three.js сцена), `public/js/data.js` (глобальные `CABINET_CONFIG`, `EQUIPMENT_DATA`), `public/js/selection.js` (IIFE логика формы), `resources/views/layouts/app.blade.php` (мастер-шаблон), `database/seeders/EquipmentSeeder.php`.
+- Загрузка скриптов: в Blade используйте порядок `data.js` → `app.js` (`type="module"`) → `selection.js` через `@push('scripts')` (см. инвариант в docs). Не добавляйте сборщик/Vite для `public/js`.
+- Three.js: размеры шкафа и позиция камеры завязаны на `CABINET_CONFIG`. При изменении `units` пересчитывается высота ($42 × 44.45$ мм по умолчанию) и обновляется `BoxGeometry` + камера в `app.js`.
+- Структуры данных: `EQUIPMENT_DATA[{ id, name, units(1–4), power, weight, depth, category }]`; `CABINET_CONFIG{ name, units, width, depth, maxWeight, maxPower }`. Категории соответствуют UI-фильтрам.
+- UI-паттерны: классы состояния `.hidden/.visible`, `.active`, `.disabled-button`; radio скрыты, выбор идёт по клику по `.select-card` с синхронизацией `.active` и `checked`.
+- Генерация SVG-спрайта: кладите SVG в `public/assets/icons/`, затем `npm run build:icons` → используйте `<use xlink:href="{{ asset('assets/sprite/sprite.svg#icon-NAME') }}">`. Спрайт инклюдится через `@include('partials.sprite')`.
+- Разработка (Windows/Laragon):
+  - `php artisan migrate` → `php artisan db:seed --class=EquipmentSeeder` → `php artisan serve` → http://localhost:8000
+  - Полезно: `php artisan route:list`, `php artisan config:clear`, `php artisan cache:clear`.
+- БД и миграции: не редактируйте существующие миграции после применения — создавайте новые. Внешние ключи: `cabinet_configurations.project_id` → `projects.id`. JSON-поля: `projects.configuration`, `cabinet_configurations.equipment_positions`.
+- Ограничения: не добавляйте сборку для JS, не конвертируйте `app.js` в CJS, не переносите статику из `public/`. Используйте Blade `asset()` для всех URL.
+- Отладка 3D: проверьте размеры контейнера `#cabinet-3d-container`, поддержку WebGL в консоли, порядок подключения скриптов. Для формы — ищите `.select-card.active` и `input:checked` в DevTools.
+- Стиль и ответственность: минимальные точечные изменения, без затрагивания несвязанных частей; храните бизнес-логику в контроллерах, а не в Blade; для AJAX — `routes/api.php` с JSON.
+- Частые задачи:
+  - Добавить оборудование: правьте `public/js/data.js` и/или сидер `EquipmentSeeder`, затем `php artisan db:seed`.
+  - Изменить параметры шкафа: обновите `CABINET_CONFIG` в `data.js` и соответствующую геометрию/камеру в `app.js`.
+  - Обновить стили: редактируйте CSS-переменные в `public/css/styles.css` и используйте существующие классы состояний.
+- Продакшен: DocumentRoot указывает на `public/`; генерируйте `APP_KEY`, права на `storage/` и `bootstrap/cache/`, используйте `php artisan config:cache route:cache view:cache`. Подробности — `docs/DEPLOYMENT.md` и `docs/TIMEWEB_DEPLOYMENT.md`.
+- Справочники и примеры: в `docs/` есть QUICKSTART, THREE_JS_SETUP, MODEL_STRUCTURE, EQUIPMENT_LOADING_ARCHITECTURE, RENDERING_QUALITY_GUIDE и др. Опираться на них при изменениях.
 
-**Тип приложения**: Laravel 11 веб-конфигуратор с 3D-визуализацией (Three.js) и Blade-шаблонизацией.
-
-**Гибридная архитектура**:
-- **Backend**: Laravel 11 (PHP 8.3+, роутинг, Blade views, Eloquent ORM)
-- **Frontend**: Vanilla JS + Three.js (ES6 modules, без npm build-процесса)
-- **База данных**: MySQL (через Laragon) с миграциями для projects, equipment, cabinet_configurations
-
-**Три основных маршрута** (см. `routes/web.php`):
-1. `/` → `LandingController` → `landing/index.blade.php` — лендинг с 2-шаговой формой выбора
-2. `/app` → `ConfiguratorController` → `configurator/index.blade.php` — 3D-конфигуратор
-3. `/admin` → `AdminController` → `admin/index.blade.php` — админ-панель
-
-**Клиент-серверное разделение**:
-- Рендеринг HTML: Blade templates (`resources/views/`)
-- Статические активы: `public/` (CSS, JS, fonts, images, assets)
-- Состояние UI: управляется JavaScript на клиенте (без build-процесса)
-- Персистентность: Laravel Eloquent + MySQL (projects, equipment, configurations)
-
----
-
-## Ключевые файлы и структура
-
-### Backend (Laravel)
-
-**Контроллеры** (`app/Http/Controllers/`):
-- `LandingController.php` — отдаёт главную с формой выбора
-- `ConfiguratorController.php` — отдаёт 3D-конфигуратор
-- `AdminController.php` — админ-панель (базовая)
-
-**Роутинг** (`routes/web.php`):
-```php
-Route::get('/', [LandingController::class, 'index'])->name('landing');
-Route::get('/app', [ConfiguratorController::class, 'index'])->name('configurator');
-Route::prefix('admin')->group(function () {
-    Route::get('/', [AdminController::class, 'index'])->name('admin.dashboard');
-});
-```
-
-**Миграции** (`database/migrations/`):
-- `*_create_projects_table.php` — проекты (name, configuration JSON, total_price/power/weight, status enum)
-- `*_create_equipment_table.php` — каталог оборудования (name, category, units, power, weight, depth, price)
-- `*_create_cabinet_configurations_table.php` — конфигурации (project_id FK, размеры, equipment_positions JSON)
-
-**Сидеры** (`database/seeders/`):
-- `EquipmentSeeder.php` — начальные данные оборудования (серверы Dell/HP, коммутаторы Cisco, ИБП APC, патч-панели)
-
-### Frontend (Blade + Vanilla JS)
-
-**Blade Templates** (`resources/views/`):
-- `layouts/app.blade.php` — мастер-шаблон (подключает reset.css, styles.css, SVG-спрайт, header/footer)
-- `partials/header.blade.php`, `footer.blade.php`, `sprite.blade.php` — переиспользуемые компоненты
-- `landing/index.blade.php` — лендинг с формой (@push scripts: data.js + selection.js)
-- `configurator/index.blade.php` — 3D-конфигуратор (app.js как ES6 module)
-- `admin/index.blade.php` — админка
-
-**JavaScript** (`public/js/` — без сборщиков!):
-- `app.js` — ES6 модуль для Three.js (import THREE, OrbitControls, WebGL-инициализация, геометрия шкафа 600×1872×1000 мм)
-- `data.js` — статические данные (CABINET_CONFIG объект, EQUIPMENT_DATA массив) — используется как глобальный скрипт
-- `selection.js` — IIFE для формы выбора (обработчики `.select-card`, прогресс-бар, синхронизация radio + `.active`)
-- `three.module.js`, `OrbitControls.js`, `GLTFLoader.js`, `BufferGeometryUtils.js` — Three.js r167 локальные копии
-
-**Стили** (`public/css/`):
-- `reset.css` — базовый сброс
-- `styles.css` — главный файл (1000+ строк): CSS-переменные :root (--primary-color: #8b5cf6), Inter Variable шрифт, responsive (брейкпоинты 1024/900/768/430/375px), анимации (прогресс-бар, SVG галка stroke-dashoffset)
-- Классы состояния: `.hidden`/`.visible`, `.active`, `.disabled-button`
-
-**Активы** (`public/assets/`):
-- `icons/` — SVG-исходники
-- `sprite/sprite.svg` — сгенерированный спрайт (через `npm run build:icons`, используется `<use xlink:href="{{ asset('assets/sprite/sprite.svg#icon-name') }}">`)
-
-### Конфигурация
-
-- `.env` — окружение (DB_DATABASE=3dcabinet, DB_USERNAME=admin, DB_PASSWORD="4bq;=m=)", APP_NAME="3Cabinet")
-- `package.json` — скрипты для спрайта: `build:icons` (node build-icons.mjs), `icons:watch` (chokidar), `icons:dev`
-- `build-icons.mjs` — ES-модуль для сборки SVG-спрайта (svgstore: public/assets/icons → public/assets/sprite/sprite.svg)
-- `vite.config.js` — НЕ используется для public/js (это шаблонные настройки Laravel)
-
----
-
-## Форматы и структуры данных
-
-### EQUIPMENT_DATA (массив в `js/data.js`)
-```javascript
-{
-  id: 1,                    // уникальный идентификатор
-  name: "Коммутатор Cisco 2960",
-  description: "24-port Gigabit Switch",
-  units: 1,                 // занимаемые U-slots в шкафу (1-4)
-  power: 45,                // вт (0 для пассивного оборудования)
-  weight: 3.2,              // кг
-  depth: 250,               // мм
-  category: "network"       // "network", "server", "power", "accessories"
-}
-```
-
-### CABINET_CONFIG (объект в `js/data.js`)
-```javascript
-{
-  name: 'Стандарт 19" RACK',
-  units: 42,                // всего U-slots
-  width: 600,               // мм
-  depth: 800,               // мм
-  maxWeight: 800,           // кг
-  maxPower: 3500            // вт
-}
-```
-
-### Состояние выбора (в `js/selection.js`)
-```javascript
-selectedLocation: boolean,      // место установки выбрано
-selectedInstallation: boolean   // тип установки выбран
-```
-
----
-
-## Паттерны и соглашения
+Если что-то неочевидно (например, формат `equipment_positions` в БД или взаимосвязь камеры и геометрии), уточните — расширим раздел краткими примерами кода и ссылками на конкретные файлы.
 
 ### Стилизация через классы
 - **`.hidden` / `.visible`** — управление видимостью с CSS transitions
@@ -347,10 +252,12 @@ console.error('Ошибка:', e);
 - Examples: https://threejs.org/examples/
 
 **Проектная документация**:
-- `QUICKSTART.md` — Инструкции запуска (миграции, сервер, браузер)
-- `3DCABINET_README.md` — Подробная документация структуры
-- `LARAGON_SETUP.md` — Настройка Laragon, PHP, vhosts, БД
-- `VHOST_SETUP.md` — Настройка cabinet-calc.test домена
+- `docs/QUICKSTART.md` — Инструкции запуска (миграции, сервер, браузер)
+- `docs/3DCABINET_README.md` — Подробная документация структуры
+- `docs/LARAGON_SETUP.md` — Настройка Laragon, PHP, vhosts, БД
+- `docs/VHOST_SETUP.md` — Настройка cabinet-calc.test домена
+
+**Важно**: Вся проектная документация находится в папке `docs/` в корне проекта. При создании новых markdown-файлов (гайдов, инструкций, технической документации) всегда размещайте их в `docs/`, а НЕ в корне проекта. Исключение — только `README.md` в корне.
 
 ---
 

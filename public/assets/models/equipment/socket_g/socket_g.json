@@ -1,0 +1,36 @@
+{
+  "id": "socket_g",
+  "name": "Розетка 220В Schuko",
+  "model": "socket_g.gltf",
+  "mounting": {
+    "type": "din_rail",
+    "anchorPoint": {
+      "meshName": "rail_mesh",
+      "description": "Плоскость для крепления на DIN-рейку (mesh rail_mesh)",
+      "offset": [0, 0, 0],
+      "method": "mesh_anchor"
+    },
+    "clearance": {
+      "front": 0.002,
+      "back": 0.001,
+      "sides": 0.001
+    }
+  },
+  "dimensions": {
+    "width": 0.0445,
+    "height": 0.082,
+    "depth": 0.063,
+    "units": 2.5
+  },
+  "electrical": {
+    "power": 0,
+    "voltage": 230,
+    "current": 16
+  },
+  "metadata": {
+    "category": "power",
+    "manufacturer": "Generic",
+    "weight": 0.25,
+    "type": "Schuko"
+  }
+}

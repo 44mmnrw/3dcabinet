@@ -1,0 +1,17 @@
+{
+  "cabinets": [
+    {
+      "id": "tsh_700_500_250",
+      "name": "Шкаф tsh 700 500 250",
+      "className": "tsh_700_500_250",
+      "modulePath": "../cabinets/tsh_700_500_250/tsh_700_500_250.js",
+      "dimensions": {
+        "width": 0,
+        "height": 0,
+        "depth": 0
+      },
+      "mountingType": "din_rail",
+      "description": "Шкаф 0×0×0 мм (автоматически сгенерирован)"
+    }
+  ]
+}

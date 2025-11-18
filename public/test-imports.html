@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест импортов</title>
+</head>
+<body>
+    <h1>Тест загрузки модулей</h1>
+    <div id="status">Загрузка...</div>
+    
+    <script type="module">
+        console.log('=== НАЧАЛО ТЕСТА ИМПОРТОВ ===');
+        
+        try {
+            console.log('1. Импорт THREE...');
+            const THREE = await import('./js/libs/three.module.js');
+            console.log('✅ THREE загружен:', !!THREE.default);
+            
+            console.log('2. Импорт OrbitControls...');
+            const OrbitControlsModule = await import('./js/libs/OrbitControls.js');
+            console.log('✅ OrbitControls загружен:', !!OrbitControlsModule.OrbitControls);
+            
+            console.log('3. Импорт GLTFLoader...');
+            const GLTFLoaderModule = await import('./js/libs/GLTFLoader.js');
+            console.log('✅ GLTFLoader загружен:', !!GLTFLoaderModule.GLTFLoader);
+            
+            console.log('4. Импорт CabinetModel...');
+            const CabinetModelModule = await import('./js/modules/CabinetModel.js');
+            console.log('✅ CabinetModel загружен:', !!CabinetModelModule.CabinetModel);
+            
+            console.log('5. Импорт SceneManager...');
+            const SceneManagerModule = await import('./js/modules/SceneManager.js');
+            console.log('✅ SceneManager загружен:', !!SceneManagerModule.SceneManager);
+            
+            console.log('6. Импорт CabinetManager...');
+            const CabinetManagerModule = await import('./js/modules/CabinetManager.js');
+            console.log('✅ CabinetManager загружен:', !!CabinetManagerModule.CabinetManager);
+            
+            console.log('=== ✅✅✅ ВСЕ МОДУЛИ ЗАГРУЖЕНЫ УСПЕШНО ✅✅✅ ===');
+            document.getElementById('status').innerHTML = '<span style="color: green; font-weight: bold;">✅ Все модули загружены успешно!</span>';
+            
+        } catch (error) {
+            console.error('=== ❌❌❌ ОШИБКА ЗАГРУЗКИ ❌❌❌ ===');
+            console.error('Тип:', error.constructor.name);
+            console.error('Сообщение:', error.message);
+            console.error('Stack:', error.stack);
+            document.getElementById('status').innerHTML = `<span style="color: red; font-weight: bold;">❌ Ошибка: ${error.message}</span>`;
+        }
+    </script>
+</body>
+</html>
