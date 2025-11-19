@@ -4,8 +4,8 @@
 @section('meta_description', 'Интеллектуальная система подбора и конфигурирования шкафного оборудования с 3D-визуализацией')
 
 @push('scripts')
-    <script src="{{ asset('js/pages/landing.js') }}"></script>
-    <script src="{{ asset('js/utils/progress-animation.js') }}"></script>
+    <script src="{{ asset('js/landing/landing.js') }}"></script>
+    <script src="{{ asset('js/landing/progress-animation.js') }}"></script>
 @endpush
 
 @section('content')
@@ -216,7 +216,7 @@
             <h2 class="section-title">Интуитивный интерфейс конфигурирования</h2>
             <p class="section-description">Drag-and-drop размещение оборудования с автоматической проверкой совместимости</p>
         </div>
-        
+                
         <div class="promo-banner-wrapper">
             <div class="promo-banner">
                 <!-- Левая колонка: Каталог оборудования -->

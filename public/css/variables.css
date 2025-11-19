@@ -26,8 +26,8 @@
   --color-light-gray: #E1E8ED;
 
   /* Определяем цвета для иконки чеклиста */
-  --icon-check-bg: rgba(24, 205, 103, 0.15);
-  --icon-check-stroke: #18CD67;
+  --icon-check-bg: #6C5CE7;
+  --icon-check-stroke: #FFFFFF;
 
   /* Определяем тени */
   --color-blue-shadow: 95, 82, 209;
@@ -63,6 +63,12 @@
 
   /* Определяем управляемый горизонтальный отступ между колонками */
   --section-gap-x: clamp(1rem, 4vw, 4rem);
+  
+  /* Определяем брейкпоинты для адаптивной верстки */
+  --breakpoint-mobile: 430px;
+  --breakpoint-tablet: 768px;
+  --breakpoint-desktop-sm: 1024px;
+  --breakpoint-desktop-md: 1280px;
   
   /* === ОСНОВНОЙ КОРПУС ШКАФА === */
   --cabinet-right-side: #1E88E5;

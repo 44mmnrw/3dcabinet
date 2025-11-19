@@ -15,11 +15,13 @@
 
 /* === ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ === */
 @import url('variables.css');
+
+/* === CSS RESET === */
+@import url('reset.css');
  
 /* === СЕКЦИОННЫЕ СТИЛИ === */
 @import url('header.css');
 @import url('main.css');
-@import url('configurator.css');
 @import url('footer.css');
 
 /* =======================          НАЧАЛО        =========================== */
@@ -52,6 +54,7 @@ body {
   line-height: 19.5px;
   font-optical-sizing: auto; /* задействует ось opsz у Inter */
   background-color: var(--color-white);
+  overflow-x: hidden; /* Предотвращаем горизонтальный скролл */
 }
 
 a,
@@ -116,387 +119,25 @@ h2, h3, h4, h5, h6 {
 }
 
 /* Неактивная кнопка (серая) */
-.disabled-button {
-  background-color: #B2BEC3 !important;
-  border-color: #B2BEC3 !important;
-  color: var(--color-white) !important;
+.button.disabled-button {
+  background-color: #B2BEC3;
+  border-color: #B2BEC3;
+  color: var(--color-white);
   cursor: not-allowed;
   pointer-events: none;
 }
 
-.disabled-button:hover {
-  background-color: #B2BEC3 !important;
+.button.disabled-button:hover {
+  background-color: #B2BEC3;
+  border-color: #B2BEC3;
 }
 
-/* =================== HEADER, NAV, ЛОГОТИП =================== */
-.header {
-  width: 100%;
-  position: sticky;
-  top: 0;
-  background-color: var(--color-white);
-  z-index: 1000;
-  box-shadow: 3px -6px 8px rgba(var(--color-blue-shadow), 0.2),
-              0 4px 16px rgba(var(--color-blue-shadow), 0.05),
-              5px -14px 32px rgba(var(--color-blue-shadow), 0.08);               
-}
+/* =================== ДОПОЛНИТЕЛЬНЫЕ УНИКАЛЬНЫЕ СТИЛИ =================== */
+/* Примечание: Header, Main, Footer импортируются из соответствующих файлов выше */
 
-.header-block {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  column-gap: var(--spacing-lg);
-  height: 5rem;
-  padding-inline: clamp(1rem, 5vw, 10rem);
-}
-
-.header-logo {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--spacing-xs) var(--spacing-lg);
-  flex-shrink: 0;
-  min-width: 9.375rem;
-}
-/* Жестко склеиваем части логотипа в одну линию */
-.header-logo a {
-  display: inline-flex;        /* используем flex для абсолютного контроля */
-  align-items: center;
-  gap: 0;                      /* без зазоров между частями */
-  white-space: nowrap;         /* защита от переносов */
-  flex-shrink: 0;              /* запрет на сжатие ссылки */
-  line-height: 0;              /* убираем межстрочный интервал */
-}
-.header-logo svg {
-  display: block; /* исключаем межэлементные пробелы в инлайне */
-  flex-shrink: 0; /* запрет на сжатие SVG */
-  transition: fill var(--transition-duration), color var(--transition-duration);
-  min-width: auto; /* сохраняем оригинальные размеры */
-  min-height: auto;
-}
-
-/* Фиксируем размеры каждой части логотипа */
-.header-logo .icon-logo-box-left {
-  width: 2.5rem;
-  height: 2.5rem;
-}
-
-.header-logo .icon-logo-box-right {
-  width: 2.5rem;
-  height: 2.5rem;
-  margin-left: -1.1rem;
-}
-
-.header-logo .icon-logo-digits {
-  width: 4.375rem;
-  height: 4.375rem;
-}
-
-.header-actions {
-  display: grid;
-  grid-auto-flow: column;
-  column-gap: var(--spacing-sm);
-}
-
-/* Управление областью меню как блоком */
-.header-nav {
-  min-width: 0;
-  margin-left: auto;
-  margin-right: auto;
-  display: flex;
-  justify-content: center;
-  gap: var(--spacing-lg);
-}
-
-.header-nav-list {
-  display: grid;
-  grid-auto-flow: column;
-  column-gap: var(--spacing-2xl);
-  align-items: center;
-}
-
-.header-nav-link {
-  display: grid;
-  height: 4.9375rem;
-  align-items: center;
-  text-decoration: none;
-  font-size: 1rem;
-  font-weight: var(--font-weight-400);
-}
-
-/* Hover-классы (назначаются на <a>) */
-.header-logo a.logo-hover-left:hover .icon-logo-box-left,
-.header-logo a.logo-hover-left:hover .icon-logo-box-left use {
-  color: var(--logo-left-hover);
-  fill: var(--logo-left-hover);
-}
-
-.header-logo a.logo-hover-right:hover .icon-logo-box-right,
-.header-logo a.logo-hover-right:hover .icon-logo-box-right use {
-  color: var(--logo-right-hover);
-  fill: var(--logo-right-hover);
-}
-
-.header-logo a.logo-hover-digits:hover .icon-logo-digits,
-.header-logo a.logo-hover-digits:hover .icon-logo-digits use {
-  color: var(--logo-digits-hover);
-  fill: var(--logo-digits-hover);
-}
-/* ###########################################################################################
-   Начало Main
-   ########################################################################################### */
 .content {
   width: 100%;
   background-color: var(--color-white);
-  }
-
-.main-title {
-  color: var(--color-dark);
-  font-family: Inter, sans-serif;
-  font-size: clamp(2rem, 6.5vw, 3.25rem);
-  font-style: normal;
-  line-height: 1.2;
-}
-
-.main-description {
-  color: var(--color-gray);
-  font-family: Inter, sans-serif;
-  font-size: clamp(1rem, 2.5vw, 1.25rem);
-  font-style: normal;
-  font-weight: 400;
-  line-height: 1.5;
-}
-
-.first-section {
-  display: flex;                      /* Изменено с grid на flex */
-  flex-direction: column;             /* Вертикальное направление */
-  align-items: center;                /* Центрируем по горизонтали */
-  padding: clamp(3rem, 6vw, 6rem) clamp(1.5rem, 10vw, 10rem) var(--spacing-4xl);
-  
-  /* Растягиваем на всю ширину экрана */
-  width: 100vw;
-  margin-left: calc(-50vw + 50%);
-  margin-right: calc(-50vw + 50%);
-}
-
-/* Новый внутренний контейнер с ограничением ширины */
-.first-section-inner {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);  /* Две равные колонки */
-  column-gap: var(--section-gap-x);
-  row-gap: var(--spacing-2xl);
-  width: 100%;
-  max-width: var(--container-width-landing);  /* Та же ширина, что у steps-container */
-  padding: 0 clamp(1.5rem, 5vw, 3rem);        /* Те же боковые отступы */
-}
-
-.intro {
-  grid-column: 1;                     /* Убрали span, теперь авто */
-  justify-self: stretch;              /* Растягиваем по ширине колонки */
-  align-self: center;
-  padding-right: 0;                   /* Убираем жесткий padding */
-}
-
-.selection {
-  grid-column: 2;                     /* Убрали span, теперь авто */
-  justify-self: center;
-  align-self: center;
-}
-
-/* Вторая секция: адаптивная сетка карточек/панелей */
-.second-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-3xl);
-  padding: var(--spacing-4xl) clamp(1.5rem, 10vw, 10rem);
-  background-color: var(--color-background-2);
-  width: 100vw;
-  margin-left: calc(-50vw + 50%);
-  margin-right: calc(-50vw + 50%);
-}
-
-.second-section-header {
-  text-align: center;
-  max-width: 50rem;
-}
-
-.section-title {
-  color: var(--color-dark);
-  font-family: var(--font-family);
-  font-size: clamp(1.75rem, 4vw, 2.5rem);
-  font-weight: var(--font-weight-700);
-  line-height: 1.2;
-  margin: 0;
-}
-
-.steps-container {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--spacing-2xl);
-  width: 100%;
-  max-width: var(--container-width-landing);  /* Было: var(--container-width) */
-  padding: 0 clamp(1.5rem, 5vw, 3rem);
-}
-
-.step-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: var(--spacing-2xl) var(--spacing-xl);
-  background: var(--color-white);
-  border-radius: var(--border-radius-16);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  position: relative;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.step-card:hover {
-  transform: translateY(-0.25rem);
-  box-shadow: 0 8px 24px rgba(108, 92, 231, 0.15);
-}
-
-.step-number {
-  width: 4rem;
-  height: 4rem;
-  border-radius: 50%;
-  background-color: var(--color-blue);
-  color: var(--color-white);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2rem;
-  font-weight: var(--font-weight-600);
-  font-family: var(--font-family);
-  margin-bottom: var(--spacing-md);
-}
-
-.step-icon {
-  width: 5rem;
-  height: 5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: var(--spacing-xl);
-}
-
-.step-icon svg {
-  width: 4rem;
-  height: 4rem;
-  color: var(--color-blue);
-  fill: none;
-}
-
-.step-title {
-  color: var(--color-dark);
-  font-family: var(--font-family);
-  font-size: 1.25rem;
-  font-weight: var(--font-weight-600);
-  line-height: 1.4;
-  margin: 0 0 0.75rem 0;
-}
-
-.step-description {
-  color: var(--color-gray);
-  font-family: var(--font-family);
-  font-size: 0.9375rem;
-  font-weight: var(--font-weight-400);
-  line-height: 1.5;
-  margin: 0;
-}
-
-/* Третья секция: промо-баннер */
-.third-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-3xl);
-  padding: var(--spacing-4xl) clamp(1.5rem, 10vw, 10rem);
-  width: 100vw;
-  margin-left: calc(-50vw + 50%);
-  margin-right: calc(-50vw + 50%);
-}
-
-.third-section-header,
-.fourth-section-header {
-  text-align: center;
-  max-width: 50rem;
-}
-
-.section-description {
-  color: var(--color-gray);
-  font-family: var(--font-family);
-  font-size: clamp(1rem, 2vw, 1.125rem);
-  font-weight: var(--font-weight-400);
-  line-height: 1.6;
-  margin: var(--spacing-md) 0 0 0;
-}
-
-.promo-banner-wrapper {
-  width: 100%;
-  max-width: var(--container-width-landing);  /* Было: var(--container-width) */
-  padding: 0 clamp(1.5rem, 5vw, 3rem);
-  margin: 0 auto;
-}
-
-.promo-banner {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--spacing-md);
-  background-color: var(--color-background-2);
-  border-radius: var(--border-radius-16);
-  min-height: 25rem;
-  height: 100%;
-  align-items: stretch;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08),
-              0 2px 8px rgba(0, 0, 0, 0.04);
-  overflow: hidden;
-}
-
-.promo-banner-left,
-.promo-banner-right,
-.promo-banner-center {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  align-items: stretch;
-  justify-content: flex-start;
-  background-color: var(--color-background-2);
-  padding: 0;
-}
-
-.banner-left-content {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
-  flex-grow: 1;
-  border-radius: var(--border-radius-14);
-  border: 1px solid #F3E8FF;
-  background: linear-gradient(135deg, #FAF5FF 0%, #EFF6FF 100%);
-  padding: clamp(1.5rem, 2vw, 2rem);
-  margin: clamp(1.5rem, 2vw, 2rem) 0 clamp(1.5rem, 2vw, 2rem) clamp(1.5rem, 2vw, 2rem);
-}
-
-.promo-banner-heading {
-  color: var(--color-dark);
-  font-family: var(--font-family);
-  font-size: 1.125rem;
-  font-weight: var(--font-weight-600);
-  line-height: 1.4;
-  margin: 0 0 var(--spacing-md) 0;
-  text-align: left;
-}
-
-.equipment-item {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  width: 100%;
-  height: 5rem;
-  background: #FFF;
-  border-radius: var(--border-radius-10);
-  margin-bottom: var(--spacing-sm);
-  padding: 0 1.5625rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.10), 0 1px 2px -1px rgba(0, 0, 0, 0.10);
 }
 
 .equipment-item:last-child {
@@ -1070,8 +711,9 @@ h2, h3, h4, h5, h6 {
 }
 
 /* Скрытый блок */
-.hidden {
-  display: none !important;
+.selection .location-container.hidden,
+.selection .hidden {
+  display: none;
   opacity: 0;
   max-height: 0;
   overflow: hidden;
@@ -1079,8 +721,9 @@ h2, h3, h4, h5, h6 {
 }
 
 /* Видимый блок */
-.visible {
-  display: grid !important;
+.selection .location-container.visible,
+.selection .visible {
+  display: grid;
   opacity: 1;
   max-height: 31.25rem;
   transition: opacity 0.3s ease, max-height 0.3s ease;
@@ -1144,131 +787,5 @@ h2, h3, h4, h5, h6 {
   line-height: 1;
 }
 
-/* =================== ФУТЕР =================== */
-.footer {
-  background: #2D3436;
-  width: 100vw;
-  margin-left: calc(-50vw + 50%);
-  margin-right: calc(-50vw + 50%);
-  padding: var(--spacing-4xl) clamp(1.5rem, 10vw, 10rem);
-  color: var(--color-white);
-}
-
-/* Главная сетка для footer — 4 колонки + копирайт */
-.footer-content-inner {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--spacing-2xl) var(--spacing-xl);
-  width: 100%;
-  max-width: var(--container-width-landing);
-  margin: 0 auto;
-}
-
-/* Каждая колонка */
-.footer-product,
-.footer-resource,
-.footer-about,
-.footer-contact {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
-}
-
-.footer-product h3,
-.footer-resource h3,
-.footer-about h3,
-.footer-contact h3 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: var(--font-weight-600);
-  color: var(--color-white);
-}
-
-.footer-product ul,
-.footer-resource ul,
-.footer-about ul,
-.footer-contact ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-}
-
-.footer-product a,
-.footer-resource a,
-.footer-about a,
-.footer-contact a {
-  color: #B2BEC3;
-  text-decoration: none;
-  font-size: 0.9375rem;
-  transition: color 0.2s ease;
-}
-
-.footer-product a:hover,
-.footer-resource a:hover,
-.footer-about a:hover,
-.footer-contact a:hover {
-  color: var(--color-white);
-}
-
-/* Copyright на всю ширину, второй ряд */
-.footer-copyright {
-  grid-column: 1 / -1;
-  padding-top: var(--spacing-2xl);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  margin-top: var(--spacing-xl);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.footer-copyright p {
-  margin: 0;
-  font-size: 0.875rem;
-  color: #B2BEC3;
-}
-
-/* Уменьшенная иконка логотипа в footer */
-.footer-logo {
-  display: inline-flex;
-  align-items: center;
-  gap: 0;
-  white-space: nowrap;
-  flex-shrink: 0;
-  line-height: 0;
-}
-
-.footer-logo svg {
-  transition: fill var(--transition-duration), color var(--transition-duration);
-}
-
-.footer-logo .icon-logo-box-left {
-  width: 1.25rem;
-  height: 1.25rem;
-}
-
-.footer-logo .icon-logo-box-right {
-  width: 1.25rem;
-  height: 1.25rem;
-  margin-left: -0.55rem;
-}
-
-.footer-logo .icon-logo-digits {
-  width: 2.1875rem;
-  height: 2.1875rem;
-}
-
-/* Hover-эффекты как в header */
-.footer-logo:hover .icon-logo-box-left {
-  color: var(--logo-left-hover);
-}
-
-.footer-logo:hover .icon-logo-box-right {
-  color: var(--logo-right-hover);
-}
-
-.footer-logo:hover .icon-logo-digits {
-  color: var(--logo-digits-hover);
-}
+/* =================== КОНЕЦ УНИКАЛЬНЫХ СТИЛЕЙ =================== */
+/* Footer, а также остальные секции импортированы из соотв. файлов */

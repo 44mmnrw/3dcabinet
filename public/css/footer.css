@@ -3,9 +3,9 @@
 
 .footer {
   background: #2D3436;
-  width: 100vw;
-  margin-left: calc(-50vw + 50%);
-  margin-right: calc(-50vw + 50%);
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
   padding: var(--spacing-4xl) clamp(1.5rem, 10vw, 10rem);
   color: var(--color-white);
 }
@@ -24,7 +24,8 @@
 .footer-product,
 .footer-resource,
 .footer-about,
-.footer-contact {
+.footer-contact,
+.footer-section {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
@@ -33,7 +34,8 @@
 .footer-product h3,
 .footer-resource h3,
 .footer-about h3,
-.footer-contact h3 {
+.footer-contact h3,
+.footer-section-title {
   margin: 0;
   font-size: 1rem;
   font-weight: var(--font-weight-600);
@@ -43,7 +45,8 @@
 .footer-product ul,
 .footer-resource ul,
 .footer-about ul,
-.footer-contact ul {
+.footer-contact ul,
+.footer-list {
   list-style: none;
   padding: 0;
   margin: 0;
@@ -55,7 +58,8 @@
 .footer-product a,
 .footer-resource a,
 .footer-about a,
-.footer-contact a {
+.footer-contact a,
+.footer-list a {
   color: #B2BEC3;
   text-decoration: none;
   font-size: 0.9375rem;
@@ -65,8 +69,19 @@
 .footer-product a:hover,
 .footer-resource a:hover,
 .footer-about a:hover,
-.footer-contact a:hover {
+.footer-contact a:hover,
+.footer-list a:hover {
   color: var(--color-white);
+}
+
+/* Стили для JS-аккордеона (только на мобильных) */
+.footer-section-title {
+  position: relative;
+}
+
+.footer-list {
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
 }
 
 /* Copyright на всю ширину, второй ряд */
@@ -127,4 +142,123 @@
 
 .footer-logo:hover .icon-logo-digits {
   color: var(--logo-digits-hover);
+}
+
+/* =================== АДАПТИВНАЯ ВЕРСТКА FOOTER =================== */
+
+/* Планшеты и малые десктопы: 1024px */
+@media (max-width: 1024px) {
+  .footer {
+    padding: var(--spacing-3xl) var(--spacing-xl);
+  }
+  
+  .footer-content-inner {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-xl) var(--spacing-lg);
+  }
+  
+  .footer-copyright {
+    flex-direction: column;
+    gap: var(--spacing-md);
+    text-align: center;
+  }
+}
+
+/* Планшеты: 768px */
+@media (max-width: 768px) {
+  .footer {
+    padding: var(--spacing-2xl) var(--spacing-md);
+  }
+  
+  .footer-content-inner {
+    grid-template-columns: 1fr;
+    gap: calc(var(--spacing-xl) / 1.5);
+  }
+
+  /* Мобильный аккордеон */
+  .footer-section { 
+    padding-bottom: calc(var(--spacing-md) / 1.5); 
+    padding-top: calc(var(--spacing-md) / 1.5);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    gap: calc(var(--spacing-md) / 1.5);
+  }
+  .footer-section:first-child {
+    padding-top: 0;
+  }
+  .footer-section:last-child { 
+    border-bottom: none;
+  }
+  
+  .footer-list {
+    gap: calc(var(--spacing-sm) / 1.5);
+  }
+  
+  .footer-section-title {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    user-select: none;
+  }
+  
+  .footer-section-title::after { 
+    content: ''; 
+    width: 12px; 
+    height: 12px; 
+    border-right: 2px solid var(--color-white); 
+    border-bottom: 2px solid var(--color-white); 
+    transform: rotate(45deg); 
+    position: absolute; 
+    right: 0; 
+    top: 50%; 
+    margin-top: -6px; 
+    transition: transform 0.25s ease;
+  }
+  
+  .footer-section[data-collapsed="false"] .footer-section-title::after { 
+    transform: rotate(225deg); 
+  }
+  
+  .footer-copyright {
+    padding-top: var(--spacing-xl);
+    margin-top: var(--spacing-lg);
+  }
+}
+
+/* Мобильные: 430px */
+@media (max-width: 430px) {
+  .footer {
+    padding: var(--spacing-xl) var(--spacing-sm);
+  }
+  
+  .footer-content-inner {
+    gap: var(--spacing-lg);
+  }
+  
+  .footer-section-title {
+    font-size: 0.9375rem;
+  }
+  
+  .footer-list a {
+    font-size: 0.875rem;
+  }
+  
+  .footer-copyright p {
+    font-size: 0.8125rem;
+  }
+  
+  .footer-logo .icon-logo-box-left,
+  .footer-logo .icon-logo-box-right {
+    width: 1rem;
+    height: 1rem;
+  }
+  
+  .footer-logo .icon-logo-box-right {
+    margin-left: -0.45rem;
+  }
+  
+  .footer-logo .icon-logo-digits {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
 }

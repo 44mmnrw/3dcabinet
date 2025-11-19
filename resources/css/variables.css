@@ -64,6 +64,12 @@
   /* Определяем управляемый горизонтальный отступ между колонками */
   --section-gap-x: clamp(1rem, 4vw, 4rem);
   
+  /* Определяем брейкпоинты для адаптивной верстки */
+  --breakpoint-mobile: 430px;
+  --breakpoint-tablet: 768px;
+  --breakpoint-desktop-sm: 1024px;
+  --breakpoint-desktop-md: 1280px;
+  
   /* === ОСНОВНОЙ КОРПУС ШКАФА === */
   --cabinet-right-side: #1E88E5;
   --cabinet-top-side: #64B5F6;

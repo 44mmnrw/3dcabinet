@@ -11,8 +11,8 @@
     <link rel="preload" href="{{ asset('fonts/InterVariable-Italic.woff2') }}" as="font" type="font/woff2" crossorigin>
     
     <!-- Styles -->
-    <link rel="stylesheet" href="{{ asset('css/reset.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/styles.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/reset.css') }}?v={{ time() }}">
+    <link rel="stylesheet" href="{{ asset('css/styles.css') }}?v={{ time() }}">
     @stack('styles')
 </head>
 <body class="body">
