@@ -11,9 +11,7 @@
     "deploy": "npm run build && echo 'Production build готов! Теперь можно коммитить.'",
     "build:icons": "node build-icons.mjs",
     "icons:watch": "chokidar \"public/assets/icons/**/*.svg\" -c \"node build-icons.mjs\"",
-    "icons:dev": "npm run build:icons && npm run icons:watch",
-    "build:three": "node build-three.mjs",
-    "postinstall": "npm run build:three"
+    "icons:dev": "npm run build:icons && npm run icons:watch"
   },
   "dependencies": {
     "@tweenjs/tween.js": "^25.0.0",
