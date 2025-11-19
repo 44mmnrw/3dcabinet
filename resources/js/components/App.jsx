@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import EquipmentCatalog from './Catalog/EquipmentCatalog';
 import Scene3DContainer from './Scene3D/Scene3DContainer';
 import Controls from './Controls';
+import { initializeManagers } from '../three/managers/init.js';
 
 function App() {
   const [equipmentCount, setEquipmentCount] = useState(0);
@@ -12,22 +13,10 @@ function App() {
   useEffect(() => {
     // Ждём следующего кадра, чтобы #scene-container точно был в DOM
     requestAnimationFrame(async () => {
-      // Ожидание загрузки initializeManagers из глобального скрипта
-      let attempts = 0;
-      while (!window.initializeManagers && attempts < 50) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        attempts++;
-      }
-      
-      if (!window.initializeManagers) {
-        console.error('❌ initializeManagers не загружен!');
-        return;
-      }
-      
-      console.log('✅ initializeManagers загружен');
+      console.log('✅ Инициализация Three.js менеджеров через Vite...');
       
       // Инициализация Three.js менеджеров
-      managersRef.current = await window.initializeManagers();
+      managersRef.current = await initializeManagers();
       
       console.log('✅ Менеджеры инициализированы:', managersRef.current);
       
