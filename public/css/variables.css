@@ -1,0 +1,84 @@
+/* ============================================
+   ГЛОБАЛЬНЫЕ CSS-ПЕРЕМЕННЫЕ
+   
+   ⚠️ ВАЖНО: Это копия переменных из public/css/styles.css
+   При изменении переменных в styles.css нужно синхронизировать этот файл!
+   
+   Источник истины: public/css/styles.css (блок :root)
+   ============================================ */
+
+:root {
+  /* Определяем глобальный шрифт */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  
+  /* Определяем веса для шрифта */ 
+  --font-weight-400: 400; 
+  --font-weight-600: 600;
+  --font-weight-700: 700;
+
+  /* Определяем цвета макета*/
+  --color-blue: #6C5CE7;
+  --color-blue-dark: #5F52D1;
+  --color-white: #FFFFFF;
+  --color-background-2: #F8F9FA;
+  --color-dark: #2D3436;
+  --color-gray: #636E72;
+  --color-light-gray: #E1E8ED;
+
+  /* Определяем цвета для иконки чеклиста */
+  --icon-check-bg: rgba(24, 205, 103, 0.15);
+  --icon-check-stroke: #18CD67;
+
+  /* Определяем тени */
+  --color-blue-shadow: 95, 82, 209;
+
+  /* Определяем радиусы скругления */
+  --border-radius-8: 0.5rem;
+  --border-radius-10: 0.625rem;
+  --border-radius-14: 0.875rem;
+  --border-radius-16: 1rem;
+
+  /* Определяем типовые отступы */
+  --spacing-xs: 0.5rem;    /* 8px */
+  --spacing-sm: 0.75rem;   /* 12px */
+  --spacing-md: 1rem;      /* 16px */
+  --spacing-lg: 1.25rem;   /* 20px */
+  --spacing-xl: 1.5rem;    /* 24px */
+  --spacing-2xl: 2rem;     /* 32px */
+  --spacing-3xl: 3rem;     /* 48px */
+  --spacing-4xl: 4rem;     /* 64px */
+
+  /* Определяем ширину контейнеров */
+  --container-width-landing: 1280px;    /* Для index.php (лендинг) */
+  --container-width-app: 1600px;        /* Для app.php (конфигуратор) */
+  --container-padding-x: clamp(1rem, 3vw, 2rem);
+
+  /* Определяем анимации */
+  --transition-duration: 200ms;
+
+  /* Цвета подсветки частей логотипа */
+  --logo-left-hover: #10B9E4;
+  --logo-right-hover: #37474F;
+  --logo-digits-hover: #000000;
+
+  /* Определяем управляемый горизонтальный отступ между колонками */
+  --section-gap-x: clamp(1rem, 4vw, 4rem);
+  
+  /* === ОСНОВНОЙ КОРПУС ШКАФА === */
+  --cabinet-right-side: #1E88E5;
+  --cabinet-top-side: #64B5F6;
+  --cabinet-left-side: #EEEEEE;
+  --cabinet-inner-panel: #37474F;
+  --cabinet-server-slots: #607D8B;
+  
+  /* === ИНДИКАТОРЫ СТАТУСА === */
+  --indicator-success: #4CAF50;
+  --indicator-warning: #DDDD23;
+  --indicator-error: #E62929;
+  --indicator-small: #263238;
+  --indicator-small-opacity: 0.4;
+  
+  /* === ОБВОДКА === */
+  --cabinet-stroke: black;
+  --cabinet-stroke-width: 4;
+}

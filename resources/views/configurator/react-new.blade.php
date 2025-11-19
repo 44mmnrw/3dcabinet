@@ -6,9 +6,9 @@
     <title>3Cabinet React</title>
     
     @viteReactRefresh
-    {!! app('Illuminate\Foundation\Vite')('resources/js/app.jsx') !!}
+    @vite(['resources/css/app.css', 'resources/js/app.jsx'])
 </head>
-<body style="margin:0;padding:0;overflow:hidden">
+<body>
     <div id="root"></div>
 </body>
 </html>
