@@ -5,6 +5,7 @@ import { CabinetManager } from './CabinetManager.js';
 import { CAMERA } from '../constants/PhysicalConstants.js';
 import { EquipmentManager } from './EquipmentManager.js';
 import { DragDropController } from '../core/DragDropController.js';
+import { EquipmentMoveController } from '../core/EquipmentMoveController.js';
 import { ContextMenuManager } from '../core/ContextMenuManager.js';
 import { GeometryUtils } from '../utils/ModelUtils.js';
 import { eventBus, ConfiguratorEvents } from '../events/EventBus.js';
@@ -50,12 +51,28 @@ export async function initializeManagers(containerId = 'scene-container') {
         eventBus  // Передаём EventBus для слушания cabinet:added
     });
 
+    // Инициализация контроллера перемещения оборудования
+    const equipmentMoveController = new EquipmentMoveController({
+        scene,
+        camera,
+        renderer,
+        cabinetManager,
+        equipmentManager,
+        eventBus,
+        controls // Передаём OrbitControls для отключения во время перемещения
+    });
+
     // Инициализация контекстного меню (ПКМ для удаления)
     const contextMenuManager = new ContextMenuManager({
         scene,
         camera,
         renderer,
         equipmentManager
+    });
+
+    // Привязка обработчика mousedown для перемещения оборудования
+    renderer.domElement.addEventListener('mousedown', (event) => {
+        equipmentMoveController.onMouseDown(event);
     });
 
     // Автоматическая загрузка первого шкафа из каталога
@@ -91,6 +108,7 @@ export async function initializeManagers(containerId = 'scene-container') {
     window.cabinetManager = cabinetManager;
     window.equipmentManager = equipmentManager;
     window.dragDropController = dragDropController;
+    window.equipmentMoveController = equipmentMoveController;
     window.contextMenuManager = contextMenuManager;
     window.GeometryUtils = GeometryUtils;  // Доступ к утилитам геометрии из консоли
     window.initCabinetControls = initCabinetControls;  // Для инициализации UI
@@ -106,6 +124,7 @@ export async function initializeManagers(containerId = 'scene-container') {
         cabinet: cabinetManager,
         equipment: equipmentManager,
         dragDrop: dragDropController,
+        equipmentMove: equipmentMoveController,
         contextMenu: contextMenuManager,
         // Функция для инициализации DND ПОСЛЕ монтирования React
         initializeDragDrop: () => {

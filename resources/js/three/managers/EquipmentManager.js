@@ -240,6 +240,60 @@ export class EquipmentManager {
     }
 
     /**
+     * Переместить оборудование вдоль рейки
+     * @param {string} id - ID оборудования
+     * @param {Object} newPosition - Новая позиция { railIndex, xOffset }
+     * @returns {boolean} - Успешно ли перемещение
+     */
+    moveEquipment(id, newPosition) {
+        const item = this.equipment.get(id);
+        if (!item) {
+            console.warn(`Оборудование ${id} не найдено`);
+            return false;
+        }
+
+        const cabinet = this.cabinetManager.getCabinet(item.cabinetId);
+        if (!cabinet) {
+            console.warn(`Шкаф ${item.cabinetId} не найден для оборудования ${id}`);
+            return false;
+        }
+
+        const strategy = cabinet.instance?.mountingStrategy;
+        if (!strategy || typeof strategy.moveEquipment !== 'function') {
+            console.warn('⚠️ Стратегия монтажа не поддерживает перемещение');
+            return false;
+        }
+
+        const oldPosition = {
+            railIndex: item.railIndex,
+            xOffset: item.xOffset,
+            equipmentId: id
+        };
+
+        try {
+            const success = strategy.moveEquipment(
+                item.mesh,
+                item.config,
+                oldPosition,
+                newPosition
+            );
+
+            if (success) {
+                // Обновляем позицию в EquipmentManager
+                item.railIndex = newPosition.railIndex;
+                item.xOffset = newPosition.xOffset;
+                this._notifyUpdate();
+                return true;
+            }
+
+            return false;
+        } catch (e) {
+            console.error('❌ Ошибка перемещения оборудования:', e);
+            return false;
+        }
+    }
+
+    /**
      * Уведомить React о изменении количества оборудования
      * @private
      */

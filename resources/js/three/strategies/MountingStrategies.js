@@ -226,6 +226,164 @@ export class DINRailStrategy extends MountingStrategy {
     }
 
     /**
+     * Освободить занятое место на рейке (для перемещения)
+     * @param {number} railIndex - Индекс рейки
+     * @param {string} equipmentId - ID оборудования
+     */
+    _unregisterOccupiedSpace(railIndex, equipmentId) {
+        if (!this.occupiedSpaces.has(railIndex)) {
+            return;
+        }
+        const occupied = this.occupiedSpaces.get(railIndex);
+        const filtered = occupied.filter(space => space.equipmentId !== equipmentId);
+        this.occupiedSpaces.set(railIndex, filtered);
+    }
+
+    /**
+     * Проверить, можно ли разместить оборудование в указанной позиции
+     * @param {number} railIndex - Индекс рейки
+     * @param {number} startX - Начало позиции (абсолютная координата X)
+     * @param {number} endX - Конец позиции (абсолютная координата X)
+     * @param {string} excludeEquipmentId - ID оборудования, которое исключаем из проверки (для перемещения)
+     * @returns {boolean}
+     */
+    _canPlaceAt(railIndex, startX, endX, excludeEquipmentId = null) {
+        const occupied = this.occupiedSpaces.get(railIndex) || [];
+        
+        // Проверяем пересечения с занятыми местами
+        for (const space of occupied) {
+            // Пропускаем исключённое оборудование (то, которое перемещаем)
+            if (excludeEquipmentId && space.equipmentId === excludeEquipmentId) {
+                continue;
+            }
+            
+            // Проверка пересечения: [startX, endX] пересекается с [space.startX, space.endX]
+            if (!(endX <= space.startX || startX >= space.endX)) {
+                return false; // Есть пересечение
+            }
+        }
+        
+        return true; // Место свободно
+    }
+
+    /**
+     * Переместить оборудование вдоль рейки
+     * @param {THREE.Object3D} equipmentMesh - Mesh оборудования
+     * @param {Object} equipmentConfig - Конфигурация оборудования
+     * @param {Object} oldPosition - Старая позиция { railIndex, xOffset, equipmentId }
+     * @param {Object} newPosition - Новая позиция { railIndex, xOffset }
+     * @returns {boolean} - Успешно ли перемещение
+     */
+    moveEquipment(equipmentMesh, equipmentConfig, oldPosition, newPosition) {
+        const { railIndex: oldRailIndex, equipmentId } = oldPosition;
+        const { railIndex: newRailIndex, xOffset: newXOffset } = newPosition;
+
+        const rails = this._getRails();
+        if (newRailIndex >= rails.length) {
+            console.error(`❌ Рейка ${newRailIndex} не существует`);
+            return false;
+        }
+
+        const rail = rails[newRailIndex];
+        const railBBox = new THREE.Box3().setFromObject(rail);
+
+        // Получаем ширину оборудования
+        const equipmentWidthConfig = equipmentConfig?.dimensions?.width;
+        const equipmentBBox = new THREE.Box3().setFromObject(equipmentMesh);
+        const equipmentWidthReal = equipmentBBox.max.x - equipmentBBox.min.x;
+        const equipmentWidth = Math.max(equipmentWidthConfig || 0, equipmentWidthReal);
+
+        // Вычисляем новую позицию X (абсолютная координата)
+        const newTargetX = railBBox.min.x + newXOffset;
+        const newStartX = newTargetX;
+        const newEndX = newTargetX + equipmentWidth;
+
+        // Проверяем границы рейки
+        if (newStartX < railBBox.min.x || newEndX > railBBox.max.x) {
+            console.warn(`⚠️ Новая позиция выходит за границы рейки ${newRailIndex}`);
+            return false;
+        }
+
+        // Освобождаем старое место
+        this._unregisterOccupiedSpace(oldRailIndex, equipmentId);
+
+        // Проверяем коллизии на новой позиции
+        if (!this._canPlaceAt(newRailIndex, newStartX, newEndX, equipmentId)) {
+            // Восстанавливаем старое место при неудаче
+            const oldOccupied = this.occupiedSpaces.get(oldRailIndex) || [];
+            const oldSpace = oldOccupied.find(s => s.equipmentId === equipmentId);
+            if (oldSpace) {
+                this._registerOccupiedSpace(oldRailIndex, oldSpace.startX, oldSpace.endX, equipmentId);
+            }
+            console.warn(`⚠️ Новая позиция занята другим оборудованием`);
+            return false;
+        }
+
+        // Перемещаем mesh (используем ту же логику, что и в mount, но с новой позицией)
+        // ВАЖНО: сбрасываем позицию для правильного вычисления bbox (как в mount)
+        const savedPosition = equipmentMesh.position.clone();
+        equipmentMesh.position.set(0, 0, 0);
+        equipmentMesh.updateMatrixWorld(true);
+
+        // Получаем anchor point оборудования (локальные координаты)
+        let railMesh = null;
+        const railMeshName = equipmentConfig?.mounting?.anchorPoint?.meshName;
+        if (railMeshName) {
+            equipmentMesh.traverse((child) => {
+                if (child.name === railMeshName && child.isMesh) {
+                    railMesh = child;
+                }
+            });
+        }
+
+        // Временно скрываем rail_mesh для расчёта габаритов
+        let railMeshVisible = null;
+        if (railMesh) {
+            railMeshVisible = railMesh.visible;
+            railMesh.visible = false;
+        }
+        
+        // Реальные габариты оборудования (БЕЗ rail_mesh плоскости)
+        const equipmentBBoxForAnchor = new THREE.Box3().setFromObject(equipmentMesh);
+        
+        if (railMesh) {
+            railMesh.visible = railMeshVisible;
+        }
+        
+        const railAnchorX = newTargetX;
+        const railAnchorY = (railBBox.min.y + railBBox.max.y) / 2;
+        const railAnchorZ = railBBox.max.z;
+
+        const railMeshBBox = railMesh ? new THREE.Box3().setFromObject(railMesh) : null;
+        const configOffset = equipmentConfig?.mounting?.anchorPoint?.offset || [0, 0, 0];
+        
+        const equipmentAnchorX = equipmentBBoxForAnchor.min.x + configOffset[0];
+        
+        let equipmentAnchorY, equipmentAnchorZ;
+        if (railMeshBBox) {
+            equipmentAnchorY = (railMeshBBox.min.y + railMeshBBox.max.y) / 2 + configOffset[1];
+            equipmentAnchorZ = railMeshBBox.min.z + configOffset[2];
+        } else {
+            equipmentAnchorY = (equipmentBBoxForAnchor.min.y + equipmentBBoxForAnchor.max.y) / 2 + configOffset[1];
+            equipmentAnchorZ = equipmentBBoxForAnchor.min.z + configOffset[2];
+        }
+
+        // Устанавливаем новую позицию
+        equipmentMesh.position.set(
+            railAnchorX - equipmentAnchorX,
+            railAnchorY - equipmentAnchorY,
+            railAnchorZ - equipmentAnchorZ
+        );
+        equipmentMesh.updateMatrixWorld(true);
+
+        // Регистрируем новое место
+        this._registerOccupiedSpace(newRailIndex, newStartX, newEndX, equipmentId);
+
+        console.log(`✅ Оборудование ${equipmentId} перемещено: рейка ${oldRailIndex} → ${newRailIndex}, X=${newXOffset.toFixed(3)}м`);
+        return true;
+    }
+
+    /**
      * Автоматический поиск следующей свободной позиции на рейках (0 → 1 → 2 → 3)
      * @param {number} equipmentWidth - Ширина оборудования в метрах
      * @param {number} preferredRailIndex - Предпочитаемая рейка (начинаем с неё)
