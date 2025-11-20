@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { PHYSICAL, DEFAULTS } from '../constants/PhysicalConstants.js';
 
 export class MountingStrategy {
     constructor(cabinetInstance, cabinetType = null) {
@@ -37,17 +38,19 @@ export class DINRailStrategy extends MountingStrategy {
      */
     _getRails() {
         // Новый путь: через CabinetType.getMountingZones() (если есть)
-        if (this.cabinetType) {
+        if (this.cabinetType && typeof this.cabinetType.getMountingZones === 'function') {
             const zones = this.cabinetType.getMountingZones('din_rail');
-            if (zones.length > 0) {
+            if (zones && zones.length > 0) {
                 const components = this.cabinet.getComponents();
                 const rails = [];
                 
                 zones.forEach(zone => {
-                    zone.componentNames.forEach(name => {
-                        const rail = components[name];
-                        if (rail) rails.push(rail);
-                    });
+                    if (zone.componentNames && Array.isArray(zone.componentNames)) {
+                        zone.componentNames.forEach(name => {
+                            const rail = components[name];
+                            if (rail) rails.push(rail);
+                        });
+                    }
                 });
                 
                 if (rails.length > 0) {
@@ -179,8 +182,8 @@ export class DINRailStrategy extends MountingStrategy {
         const occupied = this.occupiedSpaces.get(railIndex) || [];
         const railWidth = railBBox.max.x - railBBox.min.x;
 
-        console.log(`🔍 Поиск позиции: рейка #${railIndex}, ширина оборудования=${(equipmentWidth * 1000).toFixed(1)}мм`);
-        console.log(`   Рейка: min.x=${railBBox.min.x.toFixed(3)}, max.x=${railBBox.max.x.toFixed(3)}, ширина=${(railWidth * 1000).toFixed(1)}мм`);
+        console.log(`🔍 Поиск позиции: рейка #${railIndex}, ширина оборудования=${(equipmentWidth * PHYSICAL.M_TO_MM).toFixed(1)}мм`);
+        console.log(`   Рейка: min.x=${railBBox.min.x.toFixed(3)}, max.x=${railBBox.max.x.toFixed(3)}, ширина=${(railWidth * PHYSICAL.M_TO_MM).toFixed(1)}мм`);
         console.log(`   Занято позиций: ${occupied.length}`);
 
         // Сортируем по startX
@@ -188,7 +191,7 @@ export class DINRailStrategy extends MountingStrategy {
 
         let searchX = railBBox.min.x;
         for (const space of occupied) {
-            console.log(`   Занято: [${space.startX.toFixed(3)} - ${space.endX.toFixed(3)}] (${((space.endX - space.startX) * 1000).toFixed(1)}мм) - ${space.equipmentId}`);
+            console.log(`   Занято: [${space.startX.toFixed(3)} - ${space.endX.toFixed(3)}] (${((space.endX - space.startX) * PHYSICAL.M_TO_MM).toFixed(1)}мм) - ${space.equipmentId}`);
             if (searchX + equipmentWidth <= space.startX) {
                 // Нашли свободное место перед этим оборудованием
                 console.log(`   ✅ Найдено место: X=${searchX.toFixed(3)}м (перед ${space.equipmentId})`);
@@ -204,9 +207,9 @@ export class DINRailStrategy extends MountingStrategy {
         }
 
         // Места нет — выбрасываем ошибку
-        const occupiedMM = (searchX - railBBox.min.x) * 1000;
-        const railWidthMM = railWidth * 1000;
-        const neededMM = equipmentWidth * 1000;
+        const occupiedMM = (searchX - railBBox.min.x) * PHYSICAL.M_TO_MM;
+        const railWidthMM = railWidth * PHYSICAL.M_TO_MM;
+        const neededMM = equipmentWidth * PHYSICAL.M_TO_MM;
         throw new Error(
             `DIN-рейка ${railIndex} переполнена! ` +
             `Занято: ${occupiedMM.toFixed(0)}мм, ` +
@@ -242,7 +245,7 @@ export class DINRailStrategy extends MountingStrategy {
             if (i !== preferredRailIndex) searchOrder.push(i);
         }
 
-        console.log(`🔍 Поиск места для оборудования (ширина ${(equipmentWidth * 1000).toFixed(1)}мм)`);
+        console.log(`🔍 Поиск места для оборудования (ширина ${(equipmentWidth * PHYSICAL.M_TO_MM).toFixed(1)}мм)`);
         console.log(`   Порядок поиска по рейкам: ${searchOrder.join(' → ')}`);
 
         for (const railIndex of searchOrder) {
@@ -342,9 +345,9 @@ export class RackUnitStrategy extends MountingStrategy {
 
         // Используем cabinetType если доступен
         const unitHeightMM = this.cabinetType 
-            ? (this.cabinetType.specs.rackUnits || 42) * 44.45 / 42  // 44.45mm per U
-            : 44.45;
-        const unitHeight = unitHeightMM / 1000;
+            ? (this.cabinetType.specs.rackUnits || DEFAULTS.RACK_HEIGHT_U) * PHYSICAL.RACK_UNIT_HEIGHT_MM / DEFAULTS.RACK_HEIGHT_U
+            : PHYSICAL.RACK_UNIT_HEIGHT_MM;
+        const unitHeight = unitHeightMM * PHYSICAL.MM_TO_M;
         const equipmentHeight = equipmentConfig?.dimensions?.height || unitHeight;
         const yPosition = unitIndex * unitHeight;
 

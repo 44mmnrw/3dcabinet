@@ -3,6 +3,7 @@
  * Заполнение юнитов, потребление тока, кабель-менеджмент
  */
 import { LogicPlugin } from '../LogicEngine.js';
+import { ELECTRICAL, DEFAULTS } from '../../constants/PhysicalConstants.js';
 
 export class TelecomLogicPlugin extends LogicPlugin {
     constructor() {
@@ -12,7 +13,7 @@ export class TelecomLogicPlugin extends LogicPlugin {
     calculate(cabinetType, equipmentList) {
         const calculations = {
             // Rack Units
-            totalRackUnits: cabinetType.getRackUnits() || 42,
+            totalRackUnits: cabinetType.getRackUnits() || DEFAULTS.RACK_HEIGHT_U,
             usedRackUnits: 0,
             availableRackUnits: 0,
             utilizationPercent: 0,
@@ -20,9 +21,9 @@ export class TelecomLogicPlugin extends LogicPlugin {
             // Питание
             totalPower: 0,              // Вт
             totalCurrent: 0,            // А (при 230В)
-            voltage: 230,               // В
-            phases: cabinetType.power?.phases || 1,
-            maxCurrent: cabinetType.power?.maxCurrent || 16,
+            voltage: ELECTRICAL.STANDARD_VOLTAGE_V,
+            phases: cabinetType.power?.phases || DEFAULTS.PHASES,
+            maxCurrent: cabinetType.power?.maxCurrent || DEFAULTS.MAX_CURRENT_A,
             
             // Кабели
             cableLoad: 0,               // кг
@@ -130,13 +131,13 @@ export class TelecomLogicPlugin extends LogicPlugin {
         }
 
         // Проверка на автомат 16А
-        if (calculations.totalCurrent > 16) {
+        if (calculations.totalCurrent > DEFAULTS.MAX_CURRENT_A) {
             recommendations.push({
                 severity: 'warning',
                 type: 'circuit',
                 message: 'Требуется автоматический выключатель повышенной мощности',
                 value: calculations.totalCurrent,
-                suggestion: `Стандартный автомат 16А недостаточен, требуется ${Math.ceil(calculations.totalCurrent / 5) * 5}А`
+                suggestion: `Стандартный автомат ${DEFAULTS.MAX_CURRENT_A}А недостаточен, требуется ${Math.ceil(calculations.totalCurrent / 5) * 5}А`
             });
         }
 

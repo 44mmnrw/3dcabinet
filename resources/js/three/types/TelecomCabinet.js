@@ -3,6 +3,7 @@
  * Специализация для 19" стоечных шкафов с телеком-оборудованием
  */
 import { CabinetType } from './CabinetType.js';
+import { ELECTRICAL } from '../constants/PhysicalConstants.js';
 
 export class TelecomCabinet extends CabinetType {
     constructor(config) {
@@ -101,7 +102,7 @@ export class TelecomCabinet extends CabinetType {
             if (eq.specs) {
                 // Расчёт тока (P = U * I, I = P / U)
                 if (eq.specs.power) {
-                    metrics.totalCurrent += eq.specs.power / 230; // 230V AC
+                    metrics.totalCurrent += eq.specs.power / ELECTRICAL.STANDARD_VOLTAGE_V;
                 }
                 if (eq.specs.cableWeight) {
                     metrics.cableLoad += eq.specs.cableWeight;

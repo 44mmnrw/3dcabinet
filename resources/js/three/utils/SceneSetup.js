@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { CAMERA } from '../constants/PhysicalConstants.js';
 
 /**
  * Универсальный модуль для инициализации Three.js сцены
@@ -149,7 +150,7 @@ export function createControls(camera, domElement, options = {}) {
     const {
         enableDamping = true,
         dampingFactor = 0.05,
-        polarAngle = Math.PI / 2.5  // Угол камеры (по умолчанию ~68°, немного ниже горизонта)
+        polarAngle = CAMERA.DEFAULT_POLAR_ANGLE
     } = options;
 
     const controls = new OrbitControls(camera, domElement);

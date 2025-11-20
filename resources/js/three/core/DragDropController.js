@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RailHighlighter } from '../utils/RailHighlighter.js';
+import { ANIMATION } from '../constants/PhysicalConstants.js';
 
 /**
  * Контроллер Drag & Drop для оборудования
@@ -402,7 +403,7 @@ export class DragDropController {
         mesh.position.y = startY;
 
         // Анимация через requestAnimationFrame
-        const duration = 300; // 300мс
+        const duration = ANIMATION.DRAG_ANIMATION_DURATION_MS;
         const startTime = Date.now();
 
         const animate = () => {

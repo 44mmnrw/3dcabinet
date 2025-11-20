@@ -3,6 +3,7 @@
  * Тепловой баланс, энергопотребление, рекомендации по климат-контролю
  */
 import { LogicPlugin } from '../LogicEngine.js';
+import { THERMAL, DEFAULTS, PHYSICAL } from '../../constants/PhysicalConstants.js';
 
 export class ThermalLogicPlugin extends LogicPlugin {
     constructor() {
@@ -24,8 +25,8 @@ export class ThermalLogicPlugin extends LogicPlugin {
             thermalBalance: 'unknown',
             
             // Температурный режим
-            ambientTemp: 25,            // °C (предполагаемая)
-            internalTemp: 25,           // °C (расчётная)
+            ambientTemp: DEFAULTS.AMBIENT_TEMP_C,
+            internalTemp: DEFAULTS.AMBIENT_TEMP_C,
             tempRise: 0,                // °C (повышение от оборудования)
             
             // Статус
@@ -52,8 +53,8 @@ export class ThermalLogicPlugin extends LogicPlugin {
 
         // Оценка повышения температуры (упрощённая формула)
         // ΔT = P / (k * V), где P - мощность, k - коэффициент теплопередачи, V - объём
-        const volume = (cabinetType.dimensions.width * cabinetType.dimensions.height * cabinetType.dimensions.depth) / 1e9; // м³
-        const heatTransferCoef = 0.5; // Вт/(м³·°C) (упрощённо)
+        const volume = (cabinetType.dimensions.width * cabinetType.dimensions.height * cabinetType.dimensions.depth) / (PHYSICAL.M_TO_MM ** 3); // м³
+        const heatTransferCoef = THERMAL.HEAT_TRANSFER_COEFFICIENT;
         calculations.tempRise = calculations.totalHeatDissipation / (heatTransferCoef * volume);
         calculations.internalTemp = calculations.ambientTemp + calculations.tempRise;
 
@@ -99,7 +100,7 @@ export class ThermalLogicPlugin extends LogicPlugin {
                 severity: 'warning',
                 type: 'heating',
                 message: 'Для работы при отрицательных температурах требуется обогрев',
-                suggestion: `Рабочий диапазон: ${minTemp}°C..${maxTemp}°C, рекомендуется обогреватель ${calculations.heatingAvailable || 500}Вт`
+                suggestion: `Рабочий диапазон: ${minTemp}°C..${maxTemp}°C, рекомендуется обогреватель ${calculations.heatingAvailable || DEFAULTS.HEATING_POWER_W}Вт`
             });
         }
 

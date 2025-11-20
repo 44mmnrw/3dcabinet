@@ -89,7 +89,9 @@ export class tsh_700_500_250 extends CabinetBase {
         if (this.config.components) {
             for (const [varName, compDef] of Object.entries(this.config.components)) {
                 const filename = compDef.file;
-                this.components[varName] = await this.loader.load(`${basePath}/${folderName}/${filename}`);
+                const filePath = `${basePath}/${folderName}/${filename}`;
+                
+                this.components[varName] = await this.loader.load(filePath);
                 this.components[varName].name = varName;
                 
                 const scale = compDef.scale || [0.001, 0.001, 0.001];
@@ -106,8 +108,9 @@ export class tsh_700_500_250 extends CabinetBase {
             for (const railDef of this.config.rails) {
                 const railId = railDef.id;
                 const filename = railDef.file;
+                const filePath = `${basePath}/${folderName}/${filename}`;
                 
-                this.components[railId] = await this.loader.load(`${basePath}/${folderName}/${filename}`);
+                this.components[railId] = await this.loader.load(filePath);
                 this.components[railId].name = railId;
                 
                 const scale = railDef.scale || [0.001, 0.001, 0.001];

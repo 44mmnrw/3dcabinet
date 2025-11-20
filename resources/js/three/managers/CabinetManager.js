@@ -1,219 +1,118 @@
-import { DINRailStrategy, RackUnitStrategy, MountingPlateStrategy } from '../strategies/MountingStrategies.js';
-import { strategyRegistry } from '../strategies/StrategyRegistry.js';
-import { StrategyFactory } from '../strategies/StrategyFactory.js';
-import { typeRegistry } from '../types/index.js';
+import { catalogService } from '../services/CatalogService.js';
+import { CabinetFactory } from '../utils/CabinetFactory.js';
 import { eventBus, ConfiguratorEvents } from '../events/EventBus.js';
 import { createDefaultLogicEngine } from '../logic/index.js';
-
-// Регистрация всех модулей шкафов через Vite glob import
-const cabinetModules = import.meta.glob('../cabinets/**/*.js', { eager: true });
 
 /**
  * Менеджер шкафов на 3D-сцене
  * 
- * Функциональность:
- * - Динамическая загрузка классов шкафов из catalog.json
- * - Управление несколькими экземплярами шкафов
- * - Присваивание стратегий монтажа через StrategyFactory (NEW!)
- * - Интеграция с Type System для универсальной поддержки типов (NEW!)
- * - Event-driven архитектура через EventBus (NEW!)
- * - Расчёты через LogicEngine (NEW!)
- * - Управление жизненным циклом (добавление, удаление, dispose)
+ * Отвечает ТОЛЬКО за:
+ * - Управление экземплярами шкафов (добавление, удаление, получение)
+ * - Управление активным шкафом
+ * - Интеграция с EventBus для событий
+ * - Расчёты через LogicEngine
+ * 
+ * НЕ отвечает за:
+ * - Загрузку каталога (CatalogService)
+ * - Создание шкафов (CabinetFactory)
+ * - Регистрацию стратегий (CabinetFactory)
  */
 export class CabinetManager {
     constructor(scene, options = {}) {
         this.scene = scene;
-        this.cabinets = new Map(); // cabinetId -> { instance, assembly, position, cabinetType, strategies }
+        this.cabinets = new Map(); // cabinetId -> { instance, assembly, position, cabinetType, strategies, equipmentList }
         this.activeCabinetId = null;
-        this.catalog = null; // Каталог доступных шкафов
         
-        // Event-driven (NEW!)
+        // Зависимости
+        this.catalogService = options.catalogService || catalogService;
+        this.cabinetFactory = options.cabinetFactory || CabinetFactory;
         this.eventBus = options.eventBus || eventBus;
-        
-        // Logic Engine (NEW!)
         this.logicEngine = options.logicEngine || createDefaultLogicEngine();
-        
-        // Регистрация стратегий при инициализации
-        this._registerStrategies();
     }
 
     /**
-     * Регистрация всех стратегий монтажа в реестре
-     * @private
-     */
-    _registerStrategies() {
-        strategyRegistry.register('din_rail', DINRailStrategy, ['din', 'rail']);
-        strategyRegistry.register('rack_unit', RackUnitStrategy, ['rack', '19inch']);
-        strategyRegistry.register('mounting_plate', MountingPlateStrategy, ['plate']);
-    }
-
-    /**
-     * Загрузить каталог шкафов из JSON
-     * @returns {Promise<Object>} Объект каталога
-     */
-    async loadCatalog() {
-        if (this.catalog) return this.catalog;
-        
-        try {
-            const response = await fetch('/assets/models/cabinets/catalog.json');
-            if (!response.ok) {
-                throw new Error('Каталог шкафов не найден');
-            }
-            this.catalog = await response.json();
-            console.log(`📚 Загружен каталог: ${this.catalog.cabinets.length} шкафов`);
-            return this.catalog;
-        } catch (error) {
-            console.error('❌ Ошибка загрузки каталога шкафов:', error);
-            this.catalog = { cabinets: [] };
-            return this.catalog;
-        }
-    }
-
-    /**
-     * Получить список доступных шкафов из каталога
-     * @returns {Promise<Array>} Список шкафов с базовой информацией
-     */
-    async getAvailableCabinets() {
-        await this.loadCatalog();
-        return this.catalog.cabinets.map(c => ({
-            id: c.id,
-            name: c.name,
-            dimensions: c.dimensions,
-            thumbnail: c.thumbnail,
-            description: c.description
-        }));
-    }
-
-    /**
-     * Добавить шкаф по ID из каталога (упрощённый API)
-     * @param {string} catalogId - ID шкафа из каталога (например, 'tsh_700_500_240')
+     * Добавить шкаф по ID из каталога
+     * @param {string} catalogId - ID шкафа из каталога
      * @param {string} instanceId - Уникальный ID экземпляра (опционально)
      * @returns {Promise<string>} ID добавленного шкафа
      */
     async addCabinetById(catalogId, instanceId = null) {
-        await this.loadCatalog();
-        
-        const cabinetDef = this.catalog.cabinets.find(c => c.id === catalogId);
+        // Получаем определение из каталога
+        const cabinetDef = await this.catalogService.getCabinetDefinition(catalogId);
         if (!cabinetDef) {
-            throw new Error(`Шкаф "${catalogId}" не найден в каталоге. Доступные: ${this.catalog.cabinets.map(c => c.id).join(', ')}`);
+            const available = await this.catalogService.getAvailableCabinets();
+            const availableIds = available.map(c => c.id).join(', ');
+            throw new Error(
+                `Шкаф "${catalogId}" не найден в каталоге. ` +
+                `Доступные: ${availableIds}`
+            );
         }
 
         console.log(`🔄 Загрузка шкафа из каталога: ${cabinetDef.name}`);
-        const newId = await this.addCabinet(
-            cabinetDef.className,
-            cabinetDef.modulePath,
-            instanceId || `${catalogId}_${Date.now()}`,
-            cabinetDef  // Передаём определение (NEW!)
-        );
+        
+        // Создаём шкаф через фабрику
+        const newId = instanceId || `${catalogId}_${Date.now()}`;
+        await this.addCabinet(cabinetDef, newId);
 
         return newId;
     }
 
     /**
-     * Динамическая загрузка класса шкафа (прямой метод)
-     * @param {string} cabinetType - Имя класса шкафа (например, 'tsh_700_500_250')
-     * @param {string} modulePath - Путь к модулю
+     * Добавить шкаф из определения
+     * @param {Object} cabinetDef - Определение шкафа из каталога
      * @param {string} cabinetId - Уникальный ID экземпляра
-     * @param {Object} cabinetDef - Определение из каталога (NEW!)
      * @returns {Promise<string>} ID добавленного шкафа
      */
-    async addCabinet(cabinetType, modulePath, cabinetId = null, cabinetDef = null) {
+    async addCabinet(cabinetDef, cabinetId) {
         try {
             if (!cabinetId) {
-                cabinetId = `${cabinetType}_${Date.now()}`;
+                cabinetId = `${cabinetDef.className || 'cabinet'}_${Date.now()}`;
             }
 
-            console.log(`🔄 Загрузка шкафа: ${cabinetType} (${cabinetId})`);
+            console.log(`🔄 Создание шкафа: ${cabinetDef.name || cabinetDef.className} (${cabinetId})`);
 
-            // Поиск модуля шкафа в предзагруженных модулях
-            const modulePath = `../cabinets/${cabinetType}/${cabinetType}.js`;
-            const moduleKey = Object.keys(cabinetModules).find(key => key.includes(`${cabinetType}/${cabinetType}.js`));
-            
-            if (!moduleKey) {
-                console.error(`❌ Модуль ${modulePath} не найден. Доступные модули:`, Object.keys(cabinetModules));
-                throw new Error(`Модуль шкафа ${cabinetType} не найден`);
-            }
-            
-            const module = cabinetModules[moduleKey];
-            const CabinetClass = module[cabinetType];
+            // Создаём шкаф через фабрику
+            const { instance, assembly, cabinetType, strategies } = 
+                await this.cabinetFactory.createFromDefinition(cabinetDef);
 
-            if (!CabinetClass) {
-                throw new Error(`Класс ${cabinetType} не найден в модуле ${modulePath}`);
+            // Проверяем, что assembly не пустой
+            if (!assembly) {
+                throw new Error('Assembly не создан');
             }
 
-            // Создание и сборка экземпляра
-            const cabinetInstance = new CabinetClass();
-            const assembly = await cabinetInstance.assemble({
-                basePath: window.location.origin + '/assets/models/freecad'
-            });
-            
-            // ⚠️ НЕ переопределяем позицию — assemble() уже выровнял по полу (_alignAssemblyToFloor)
+            // Настраиваем assembly
             assembly.name = cabinetId;
-            // assembly.position.set(0, 0, 0); // УДАЛЕНО: это перечеркивало выравнивание
-            
             this.scene.add(assembly);
-            
-            // Создание типа через TypeRegistry (NEW!)
-            let cabinetTypeInstance = null;
-            if (cabinetDef && cabinetDef.category) {
-                try {
-                    cabinetTypeInstance = await typeRegistry.createType(
-                        cabinetDef.category,
-                        cabinetDef
-                    );
-                    console.log(`✅ Создан тип: ${cabinetTypeInstance.toString()}`);
-                } catch (error) {
-                    console.warn('⚠️ Ошибка создания типа:', error);
-                }
-            }
-            
-            // Создание стратегий через StrategyFactory (NEW!)
-            const strategies = cabinetTypeInstance 
-                ? StrategyFactory.createForCabinet(cabinetTypeInstance, cabinetInstance)
-                : new Map();
-            
-            // Fallback: если нет стратегий, создаём DIN-rail по умолчанию
-            if (strategies.size === 0 && cabinetDef?.mountingType === 'din_rail') {
-                const dinStrategy = strategyRegistry.create('din_rail', cabinetInstance, cabinetTypeInstance);
-                if (dinStrategy) {
-                    strategies.set('din_rail', dinStrategy);
-                }
-            }
-            
-            // Устанавливаем основную стратегию на instance (для обратной совместимости)
-            const primaryStrategy = strategies.values().next().value;
-            if (primaryStrategy) {
-                cabinetInstance.mountingStrategy = primaryStrategy;
-            }
-            
+
+            // Сохраняем в Map
             this.cabinets.set(cabinetId, {
-                type: cabinetType,
-                instance: cabinetInstance,
-                assembly: assembly,
+                type: cabinetDef.className,
+                instance,
+                assembly,
                 position: assembly.position.clone(),
                 definition: cabinetDef,
-                cabinetType: cabinetTypeInstance,  // NEW!
-                strategies: strategies,            // NEW!
-                equipmentList: []                   // NEW!
+                cabinetType,
+                strategies,
+                equipmentList: []
             });
 
-            // ⚡ Теперь можно устанавливать как активный (он в Map!)
+            // Устанавливаем как активный
             this.activeCabinetId = cabinetId;
 
-            console.log(`✅ Шкаф ${cabinetType} загружен: ${cabinetId}`);
-            console.log(`   Тип: ${cabinetTypeInstance?.constructor.name || 'CabinetType'}`);
+            console.log(`✅ Шкаф загружен: ${cabinetId}`);
+            console.log(`   Тип: ${cabinetType?.constructor.name || 'CabinetType'}`);
             console.log(`   Стратегии: ${Array.from(strategies.keys()).join(', ') || 'нет'}`);
             
-            // Emit event (NEW!)
+            // Emit event
             this.eventBus.emit(ConfiguratorEvents.CABINET_ADDED, {
                 cabinetId,
-                cabinetType: cabinetTypeInstance,
+                cabinetType,
                 strategies: Array.from(strategies.keys())
             });
             
             return cabinetId;
         } catch (error) {
-            console.error(`❌ Ошибка загрузки шкафа ${cabinetType}:`, error);
+            console.error(`❌ Ошибка создания шкафа:`, error);
             throw error;
         }
     }
@@ -268,6 +167,10 @@ export class CabinetManager {
         }
         this.activeCabinetId = cabinetId;
         console.log(`🎯 Активный шкаф: ${cabinetId}`);
+        
+        // Emit event
+        this.eventBus.emit(ConfiguratorEvents.CABINET_CHANGED, { cabinetId });
+        
         return true;
     }
 
@@ -325,6 +228,22 @@ export class CabinetManager {
             type: data.type,
             position: data.position
         }));
+    }
+
+    /**
+     * Загрузить каталог шкафов (делегирует в CatalogService)
+     * @returns {Promise<Object>} Объект каталога
+     */
+    async loadCatalog() {
+        return await this.catalogService.loadCatalog();
+    }
+
+    /**
+     * Получить список доступных шкафов из каталога (делегирует в CatalogService)
+     * @returns {Promise<Array>}
+     */
+    async getAvailableCabinets() {
+        return await this.catalogService.getAvailableCabinets();
     }
 
     /**

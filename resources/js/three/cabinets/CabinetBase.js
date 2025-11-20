@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GeometryUtils } from '../utils/ModelUtils.js';
+import { MATH } from '../constants/PhysicalConstants.js';
 
 /**
  * Базовый класс для всех шкафов
@@ -131,7 +132,7 @@ export class CabinetBase {
      * Открыть дверь (удобный метод)
      * @param {number} angle - Угол открытия в радианах (по умолчанию -π/2 = 90°)
      */
-    openDoor(angle = -Math.PI / 2) {
+    openDoor(angle = -MATH.DEG_90_RAD) { // -90° по умолчанию
         this.setDoorRotation(angle);
     }
 

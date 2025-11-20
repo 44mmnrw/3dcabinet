@@ -41,12 +41,12 @@ export class ServerLogicPlugin extends LogicPlugin {
         // Суммирование
         equipmentList.forEach(eq => {
             if (eq.specs) {
-                const power = (eq.specs.power || 0) / 1000; // Вт -> кВт
+                const power = (eq.specs.power || 0) * PHYSICAL.W_TO_KW; // Вт -> кВт
                 calculations.totalPower += power;
                 
                 // Тепловыделение = мощность (упрощённо)
                 const heat = eq.specs.heatDissipation 
-                    ? eq.specs.heatDissipation / 1000 
+                    ? eq.specs.heatDissipation * PHYSICAL.W_TO_KW 
                     : power;
                 calculations.totalHeatLoad += heat;
             }
@@ -155,7 +155,7 @@ export class ServerLogicPlugin extends LogicPlugin {
         }
 
         // Проверка перегрузки
-        const maxPower = cabinetType.getMaxPower() / 1000; // Вт -> кВт
+        const maxPower = cabinetType.getMaxPower() * PHYSICAL.W_TO_KW; // Вт -> кВт
         if (calculations.totalPower > maxPower) {
             calculations.isOverloaded = true;
             warnings.push(`Мощность ${calculations.totalPower.toFixed(2)}кВт превышает максимум ${maxPower.toFixed(2)}кВт`);

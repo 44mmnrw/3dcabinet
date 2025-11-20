@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { getAssetLoader } from '../loaders/AssetLoader.js';
 import { initializeScene } from '../utils/SceneSetup.js';
 import { CabinetManager } from './CabinetManager.js';
+import { CAMERA } from '../constants/PhysicalConstants.js';
 import { EquipmentManager } from './EquipmentManager.js';
 import { DragDropController } from '../core/DragDropController.js';
 import { ContextMenuManager } from '../core/ContextMenuManager.js';
@@ -30,7 +31,7 @@ export async function initializeManagers(containerId = 'scene-container') {
         showAxes: true,
         ambientIntensity: 0.6,
         directionalIntensity: 0.8,
-        polarAngle: Math.PI / 2.5  // Угол камеры (вертикальный лок, ~68° от горизонта)
+        polarAngle: CAMERA.DEFAULT_POLAR_ANGLE
     });
 
     const assetLoader = getAssetLoader();

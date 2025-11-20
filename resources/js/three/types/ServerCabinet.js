@@ -3,6 +3,7 @@
  * Специализация для high-density серверных конфигураций с акцентом на охлаждение
  */
 import { CabinetType } from './CabinetType.js';
+import { ELECTRICAL, DEFAULTS, PHYSICAL } from '../constants/PhysicalConstants.js';
 
 export class ServerCabinet extends CabinetType {
     constructor(config) {
@@ -18,8 +19,8 @@ export class ServerCabinet extends CabinetType {
         };
         
         this.power = config.power || {
-            inputVoltage: 230,          // В
-            phases: 1,                  // Кол-во фаз
+            inputVoltage: ELECTRICAL.STANDARD_VOLTAGE_V,
+            phases: DEFAULTS.PHASES,
             maxPowerDensity: 0,         // кВт/U
             redundancy: 'none'          // none, N+1, 2N
         };
@@ -61,7 +62,7 @@ export class ServerCabinet extends CabinetType {
         // Проверка плотности мощности
         if (equipment.specs && equipment.specs.power && equipment.mounting) {
             const eqUnits = equipment.mounting.rackUnits || 1;
-            const powerDensity = equipment.specs.power / 1000 / eqUnits; // кВт/U
+            const powerDensity = equipment.specs.power * PHYSICAL.W_TO_KW / eqUnits; // кВт/U
             
             if (powerDensity > this.power.maxPowerDensity) {
                 result.warnings.push(
@@ -101,10 +102,10 @@ export class ServerCabinet extends CabinetType {
 
         equipmentList.forEach(eq => {
             if (eq.specs) {
-                const power = (eq.specs.power || 0) / 1000; // Вт -> кВт
+                const power = (eq.specs.power || 0) * PHYSICAL.W_TO_KW; // Вт -> кВт
                 metrics.totalPower += power;
                 metrics.totalHeatLoad += eq.specs.heatDissipation 
-                    ? eq.specs.heatDissipation / 1000 
+                    ? eq.specs.heatDissipation * PHYSICAL.W_TO_KW 
                     : power; // Если нет heatDissipation, приравнять к power
             }
             if (eq.mounting && eq.mounting.rackUnits) {
@@ -211,11 +212,11 @@ export class ServerCabinet extends CabinetType {
         }
 
         // Проверка суммарной мощности
-        if (metrics.totalPower > this.getMaxPower() / 1000) {
+        if (metrics.totalPower > this.getMaxPower() * PHYSICAL.W_TO_KW) {
             recommendations.push({
                 severity: 'error',
                 message: 'Превышена максимальная мощность шкафа',
-                suggestion: `${metrics.totalPower.toFixed(2)}кВт > ${(this.getMaxPower() / 1000).toFixed(2)}кВт`
+                suggestion: `${metrics.totalPower.toFixed(2)}кВт > ${(this.getMaxPower() * PHYSICAL.W_TO_KW).toFixed(2)}кВт`
             });
         }
 
