@@ -1,0 +1,98 @@
+{
+  "_react-vendor-OvXVS5lI.js": {
+    "file": "assets/react-vendor-OvXVS5lI.js",
+    "name": "react-vendor"
+  },
+  "_three-core-Cs1lrHJG.js": {
+    "file": "assets/three-core-Cs1lrHJG.js",
+    "name": "three-core"
+  },
+  "_three-utils-CpVhJydz.js": {
+    "file": "assets/three-utils-CpVhJydz.js",
+    "name": "three-utils",
+    "imports": [
+      "_three-core-Cs1lrHJG.js"
+    ]
+  },
+  "resources/css/app.css": {
+    "file": "assets/app-Bc5Vc8YO.css",
+    "src": "resources/css/app.css",
+    "isEntry": true,
+    "name": "app",
+    "names": [
+      "app.css"
+    ]
+  },
+  "resources/js/app.jsx": {
+    "file": "assets/app-DdhSGyjC.js",
+    "name": "app",
+    "src": "resources/js/app.jsx",
+    "isEntry": true,
+    "imports": [
+      "_react-vendor-OvXVS5lI.js",
+      "_three-utils-CpVhJydz.js",
+      "_three-core-Cs1lrHJG.js"
+    ],
+    "dynamicImports": [
+      "resources/js/three/types/ThermalCabinet.js",
+      "resources/js/three/types/ThermalCabinet.js",
+      "resources/js/three/types/TelecomCabinet.js",
+      "resources/js/three/types/TelecomCabinet.js",
+      "resources/js/three/types/ServerCabinet.js",
+      "resources/js/three/types/ServerCabinet.js",
+      "resources/js/three/types/CabinetType.js",
+      "resources/js/three/types/CabinetType.js",
+      "resources/js/three/types/CabinetType.js"
+    ],
+    "css": [
+      "assets/app-Bc5Vc8YO.css"
+    ]
+  },
+  "resources/js/three/types/CabinetType.js": {
+    "file": "assets/CabinetType-BSIXnIWZ.js",
+    "name": "CabinetType",
+    "src": "resources/js/three/types/CabinetType.js",
+    "isDynamicEntry": true
+  },
+  "resources/js/three/types/ServerCabinet.js": {
+    "file": "assets/ServerCabinet-CCaM8rKQ.js",
+    "name": "ServerCabinet",
+    "src": "resources/js/three/types/ServerCabinet.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/three/types/CabinetType.js",
+      "resources/js/app.jsx",
+      "_react-vendor-OvXVS5lI.js",
+      "_three-utils-CpVhJydz.js",
+      "_three-core-Cs1lrHJG.js"
+    ],
+    "css": [
+      "assets/app-Bc5Vc8YO.css"
+    ]
+  },
+  "resources/js/three/types/TelecomCabinet.js": {
+    "file": "assets/TelecomCabinet-CTX6rL4S.js",
+    "name": "TelecomCabinet",
+    "src": "resources/js/three/types/TelecomCabinet.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/three/types/CabinetType.js",
+      "resources/js/app.jsx",
+      "_react-vendor-OvXVS5lI.js",
+      "_three-utils-CpVhJydz.js",
+      "_three-core-Cs1lrHJG.js"
+    ],
+    "css": [
+      "assets/app-Bc5Vc8YO.css"
+    ]
+  },
+  "resources/js/three/types/ThermalCabinet.js": {
+    "file": "assets/ThermalCabinet-D-dNFGO1.js",
+    "name": "ThermalCabinet",
+    "src": "resources/js/three/types/ThermalCabinet.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/three/types/CabinetType.js"
+    ]
+  }
+}
