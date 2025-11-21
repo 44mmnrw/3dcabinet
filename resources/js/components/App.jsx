@@ -26,7 +26,12 @@ function App() {
           setEquipmentCount(count);
         };
       }
-      // DnD теперь управляется через React onMouseDown → DragDropController.onReactMouseDown
+      
+      // Инициализация Drag & Drop и контекстного меню (ПКМ)
+      if (managersRef.current?.initializeDragDrop) {
+        managersRef.current.initializeDragDrop();
+        console.log('✅ Drag & Drop и контекстное меню инициализированы');
+      }
     });
   }, []);
 
@@ -74,8 +79,6 @@ function App() {
             managersRef.current.controls
           );
         }
-        
-        // Drag & Drop инициализация через React — отдельного вызова не требуется
         
         console.log('✅ Шкаф загружен');
       } catch (err) {
