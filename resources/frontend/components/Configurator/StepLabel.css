@@ -1,0 +1,19 @@
+.step-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 0.875rem;
+  color: var(--color-gray);
+  font-weight: var(--font-weight-400);
+}
+
+.step-label.complete {
+  color: var(--icon-check-stroke);
+}
+
+.step-label-check {
+  color: var(--icon-check-stroke);
+  font-weight: var(--font-weight-700);
+  font-size: 1rem;
+}
+

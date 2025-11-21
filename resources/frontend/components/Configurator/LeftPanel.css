@@ -1,0 +1,338 @@
+/* Левая боковая панель конфигуратора */
+.configurator-left-panel {
+  width: var(--panel-width); /* 360px при базовом размере, адаптивно через clamp */
+  background: var(--color-white);
+  border-right: 1px solid var(--color-light-gray);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Заголовок панели */
+.left-panel-header {
+  padding: var(--spacing-lg);
+  border-bottom: none;
+  background: var(--color-background-2);
+}
+
+.left-panel-title {
+  font-family: var(--font-family);
+  font-size: 1.25rem;
+  font-weight: var(--font-weight-700);
+  color: var(--color-dark);
+  margin: 0 0 var(--spacing-sm) 0;
+  line-height: 1.4;
+}
+
+.left-panel-description {
+  font-family: var(--font-family);
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-400);
+  color: var(--color-gray);
+  margin: 0 0 var(--spacing-md) 0;
+  line-height: 1.5;
+}
+
+/* Общие стили для вкладок и кнопок */
+.tab-button {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 0; /* Для равномерного распределения */
+  height: 114px; /* Высота из Figma */
+  padding: var(--spacing-sm); /* Одинаковый padding со всех сторон */
+  border: none;
+  border-radius: 12px; /* Общее скругление для всех кнопок */
+  background: #F1F5F9; /* Цвет неактивного состояния */
+  color: var(--color-gray);
+  font-size: 0.9rem; /* Размер шрифта - можно менять здесь для всех */
+  font-weight: var(--font-weight-400);
+  cursor: pointer;
+  transition: all var(--transition-duration);
+  display: flex;
+  flex-direction: column; /* Вертикальное направление из Figma */
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  font-family: var(--font-family);
+  text-align: center;
+  position: relative;
+  margin: var(--spacing-xs) 0; /* Маржины только сверху и снизу */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: none; /* Отключаем автоматические дефисы при переносе */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25); /* Тень снизу 25% прозрачности */
+}
+
+/* Вкладки категорий */
+.category-tabs {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: calc(var(--spacing-xs) * 1.5); /* Отступ между кнопками увеличен в 1.5 раза */
+  margin: 0;
+  padding: 0 var(--spacing-xs); /* Padding слева и справа равен margin кнопок */
+  position: relative;
+  background: transparent;
+  align-items: center;
+  width: 100%;
+}
+
+
+.tab-button:hover {
+  color: var(--color-dark);
+  background: #E2E8F0; /* Цвет при наведении мыши */
+}
+
+.tab-button.active {
+  background: var(--color-white);
+  color: var(--color-blue);
+}
+
+.tab-button.active:hover {
+  background: var(--color-white);
+  color: var(--color-blue-dark);
+}
+
+
+/* Контейнер для иконок */
+.tab-button-icon-container {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem; /* 36px при базовом размере шрифта 16px */
+  height: 2.25rem;
+  background: #E2E8F0;
+  border-radius: 12px;
+  padding: 4px;
+}
+
+/* Общие стили для иконок - как на лендинге */
+.tab-button-icon-container svg {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  display: block;
+  color: #45556C;
+  fill: none;
+}
+
+.tab-button:not(.active) .tab-button-icon svg {
+  opacity: 0.6;
+}
+
+.tab-button.active .tab-button-icon svg {
+  opacity: 1;
+}
+
+/* Общие стили для лейблов */
+.tab-button-label {
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.2;
+  text-align: center;
+  flex: 1;
+  min-width: 0; /* Позволяет тексту сжиматься */
+  order: 2; /* Явно указываем порядок: текст справа */
+  /* font-size наследуется из .tab-button */
+}
+
+
+
+/* Прогресс-бар */
+.left-panel-progress {
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--color-light-gray);
+  background: var(--color-white);
+}
+
+/* Контент панели */
+.left-panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+/* Контент категории */
+.category-content {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.category-placeholder {
+  padding: var(--spacing-xl);
+  text-align: center;
+  font-family: var(--font-family);
+}
+
+.category-placeholder p {
+  font-family: var(--font-family);
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-400);
+  color: var(--color-gray);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Кнопки типа сборки для термошкафов */
+.assembly-type-buttons {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: calc(var(--spacing-xs) * 1.5); /* Отступ между кнопками увеличен в 1.5 раза */
+  margin: 0;
+  padding: 0 var(--spacing-xs); /* Padding слева и справа равен margin кнопок */
+  position: relative;
+  background: transparent;
+  align-items: center;
+  width: 100%;
+}
+
+
+/* Список шагов */
+.left-panel-steps {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-md);
+}
+
+.left-panel-step-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+  border-radius: var(--border-radius-10);
+  background: var(--color-background-2);
+  cursor: pointer;
+  transition: all var(--transition-duration);
+  border: 2px solid transparent;
+}
+
+.left-panel-step-item:hover {
+  background: var(--color-light-gray);
+  border-color: var(--color-light-gray);
+}
+
+.left-panel-step-item.active {
+  background: rgba(var(--color-blue-shadow), 0.1);
+  border-color: var(--color-blue);
+}
+
+.left-panel-step-item.completed {
+  background: rgba(24, 205, 103, 0.05);
+}
+
+.left-panel-step-item.has-conflict {
+  border-color: var(--indicator-error);
+  background: rgba(230, 41, 41, 0.05);
+}
+
+/* Индикатор шага */
+.step-item-indicator {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.step-item-number {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-light-gray);
+  color: var(--color-gray);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--font-weight-600);
+  font-size: 0.875rem;
+  transition: all var(--transition-duration);
+}
+
+.left-panel-step-item.active .step-item-number {
+  background: var(--color-blue);
+  color: var(--color-white);
+}
+
+/* Контент шага */
+.step-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.step-item-title {
+  font-size: 0.9375rem;
+  font-weight: var(--font-weight-600);
+  color: var(--color-dark);
+  margin-bottom: var(--spacing-xs);
+  line-height: 1.4;
+}
+
+.step-item-description {
+  font-size: 0.8125rem;
+  color: var(--color-gray);
+  margin-bottom: var(--spacing-xs);
+  line-height: 1.4;
+}
+
+.step-item-selection {
+  font-size: 0.8125rem;
+  color: var(--color-blue);
+  font-weight: var(--font-weight-600);
+  margin-top: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: rgba(var(--color-blue-shadow), 0.1);
+  border-radius: var(--border-radius-8);
+  display: inline-block;
+}
+
+/* Иконка конфликта */
+.step-item-conflict-icon {
+  flex-shrink: 0;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+/* Скроллбар */
+.left-panel-steps::-webkit-scrollbar {
+  width: 6px;
+}
+
+.left-panel-steps::-webkit-scrollbar-track {
+  background: var(--color-background-2);
+}
+
+.left-panel-steps::-webkit-scrollbar-thumb {
+  background: var(--color-light-gray);
+  border-radius: 3px;
+}
+
+.left-panel-steps::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray);
+}
+
+/* Адаптивность */
+/* Планшеты */
+@media (max-width: 1024px) {
+  .configurator-left-panel {
+    width: 20rem; /* 320px - немного меньше на планшетах */
+  }
+}
+
+/* Мобильные устройства */
+@media (max-width: 768px) {
+  .configurator-left-panel {
+    width: 100%;
+    height: auto;
+    max-height: 40vh;
+    border-right: none;
+    border-bottom: 1px solid var(--color-light-gray);
+  }
+}
+

@@ -1,0 +1,121 @@
+/* Главный контейнер конфигуратора */
+.configurator-wizard {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: var(--color-background-2);
+}
+
+/* Центральная область */
+.configurator-wizard-center {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-dark);
+}
+
+/* Контейнер 3D сцены */
+.configurator-wizard-center #scene-container,
+.configurator-wizard-center .scene-panel {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* Overlay для выбора опций */
+.step-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--spacing-xl);
+  overflow-y: auto;
+}
+
+.step-overlay-content {
+  position: relative;
+  background: var(--color-white);
+  border-radius: var(--border-radius-16);
+  padding: var(--spacing-2xl);
+  max-width: 900px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.step-overlay-close {
+  position: absolute;
+  top: var(--spacing-lg);
+  right: var(--spacing-lg);
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--color-background-2);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  color: var(--color-gray);
+  transition: all var(--transition-duration);
+  z-index: 1001;
+}
+
+.step-overlay-close:hover {
+  background: var(--color-light-gray);
+  color: var(--color-dark);
+  transform: rotate(90deg);
+}
+
+.wizard-center-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-3xl);
+  text-align: center;
+  color: var(--color-gray);
+}
+
+.wizard-center-placeholder h2 {
+  font-size: 1.5rem;
+  font-weight: var(--font-weight-600);
+  color: var(--color-dark);
+  margin: 0 0 var(--spacing-md) 0;
+}
+
+.wizard-center-placeholder p {
+  font-size: 1rem;
+  color: var(--color-gray);
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .configurator-wizard {
+    flex-direction: column;
+  }
+
+  .configurator-wizard-center {
+    min-height: 40vh;
+  }
+}
+

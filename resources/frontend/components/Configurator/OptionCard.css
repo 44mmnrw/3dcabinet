@@ -1,0 +1,132 @@
+.option-card {
+  background: var(--color-white);
+  border: 2px solid var(--color-light-gray);
+  border-radius: var(--border-radius-14);
+  padding: var(--spacing-lg);
+  cursor: pointer;
+  transition: all var(--transition-duration);
+  position: relative;
+  overflow: hidden;
+}
+
+.option-card:hover {
+  border-color: var(--color-blue);
+  box-shadow: 0 4px 12px rgba(var(--color-blue-shadow), 0.15);
+  transform: translateY(-2px);
+}
+
+.option-card.active {
+  background: var(--color-blue);
+  border-color: var(--color-blue-dark);
+  color: var(--color-white);
+  box-shadow: 0 6px 20px rgba(var(--color-blue-shadow), 0.3);
+}
+
+.option-card.active:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(var(--color-blue-shadow), 0.4);
+}
+
+.option-card-content {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+}
+
+.option-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-background-2);
+  border-radius: var(--border-radius-10);
+  transition: all var(--transition-duration);
+}
+
+.option-card.active .option-icon {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.option-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.option-label {
+  font-size: 1.125rem;
+  font-weight: var(--font-weight-600);
+  color: var(--color-dark);
+  margin-bottom: var(--spacing-xs);
+  line-height: 1.4;
+  transition: color var(--transition-duration);
+}
+
+.option-card.active .option-label {
+  color: var(--color-white);
+}
+
+.option-description {
+  font-size: 0.875rem;
+  color: var(--color-gray);
+  line-height: 1.5;
+  transition: color var(--transition-duration);
+}
+
+.option-card.active .option-description {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.option-check {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: all var(--transition-duration);
+}
+
+.option-card.active .option-check {
+  opacity: 1;
+  transform: scale(1);
+  animation: checkDraw 0.3s ease;
+}
+
+@keyframes checkDraw {
+  0% {
+    transform: scale(0.5) rotate(-180deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1) rotate(10deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+/* Адаптивность */
+@media (max-width: 430px) {
+  .option-card {
+    padding: var(--spacing-md);
+  }
+
+  .option-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .option-label {
+    font-size: 1rem;
+  }
+
+  .option-description {
+    font-size: 0.8125rem;
+  }
+}
+

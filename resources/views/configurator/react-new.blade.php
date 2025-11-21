@@ -6,9 +6,13 @@
     <title>3Cabinet React</title>
     
     @viteReactRefresh
-    @vite(['resources/css/app.css', 'resources/js/app.jsx'])
+    @vite(['resources/css/app.css', 'resources/frontend/app.jsx'])
 </head>
 <body>
+    <!-- SVG-спрайт (скрыт) -->
+    <div style="display: none;">
+        @include('partials.sprite')
+    </div>
     <div id="root"></div>
 </body>
 </html>

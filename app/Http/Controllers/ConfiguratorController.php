@@ -13,12 +13,4 @@ class ConfiguratorController extends Controller
     {
         return view('configurator.react-new');
     }
-
-    /**
-     * Legacy конфигуратор (Vanilla JS) - для совместимости
-     */
-    public function legacy()
-    {
-        return view('configurator.legacy');
-    }
 }

@@ -1,0 +1,28 @@
+.back-button {
+  width: 100%;
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: var(--color-white);
+  border: 1px solid var(--color-light-gray);
+  border-radius: var(--border-radius-10);
+  color: var(--color-dark);
+  font-size: 0.9375rem;
+  font-weight: var(--font-weight-600);
+  cursor: pointer;
+  transition: all var(--transition-duration);
+  font-family: var(--font-family);
+}
+
+.back-button:hover:not(.disabled) {
+  background: var(--color-background-2);
+  border-color: var(--color-gray);
+}
+
+.back-button:active:not(.disabled) {
+  transform: translateY(1px);
+}
+
+.back-button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+

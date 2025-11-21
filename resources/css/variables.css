@@ -52,6 +52,9 @@
   --container-width-landing: 1280px;    /* Для index.php (лендинг) */
   --container-width-app: 1600px;        /* Для app.php (конфигуратор) */
   --container-padding-x: clamp(1rem, 3vw, 2rem);
+  
+  /* Ширина боковых панелей конфигуратора (в rem для адаптивности) */
+  --panel-width: 22.5rem; /* 360px при базовом размере шрифта 16px */
 
   /* Определяем анимации */
   --transition-duration: 200ms;

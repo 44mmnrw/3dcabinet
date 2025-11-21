@@ -12,14 +12,6 @@ Route::get('/', [LandingController::class, 'index'])->name('landing');
 // 3D Конфигуратор (React - основная версия)
 Route::get('/configurator', [ConfiguratorController::class, 'index'])->name('configurator');
 
-// Legacy конфигуратор (Vanilla JS - для совместимости)
-Route::get('/legacy', [ConfiguratorController::class, 'legacy'])->name('configurator.legacy');
-
-// ТЕСТ: Минимальная загрузка
-Route::get('/test', function () {
-    return view('configurator.test');
-})->name('configurator.test');
-
 // Админ панель
 Route::prefix('admin')->group(function () {
     Route::get('/', [AdminController::class, 'index'])->name('admin.dashboard');

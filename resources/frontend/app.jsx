@@ -1,14 +1,14 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './components/App';
+import ConfiguratorPage from './pages/ConfiguratorPage';
 import '../css/app.css';
 
-// Монтирование основного конфигуратора
+// Монтирование страницы конфигуратора
 const rootElement = document.getElementById('root');
 if (rootElement) {
   ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
-      <App />
+      <ConfiguratorPage />
     </React.StrictMode>
   );
 }

@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     laravel({
       input: [
-        'resources/js/app.jsx',
+        'resources/frontend/app.jsx', // Текущий entry point (можно переименовать в .tsx позже)
         'resources/css/app.css'
       ],
       refresh: true,
@@ -58,8 +58,9 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': '/resources/js',
+      '@': '/resources/frontend',
       '@public': '/public/js'
     }
   }
 });
+

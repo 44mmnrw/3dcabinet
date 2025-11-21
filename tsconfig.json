@@ -1,0 +1,53 @@
+{
+  "compilerOptions": {
+    /* Основные настройки */
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Строгие проверки */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+
+    /* Дополнительные проверки */
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* Пути и алиасы */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["resources/frontend/*"],
+      "@public/*": ["public/js/*"]
+    },
+
+    /* Типы */
+    "types": ["vite/client"]
+  },
+  "include": [
+    "resources/frontend/**/*",
+    "resources/frontend/**/*.ts",
+    "resources/frontend/**/*.tsx",
+    "vite.config.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "public/build",
+    "vendor"
+  ],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}
+

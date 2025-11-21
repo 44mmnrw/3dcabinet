@@ -1,21 +1,24 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 
-function Scene3DContainer({ managers }) {
-  const containerRef = useRef(null);
-
+function Scene3DContainer({ managers, containerRef }) {
   useEffect(() => {
-    if (!managers || !containerRef.current) return;
+    if (!managers || !containerRef?.current) return;
 
     // Three.js рендерер уже создан в init.js
     // Просто подключаем контейнер
     const { renderer } = managers;
-    if (renderer && renderer.domElement) {
-      // Очищаем контейнер от старого канваса (если есть)
-      containerRef.current.innerHTML = '';
-      containerRef.current.appendChild(renderer.domElement);
+    const container = containerRef.current;
+    
+    if (renderer && renderer.domElement && container) {
+      // Проверяем, не добавлен ли уже canvas
+      if (!container.contains(renderer.domElement)) {
+        // Очищаем контейнер от старого канваса (если есть)
+        container.innerHTML = '';
+        container.appendChild(renderer.domElement);
+      }
       
       // Обновляем размер при монтировании
-      const { clientWidth, clientHeight } = containerRef.current;
+      const { clientWidth, clientHeight } = container;
       if (managers.camera) {
         managers.camera.aspect = clientWidth / clientHeight;
         managers.camera.updateProjectionMatrix();
@@ -25,7 +28,7 @@ function Scene3DContainer({ managers }) {
 
     // Обработка resize
     const handleResize = () => {
-      if (!containerRef.current || !managers.camera || !renderer) return;
+      if (!containerRef?.current || !managers.camera || !renderer) return;
       
       const { clientWidth, clientHeight } = containerRef.current;
       managers.camera.aspect = clientWidth / clientHeight;
@@ -35,15 +38,10 @@ function Scene3DContainer({ managers }) {
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [managers]);
+  }, [managers, containerRef]);
 
-  return (
-    <div
-      id="scene-container"
-      ref={containerRef}
-      className="scene-panel"
-    />
-  );
+  // Этот компонент не рендерит ничего, он только управляет подключением рендерера
+  return null;
 }
 
 export default Scene3DContainer;

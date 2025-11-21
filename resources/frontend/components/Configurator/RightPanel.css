@@ -1,0 +1,209 @@
+/* Правая боковая панель конфигуратора */
+.configurator-right-panel {
+  width: var(--panel-width); /* 360px при базовом размере, адаптивно через clamp */
+  background: var(--color-white);
+  border-left: 1px solid var(--color-light-gray);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Заголовок панели */
+.right-panel-header {
+  padding: var(--spacing-xl) var(--spacing-lg);
+  border-bottom: 1px solid var(--color-light-gray);
+  background: var(--color-background-2);
+}
+
+.right-panel-title {
+  font-size: 1.125rem;
+  font-weight: var(--font-weight-700);
+  color: var(--color-dark);
+  margin: 0 0 var(--spacing-xs) 0;
+}
+
+.right-panel-description {
+  font-size: 0.875rem;
+  color: var(--color-gray);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Контент панели */
+.right-panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-lg);
+}
+
+.right-panel-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.right-panel-section:last-child {
+  margin-bottom: 0;
+}
+
+.section-title {
+  font-size: 0.9375rem;
+  font-weight: var(--font-weight-600);
+  color: var(--color-dark);
+  margin: 0 0 var(--spacing-md) 0;
+}
+
+.section-title-warning {
+  color: var(--indicator-error);
+}
+
+.section-text {
+  font-size: 0.875rem;
+  color: var(--color-gray);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Карточка выбора */
+.selection-card {
+  background: var(--color-background-2);
+  border: 1px solid var(--color-light-gray);
+  border-radius: var(--border-radius-10);
+  padding: var(--spacing-md);
+}
+
+.selection-label {
+  font-size: 0.9375rem;
+  font-weight: var(--font-weight-600);
+  color: var(--color-blue);
+  margin-bottom: var(--spacing-sm);
+}
+
+.selection-params {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-light-gray);
+}
+
+.param-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8125rem;
+}
+
+.param-key {
+  color: var(--color-gray);
+  font-weight: var(--font-weight-400);
+}
+
+.param-value {
+  color: var(--color-dark);
+  font-weight: var(--font-weight-600);
+}
+
+/* Список конфликтов */
+.conflicts-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.conflict-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: rgba(230, 41, 41, 0.05);
+  border: 1px solid rgba(230, 41, 41, 0.2);
+  border-radius: var(--border-radius-8);
+}
+
+.conflict-icon {
+  flex-shrink: 0;
+  font-size: 1.125rem;
+  line-height: 1;
+}
+
+.conflict-message {
+  font-size: 0.875rem;
+  color: var(--color-dark);
+  line-height: 1.5;
+}
+
+/* Статистика */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-md);
+}
+
+.stat-item {
+  text-align: center;
+  padding: var(--spacing-md);
+  background: var(--color-background-2);
+  border-radius: var(--border-radius-10);
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: var(--font-weight-700);
+  color: var(--color-blue);
+  margin-bottom: var(--spacing-xs);
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--color-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Футер с кнопками */
+.right-panel-footer {
+  padding: var(--spacing-lg);
+  border-top: 1px solid var(--color-light-gray);
+  background: var(--color-background-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+/* Скроллбар */
+.right-panel-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.right-panel-content::-webkit-scrollbar-track {
+  background: var(--color-background-2);
+}
+
+.right-panel-content::-webkit-scrollbar-thumb {
+  background: var(--color-light-gray);
+  border-radius: 3px;
+}
+
+.right-panel-content::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray);
+}
+
+/* Адаптивность */
+/* Планшеты */
+@media (max-width: 1024px) {
+  .configurator-right-panel {
+    width: 20rem; /* 320px - немного меньше на планшетах */
+  }
+}
+
+/* Мобильные устройства */
+@media (max-width: 768px) {
+  .configurator-right-panel {
+    width: 100%;
+    height: auto;
+    max-height: 40vh;
+    border-left: none;
+    border-top: 1px solid var(--color-light-gray);
+  }
+}
+
