@@ -8,7 +8,8 @@ interface LeftPanelProps {
   steps?: Step[];
   state?: ConfiguratorState;
   onStepClick?: (stepIndex: number) => void;
-  onCategoryChange?: (category: CabinetCategory) => void;
+  onCategoryChange?: (category: CabinetCategory | null) => void;
+  onAssemblyTypeClick?: (assemblyTypeId: string) => void;
   showProgress?: boolean;
 }
 
@@ -17,20 +18,34 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
   state,
   onStepClick,
   onCategoryChange,
+  onAssemblyTypeClick,
 }) => {
-  const [activeCategory, setActiveCategory] = useState<CabinetCategory>('thermal');
+  // По умолчанию никакая категория не выбрана
+  const [activeCategory, setActiveCategory] = useState<CabinetCategory | null>(null);
   const [activeAssemblyType, setActiveAssemblyType] = useState<string | null>(null);
+  const [showAssemblyTypes, setShowAssemblyTypes] = useState(false);
 
   const handleCategoryChange = (category: CabinetCategory) => {
+    // Если кликнули на ту же категорию - скрываем assemblyTypes
+    if (activeCategory === category && showAssemblyTypes) {
+      setActiveCategory(null);
+      setShowAssemblyTypes(false);
+      setActiveAssemblyType(null);
+      onCategoryChange?.(null);
+      return;
+    }
+    
     setActiveCategory(category);
     setActiveAssemblyType(null); // Сбрасываем выбор типа сборки при смене категории
+    setShowAssemblyTypes(true); // Показываем кнопки assemblyTypes
     onCategoryChange?.(category);
   };
 
   const handleAssemblyTypeClick = (type: string) => {
     setActiveAssemblyType(type);
     console.log('Выбран тип сборки:', type);
-    // Здесь будет логика обработки выбора типа сборки
+    // Вызываем колбэк из родительского компонента
+    onAssemblyTypeClick?.(type);
   };
 
   const categories = [
@@ -39,11 +54,22 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
     { id: 'telecom-floor' as CabinetCategory, label: 'Напольные телеком', icon: 'icon-box' },
   ];
 
-  const assemblyTypes = [
-    { id: 'linear', label: 'Линейная сборка', icon: 'icon-box' },
-    { id: 'modular', label: 'Модульная сборка', icon: 'icon-box' },
-    { id: 'standard', label: 'Типовые решения', icon: 'icon-box' },
-  ];
+  // Определяем assemblyTypes для каждой категории (можно расширять в будущем)
+  const assemblyTypesMap: Record<CabinetCategory, Array<{ id: string; label: string; icon: string }>> = {
+    'thermal': [
+      { id: 'linear', label: 'Линейная сборка', icon: 'icon-box' },
+      { id: 'modular', label: 'Модульная сборка', icon: 'icon-box' },
+      { id: 'standard', label: 'Типовые решения', icon: 'icon-box' },
+    ],
+    'telecom-wall': [], // Пока нет assemblyTypes для настенных телеком
+    'telecom-floor': [], // Пока нет assemblyTypes для напольных телеком
+  };
+
+  // Получить assemblyTypes для выбранной категории
+  const getAssemblyTypesForCategory = (category: CabinetCategory | null): Array<{ id: string; label: string; icon: string }> => {
+    if (!category) return [];
+    return assemblyTypesMap[category] || [];
+  };
 
   return (
     <div className="configurator-left-panel">
@@ -57,7 +83,7 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
           {categories.map((category) => (
             <button
               key={category.id}
-              className={`tab-button ${activeCategory === category.id ? 'active' : ''}`}
+              className={`tab-button category-${category.id} ${activeCategory === category.id ? 'active' : ''}`}
               onClick={() => handleCategoryChange(category.id)}
               title={category.label}
             >
@@ -71,40 +97,31 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
           ))}
         </div>
 
-        {activeCategory === 'thermal' && (
-          <div className="category-content">
-            <div className="assembly-type-buttons">
-              {assemblyTypes.map((type) => (
-                <button
-                  key={type.id}
-                  className={`tab-button ${activeAssemblyType === type.id ? 'active' : ''}`}
-                  onClick={() => handleAssemblyTypeClick(type.id)}
-                >
-                  <div className="tab-button-icon-container">
-                    <svg className="tab-button-icon assembly-type-icon" preserveAspectRatio="xMidYMid meet">
-                      <use xlinkHref={`#${type.icon}`} />
-                    </svg>
-                  </div>
-                  <span className="tab-button-label assembly-type-label" lang="ru">{type.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeCategory === 'telecom-wall' && (
-          <div className="category-content">
-            <div className="category-placeholder">
-              <p>Контент для настенных телеком шкафов</p>
-            </div>
-          </div>
-        )}
-
-        {activeCategory === 'telecom-floor' && (
-          <div className="category-content">
-            <div className="category-placeholder">
-              <p>Контент для напольных телеком шкафов</p>
-            </div>
+        {/* Кнопки assemblyTypes появляются только при выборе категории */}
+        {showAssemblyTypes && activeCategory && (
+          <div className={`category-content assembly-types-container ${showAssemblyTypes ? 'visible' : ''}`}>
+            {getAssemblyTypesForCategory(activeCategory).length > 0 ? (
+              <div className="assembly-type-buttons">
+                {getAssemblyTypesForCategory(activeCategory).map((type) => (
+                  <button
+                    key={type.id}
+                    className={`tab-button assembly-${type.id} ${activeAssemblyType === type.id ? 'active' : ''}`}
+                    onClick={() => handleAssemblyTypeClick(type.id)}
+                  >
+                    <div className="tab-button-icon-container">
+                      <svg className="tab-button-icon assembly-type-icon" preserveAspectRatio="xMidYMid meet">
+                        <use xlinkHref={`#${type.icon}`} />
+                      </svg>
+                    </div>
+                    <span className="tab-button-label assembly-type-label" lang="ru">{type.label}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="category-placeholder">
+                <p>Контент для {activeCategory === 'telecom-wall' ? 'настенных телеком' : activeCategory === 'telecom-floor' ? 'напольных телеком' : 'шкафов'}</p>
+              </div>
+            )}
           </div>
         )}
       </div>

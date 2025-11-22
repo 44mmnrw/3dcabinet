@@ -154,11 +154,28 @@ export class CabinetFactory {
      */
     static async loadAndRegister(className, modulePath, registry = null) {
         try {
-            const module = await import(modulePath);
+            // Используем предзагруженные модули через import.meta.glob (совместимо с Vite)
+            const moduleKey = Object.keys(cabinetModules).find(key => 
+                key.includes(`${className}/${className}.js`) || 
+                (modulePath && key.includes(modulePath))
+            );
+
+            if (!moduleKey) {
+                const available = Object.keys(cabinetModules).slice(0, 5).join(', ');
+                throw new Error(
+                    `Модуль шкафа ${className} не найден. ` +
+                    `Доступные модули (первые 5): ${available}...`
+                );
+            }
+
+            const module = cabinetModules[moduleKey];
             const CabinetClass = module[className];
             
             if (!CabinetClass) {
-                throw new Error(`Класс "${className}" не найден в "${modulePath}"`);
+                throw new Error(
+                    `Класс "${className}" не найден в модуле. ` +
+                    `Доступные экспорты: ${Object.keys(module).join(', ')}`
+                );
             }
             
             // Регистрировать, если передан реестр

@@ -12,7 +12,7 @@ function Scene3DContainer({ managers, containerRef }) {
     if (renderer && renderer.domElement && container) {
       // Проверяем, не добавлен ли уже canvas
       if (!container.contains(renderer.domElement)) {
-        // Очищаем контейнер от старого канваса (если есть)
+      // Очищаем контейнер от старого канваса (если есть)
         container.innerHTML = '';
         container.appendChild(renderer.domElement);
       }

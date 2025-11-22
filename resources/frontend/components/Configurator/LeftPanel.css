@@ -62,6 +62,7 @@
   overflow-wrap: break-word;
   hyphens: none; /* Отключаем автоматические дефисы при переносе */
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25); /* Тень снизу 25% прозрачности */
+  border: 2px solid transparent; /* Прозрачная рамка по умолчанию для плавного перехода */
 }
 
 /* Вкладки категорий */
@@ -86,12 +87,84 @@
 
 .tab-button.active {
   background: var(--color-white);
-  color: var(--color-blue);
+  /* Цвет текста не меняем - остается как у неактивной кнопки */
 }
 
 .tab-button.active:hover {
   background: var(--color-white);
-  color: var(--color-blue-dark);
+}
+
+/* Визуализация нажатия кнопки */
+.tab-button:active {
+  transform: scale(0.98);
+  transition: transform 0.1s ease;
+}
+
+/* Индивидуальные стили для категорий при активации */
+.tab-button.category-thermal.active {
+  border: 2px solid #E74C3C; /* Красная рамка для термошкафов */
+  box-shadow: 0 6px 16px rgba(231, 76, 60, 0.6); /* Усиленная цветная тень */
+}
+
+.tab-button.category-thermal.active .tab-button-icon-container {
+  background: #E74C3C; /* Тот же цвет, что и рамка */
+  border: 2px solid var(--color-white); /* Белая рамка иконки */
+}
+
+.tab-button.category-telecom-wall.active {
+  border: 2px solid #3498DB; /* Синяя рамка для настенных телеком */
+  box-shadow: 0 6px 16px rgba(52, 152, 219, 0.6); /* Усиленная цветная тень */
+}
+
+.tab-button.category-telecom-wall.active .tab-button-icon-container {
+  background: #3498DB; /* Тот же цвет, что и рамка */
+  border: 2px solid var(--color-white); /* Белая рамка иконки */
+}
+
+.tab-button.category-telecom-floor.active {
+  border: 2px solid #9B59B6; /* Фиолетовая рамка для напольных телеком */
+  box-shadow: 0 6px 16px rgba(155, 89, 182, 0.6); /* Усиленная цветная тень */
+}
+
+.tab-button.category-telecom-floor.active .tab-button-icon-container {
+  background: #9B59B6; /* Тот же цвет, что и рамка */
+  border: 2px solid var(--color-white); /* Белая рамка иконки */
+}
+
+/* Индивидуальные стили для типов сборки при активации */
+.tab-button.assembly-linear.active {
+  border: 2px solid #F39C12; /* Оранжевая рамка для линейной сборки */
+  box-shadow: 0 6px 16px rgba(243, 156, 18, 0.6); /* Усиленная цветная тень */
+}
+
+.tab-button.assembly-linear.active .tab-button-icon-container {
+  background: #F39C12; /* Тот же цвет, что и рамка */
+  border: 2px solid var(--color-white); /* Белая рамка иконки */
+}
+
+.tab-button.assembly-modular.active {
+  border: 2px solid #1ABC9C; /* Бирюзовая рамка для модульной сборки */
+  box-shadow: 0 6px 16px rgba(26, 188, 156, 0.6); /* Усиленная цветная тень */
+}
+
+.tab-button.assembly-modular.active .tab-button-icon-container {
+  background: #1ABC9C; /* Тот же цвет, что и рамка */
+  border: 2px solid var(--color-white); /* Белая рамка иконки */
+}
+
+.tab-button.assembly-standard.active {
+  border: 2px solid #27AE60; /* Зеленая рамка для типовых решений */
+  box-shadow: 0 6px 16px rgba(39, 174, 96, 0.6); /* Усиленная цветная тень */
+}
+
+.tab-button.assembly-standard.active .tab-button-icon-container {
+  background: #27AE60; /* Тот же цвет, что и рамка */
+  border: 2px solid var(--color-white); /* Белая рамка иконки */
+}
+
+/* Общий стиль для всех активных иконок - белый цвет */
+.tab-button.active .tab-button-icon-container svg {
+  color: var(--color-white);
 }
 
 
@@ -101,11 +174,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.25rem; /* 36px при базовом размере шрифта 16px */
-  height: 2.25rem;
+  width: 3rem; /* 36px при базовом размере шрифта 16px */
+  height: 3rem;
   background: #E2E8F0;
   border-radius: 12px;
   padding: 4px;
+  border: 2px solid transparent; /* Прозрачная рамка по умолчанию для плавного перехода */
+  transition: all var(--transition-duration);
 }
 
 /* Общие стили для иконок - как на лендинге */
@@ -160,6 +235,73 @@
   width: 100%;
   margin: 0;
   padding: 0;
+}
+
+/* Анимация появления кнопок assemblyTypes */
+.assembly-types-container {
+  animation: slideInUp 0.4s ease-out;
+  overflow: hidden;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 200px; /* Примерная максимальная высота для кнопок */
+  }
+}
+
+/* Анимация появления отдельных кнопок с задержкой */
+.assembly-type-buttons {
+  animation: fadeInScale 0.5s ease-out;
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Индивидуальная анимация для каждой кнопки assemblyType */
+.assembly-type-buttons .tab-button {
+  animation: slideInButton 0.4s ease-out backwards;
+}
+
+.assembly-type-buttons .tab-button:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.assembly-type-buttons .tab-button:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.assembly-type-buttons .tab-button:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.assembly-type-buttons .tab-button:nth-child(4) {
+  animation-delay: 0.4s;
+}
+
+@keyframes slideInButton {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .category-placeholder {

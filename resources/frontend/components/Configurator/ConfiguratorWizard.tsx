@@ -27,7 +27,7 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
   onContinue,
 }) => {
   const [managers, setManagers] = useState<any>(null);
-  const [showStepOverlay, setShowStepOverlay] = useState(true);
+  const [showStepOverlay, setShowStepOverlay] = useState(false); // По умолчанию скрыто
   const managersRef = useRef<any>(null);
   const sceneContainerRef = useRef<HTMLDivElement>(null);
 
@@ -91,16 +91,19 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
     if (currentStep && onSelectOption) {
       onSelectOption(currentStep.id, option);
       // Скрываем overlay после выбора
-      setShowStepOverlay(false);
+      closeStepModal();
     }
   };
 
-  // Показываем overlay, если есть незавершенный шаг
-  useEffect(() => {
-    if (currentStep && !currentSelection) {
-      setShowStepOverlay(true);
-    }
-  }, [currentStep, currentSelection]);
+  // Открытие модального окна (будет вызываться из LeftPanel)
+  const openStepModal = () => {
+    setShowStepOverlay(true);
+  };
+
+  // Закрытие модального окна
+  const closeStepModal = () => {
+    setShowStepOverlay(false);
+  };
 
   return (
     <div className="configurator-wizard">
@@ -112,6 +115,12 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
         onCategoryChange={(category) => {
           console.log('Категория изменена:', category);
           // Здесь будет логика переключения категории
+        }}
+        onAssemblyTypeClick={(assemblyTypeId) => {
+          // При клике на кнопку assemblyType открываем модальное окно
+          if (assemblyTypeId === 'linear') {
+            openStepModal();
+          }
         }}
         showProgress={config.progress.showStepLabel}
       />
@@ -137,7 +146,7 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
               />
               <button
                 className="step-overlay-close"
-                onClick={() => setShowStepOverlay(false)}
+                onClick={closeStepModal}
                 title="Скрыть опции (можно продолжить работу с 3D)"
               >
                 ✕

@@ -346,8 +346,7 @@
             </div>
         </div>
     </section>
-
-    <!-- СЕКЦИЯ 5: Призыв к действию -->
+   <!-- СЕКЦИЯ 5: Призыв к действию -->
     <section class="fifth-section">
         <h2 class="section-title">Готовы начать?</h2>
         <p class="section-description">Создайте свой первый проект бесплатно</p>
