@@ -13,7 +13,7 @@ console.log('🧪 Начало Smoke Test...\n');
 // ========== Test 1: TypeRegistry ==========
 console.log('=== Test 1: TypeRegistry ===');
 
-import { typeRegistry, ThermalCabinet } from '../types/index.js';
+import { typeRegistry, ThermalCabinet } from '../types/index.ts';
 
 const thermalConfig = {
     id: 'test_thermal',
@@ -171,7 +171,7 @@ console.log('');
 // ========== Test 6: TelecomCabinet Calculations ==========
 console.log('=== Test 6: TelecomCabinet Calculations ===');
 
-import { TelecomCabinet } from '../types/TelecomCabinet.js';
+import { TelecomCabinet } from '../types/TelecomCabinet.ts';
 
 try {
     const telecomConfig = {

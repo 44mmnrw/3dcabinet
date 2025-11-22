@@ -110,7 +110,8 @@ export const config = {
     }
   ],
   "door": {
-    "componentName": "door_tsh_700_500_250",
+    // Исправлено имя компонента двери на фактическое имя загруженного компонента
+    "componentName": "door_700_500_250",
     "pivotOffset": {
       "x": -0.093,
       "y": 0.0,

@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import type {
   ConfiguratorConfig,
   ConfiguratorState,
-  Step,
   StepOption,
   Selection,
   Conflict,
@@ -44,6 +43,7 @@ export function useConfiguratorState(config: ConfiguratorConfig) {
     
     config.steps.forEach((step) => {
       if (!step.showWhen) {
+        // Шаги без showWhen всегда видимы (например, первый шаг)
         visible.push(step.id);
         return;
       }
@@ -52,10 +52,12 @@ export function useConfiguratorState(config: ConfiguratorConfig) {
       const dependencySelection = state.selections[dependencyStep];
 
       if (condition === 'any') {
+        // Показываем шаг, если зависимый шаг заполнен
         if (dependencySelection) {
           visible.push(step.id);
         }
       } else if (condition === 'specific' && values) {
+        // Показываем шаг, если зависимый шаг заполнен и значение совпадает
         if (dependencySelection && values.includes(dependencySelection.value)) {
           visible.push(step.id);
         }
@@ -67,11 +69,25 @@ export function useConfiguratorState(config: ConfiguratorConfig) {
 
   // Обновление видимых шагов в состоянии
   useEffect(() => {
-    setState((prev) => ({
-      ...prev,
-      visibleSteps,
-    }));
-  }, [visibleSteps.join(',')]);
+    setState((prev) => {
+      // Если visibleSteps пустой, но есть шаги без showWhen, добавляем их
+      if (visibleSteps.length === 0) {
+        const stepsWithoutShowWhen = config.steps
+          .filter((step) => !step.showWhen)
+          .map((step) => step.id);
+        if (stepsWithoutShowWhen.length > 0) {
+          return {
+            ...prev,
+            visibleSteps: stepsWithoutShowWhen,
+          };
+        }
+      }
+      return {
+        ...prev,
+        visibleSteps,
+      };
+    });
+  }, [visibleSteps.join(','), config.steps]);
 
   // Валидация состояния
   const isValid = useMemo(() => {
@@ -142,21 +158,46 @@ export function useConfiguratorState(config: ConfiguratorConfig) {
           });
         }
 
+        // Вычисляем видимые шаги с учетом нового выбора
+        const updatedVisibleSteps: string[] = [];
+        config.steps.forEach((step) => {
+          if (!step.showWhen) {
+            updatedVisibleSteps.push(step.id);
+            return;
+          }
+          const { step: dependencyStep, condition, values } = step.showWhen;
+          const dependencySelection = newSelections[dependencyStep];
+          if (condition === 'any') {
+            if (dependencySelection) {
+              updatedVisibleSteps.push(step.id);
+            }
+          } else if (condition === 'specific' && values) {
+            if (dependencySelection && values.includes(dependencySelection.value)) {
+              updatedVisibleSteps.push(step.id);
+            }
+          }
+        });
+
         // Переход к следующему шагу, если есть
         const currentStepIndex = config.steps.findIndex((s) => s.id === stepId);
         const nextVisibleStepIndex = config.steps.findIndex(
           (s, index) =>
             index > currentStepIndex &&
-            visibleSteps.includes(s.id) &&
+            updatedVisibleSteps.includes(s.id) &&
             !newSelections[s.id]
         );
+
+        // Если следующий шаг найден, переходим к нему, иначе остаемся на текущем
+        const newCurrentStep = nextVisibleStepIndex >= 0 
+          ? nextVisibleStepIndex 
+          : prev.currentStep;
 
         return {
           ...prev,
           selections: newSelections,
           conflicts,
-          currentStep:
-            nextVisibleStepIndex >= 0 ? nextVisibleStepIndex : prev.currentStep,
+          visibleSteps: updatedVisibleSteps,
+          currentStep: newCurrentStep,
           history: [...prev.history, prev.currentStep],
         };
       });
@@ -175,22 +216,20 @@ export function useConfiguratorState(config: ConfiguratorConfig) {
 
   // Возврат назад
   const goBack = useCallback(() => {
-    setState((prev) => {
+    setState((prev): ConfiguratorState => {
       if (prev.history.length === 0) return prev;
 
-      const previousStep = prev.history[prev.history.length - 1];
+      const previousStep = prev.history[prev.history.length - 1]!; // гарантировано, т.к. length > 0
       const newHistory = prev.history.slice(0, -1);
 
-      // Очистка зависимых шагов, если включено
       let newSelections = { ...prev.selections };
       if (config.navigation.clearFutureOnBack) {
         const currentStepId = config.steps[prev.currentStep]?.id;
         if (currentStepId) {
-          // Удаляем выборы для шагов после предыдущего
           const stepsToClear = config.steps.slice(previousStep + 1);
-          stepsToClear.forEach((step) => {
-            delete newSelections[step.id];
-          });
+            stepsToClear.forEach((step) => {
+              delete newSelections[step.id];
+            });
         }
       }
 
@@ -199,7 +238,11 @@ export function useConfiguratorState(config: ConfiguratorConfig) {
         currentStep: previousStep,
         history: newHistory,
         selections: newSelections,
-        conflicts: [], // Очищаем конфликты при возврате
+        conflicts: [] as Conflict[],
+        draftSaved: prev.draftSaved,
+        isValid: prev.isValid,
+        visibleSteps: prev.visibleSteps,
+        lastSavedAt: prev.lastSavedAt
       };
     });
   }, [config.steps, config.navigation.clearFutureOnBack]);

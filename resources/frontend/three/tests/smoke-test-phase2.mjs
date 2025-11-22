@@ -4,8 +4,8 @@
  * Запуск: node public/js/tests/smoke-test-phase2.mjs
  */
 
-import { LogicEngine, ThermalLogicPlugin, TelecomLogicPlugin, ServerLogicPlugin, createDefaultLogicEngine } from '../logic/index.js';
-import { EventBus, ConfiguratorEvents } from '../events/EventBus.js';
+import { LogicEngine, ThermalLogicPlugin, TelecomLogicPlugin, ServerLogicPlugin, createDefaultLogicEngine } from '../logic/index.ts';
+import { EventBus, ConfiguratorEvents } from '../events/EventBus.ts';
 
 console.log('🧪 Phase 2 Smoke Test\n');
 

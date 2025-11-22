@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { FreeCADGeometryLoader } from '../../loaders/FreeCADGeometryLoader.js';
+import { FreeCADGeometryLoader } from '../../loaders/FreeCADGeometryLoader.ts';
 import { config as defaultConfig } from './config.js';
-import { CabinetBase } from '../CabinetBase.js';
+import { CabinetBase } from '../CabinetBase.ts';
 
 /**
  * Класс шкафа tsh_700_500_250

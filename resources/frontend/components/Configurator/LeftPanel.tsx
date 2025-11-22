@@ -14,9 +14,9 @@ interface LeftPanelProps {
 }
 
 const LeftPanel: React.FC<LeftPanelProps> = ({
-  steps,
-  state,
-  onStepClick,
+  steps: _steps,
+  state: _state,
+  onStepClick: _onStepClick,
   onCategoryChange,
   onAssemblyTypeClick,
 }) => {

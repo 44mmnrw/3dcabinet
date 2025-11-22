@@ -221,7 +221,7 @@ export class TS_1200_800_400 {
 ### Шаг 4: Использование в коде
 
 ```javascript
-// В test-assembler.js или другом коде
+// В Assembler.js или другом коде
 await cabinetManager.addCabinetById('TS_1200_800_400');
 ```
 
@@ -463,7 +463,7 @@ python3 --version
 После генерации протестируйте класс:
 
 ```javascript
-// В test-assembler.js
+// В Assembler.js
 import { TS_1200_800_400 } from './cabinets/TS_1200_800_400/TS_1200_800_400.js';
 
 const cabinet = new TS_1200_800_400();

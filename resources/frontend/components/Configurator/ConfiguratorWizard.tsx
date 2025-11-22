@@ -2,8 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { ConfiguratorConfig, ConfiguratorState, StepOption } from '@/types/configurator';
 import { LeftPanel, RightPanel, StepContainer } from './index';
 import Scene3DContainer from '../Scene3D/Scene3DContainer';
-import { initializeManagers } from '../../three/managers/init.js';
 import './ConfiguratorWizard.css';
+
+// Импорт initializeManagers из TypeScript модуля
+import { initializeManagers } from '../../three/managers/init';
 
 interface ConfiguratorWizardProps {
   config: ConfiguratorConfig;
@@ -27,9 +29,51 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
   onContinue,
 }) => {
   const [managers, setManagers] = useState<any>(null);
-  const [showStepOverlay, setShowStepOverlay] = useState(false); // По умолчанию скрыто
+  const [showStepOverlay, setShowStepOverlay] = useState(false);
   const managersRef = useRef<any>(null);
   const sceneContainerRef = useRef<HTMLDivElement>(null);
+
+  // Вычисляем видимые шаги и текущий шаг ДО использования в useEffect
+  const visibleStepsList = config.steps.filter((step) =>
+    state.visibleSteps.includes(step.id)
+  );
+  
+  // currentStep в state - это индекс в массиве всех шагов config.steps
+  // Нужно найти соответствующий шаг в видимых шагах
+  const currentStepInAllSteps = config.steps[state.currentStep];
+  const currentStep = currentStepInAllSteps && state.visibleSteps.includes(currentStepInAllSteps.id)
+    ? currentStepInAllSteps
+    : visibleStepsList[0] || null; // Если текущий шаг не виден, берем первый видимый
+  
+  const currentSelection = currentStep
+    ? state.selections[currentStep.id]
+    : undefined;
+
+  // Автоматическое открытие модального окна для текущего шага, если он не заполнен
+  useEffect(() => {
+    if (currentStep && !currentSelection) {
+      // Открываем модальное окно для текущего шага, если он не заполнен
+      setShowStepOverlay(true);
+    } else if (currentStep && currentSelection) {
+      // Если шаг заполнен, проверяем, есть ли следующий незаполненный шаг
+      const currentStepIndexInVisible = visibleStepsList.findIndex(
+        (s) => s.id === currentStep.id
+      );
+      const nextUnfilledStep = visibleStepsList.find(
+        (step, index) =>
+          index > currentStepIndexInVisible && !state.selections[step.id]
+      );
+      
+      if (nextUnfilledStep) {
+        // Есть следующий незаполненный шаг - оставляем модальное окно открытым
+        // Оно автоматически переключится на следующий шаг
+        setShowStepOverlay(true);
+      } else {
+        // Все шаги заполнены - закрываем модальное окно
+        setShowStepOverlay(false);
+      }
+    }
+  }, [currentStep, currentSelection, state.visibleSteps, state.selections, config.steps]);
 
   // Инициализация Three.js менеджеров после монтирования контейнера
   useEffect(() => {
@@ -46,15 +90,27 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
       // Устанавливаем ID для контейнера, чтобы init.js мог его найти
       sceneContainerRef.current.id = 'scene-container';
       
-      const initializedManagers = await initializeManagers('scene-container');
-      
-      if (!initializedManagers) {
-        console.error('❌ Не удалось инициализировать менеджеры');
+      let initializedManagers;
+      try {
+        initializedManagers = await initializeManagers('scene-container');
+        
+        if (!initializedManagers) {
+          console.error('❌ Не удалось инициализировать менеджеры');
+          return;
+        }
+        
+        console.log('✅ Менеджеры инициализированы:', initializedManagers);
+      } catch (error) {
+        console.error('❌ Ошибка инициализации менеджеров:', error);
+        console.error('Stack:', (error as Error).stack);
         return;
       }
 
       managersRef.current = initializedManagers;
       setManagers(initializedManagers);
+      
+      // Сохраняем managers в window для отладки (дополнительно к отдельным объектам)
+      (window as any).managers = initializedManagers;
       
       // Инициализация Drag & Drop
       if (initializedManagers?.initializeDragDrop) {
@@ -67,7 +123,7 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
         try {
           await initializedManagers.cabinet.loadCatalog();
           await initializedManagers.cabinet.addCabinetById('tsh_700_500_250');
-          console.log('✅ Шкаф загружен');
+          console.log('✅ Шкаф загружен автоматически');
         } catch (err) {
           console.error('❌ Ошибка загрузки шкафа:', err);
         }
@@ -77,21 +133,11 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
     initScene();
   }, []);
 
-  const visibleStepsList = config.steps.filter((step) =>
-    state.visibleSteps.includes(step.id)
-  );
-  
-  const currentStepIndex = state.currentStep;
-  const currentStep = visibleStepsList[currentStepIndex] || null;
-  const currentSelection = currentStep
-    ? state.selections[currentStep.id]
-    : undefined;
-
   const handleSelectOption = (option: StepOption) => {
     if (currentStep && onSelectOption) {
       onSelectOption(currentStep.id, option);
-      // Скрываем overlay после выбора
-      closeStepModal();
+      // Модальное окно закроется автоматически через useEffect,
+      // когда появится следующий шаг или текущий будет заполнен
     }
   };
 
