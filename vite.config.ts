@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     laravel({
       input: [
-        'resources/frontend/app.jsx', // Текущий entry point (можно переименовать в .tsx позже)
+        'resources/frontend/app.tsx', // TypeScript entry point после миграции с .jsx
         'resources/css/app.css'
       ],
       refresh: true,

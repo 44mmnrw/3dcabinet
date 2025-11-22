@@ -6,7 +6,7 @@
     <title>3Cabinet React</title>
     
     @viteReactRefresh
-    @vite(['resources/css/app.css', 'resources/frontend/app.jsx'])
+    @vite(['resources/css/app.css', 'resources/frontend/app.tsx'])
 </head>
 <body>
     <!-- SVG-спрайт (скрыт) -->
