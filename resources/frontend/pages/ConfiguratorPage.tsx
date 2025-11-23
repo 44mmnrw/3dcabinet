@@ -27,6 +27,7 @@ const ConfiguratorPage: React.FC = () => {
 
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [saveDraft]);
 
   const handleContinue = () => {
@@ -54,6 +55,7 @@ const ConfiguratorPage: React.FC = () => {
 
     // Переход на страницу 3D конфигуратора
     window.location.href = thermalCabinetConfig.continueButton.route;
+    return;
   };
 
   const handleStepClick = (stepIndex: number) => {

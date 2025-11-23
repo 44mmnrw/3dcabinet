@@ -18,11 +18,16 @@
     "jsx": "react-jsx",
 
     /* Строгие проверки */
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true,
+    "strict": true,                      // Включает: strictNullChecks, strictFunctionTypes, strictBindCallApply, strictPropertyInitialization, noImplicitThis, alwaysStrict, noImplicitAny
+    "noUnusedLocals": true,             // Запрещает неиспользуемые локальные переменные
+    "noUnusedParameters": true,         // Запрещает неиспользуемые параметры
+    "noFallthroughCasesInSwitch": true, // Запрещает fallthrough в switch
+    "noUncheckedIndexedAccess": true,   // Строгая проверка доступа к массивам/объектам
+    
+    /* Дополнительные строгие проверки */
+    "noImplicitReturns": true,          // Функции должны явно возвращать значение
+    "noPropertyAccessFromIndexSignature": true, // Требует использовать [] для индексных сигнатур (userData['key'] вместо userData.key)
+    "exactOptionalPropertyTypes": true,  // Строгая проверка optional свойств (undefined !== отсутствие свойства)
 
     /* Дополнительные проверки */
     "allowSyntheticDefaultImports": true,

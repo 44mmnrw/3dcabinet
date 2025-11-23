@@ -11,6 +11,8 @@ interface LeftPanelProps {
   onCategoryChange?: (category: CabinetCategory | null) => void;
   onAssemblyTypeClick?: (assemblyTypeId: string) => void;
   showProgress?: boolean;
+  managers?: any; // Временный проп для доступа к managers (для тестовых кнопок)
+  managersRef?: React.RefObject<any>; // Ref к managers для использования точно такого же объекта
 }
 
 const LeftPanel: React.FC<LeftPanelProps> = ({
@@ -19,6 +21,8 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
   onStepClick: _onStepClick,
   onCategoryChange,
   onAssemblyTypeClick,
+  managers,
+  managersRef,
 }) => {
   // По умолчанию никакая категория не выбрана
   const [activeCategory, setActiveCategory] = useState<CabinetCategory | null>(null);
@@ -125,6 +129,63 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
           </div>
         )}
       </div>
+
+      {/* 
+        ============================================
+        ВРЕМЕННЫЕ КНОПКИ ДЛЯ ТЕСТА МОДЕЛЕЙ
+        ============================================
+        TODO: УДАЛИТЬ ПОСЛЕ ТЕСТИРОВАНИЯ TypeScript моделей
+        Поиск: "ВРЕМЕННЫЕ КНОПКИ ДЛЯ ТЕСТА"
+        ============================================
+      */}
+      {managers?.cabinet && (
+        <div className="test-buttons-container">
+          <button
+            className="test-button test-button-400"
+            onClick={async () => {
+              try {
+                // ТОЧНО ТАК ЖЕ КАК ПРИ АВТОМАТИЧЕСКОЙ ЗАГРУЗКЕ - используем managersRef.current
+                const initializedManagers = managersRef?.current || managers;
+                if (initializedManagers?.cabinet) {
+                  await initializedManagers.cabinet.loadCatalog();
+                  await initializedManagers.cabinet.addCabinetById('tsh_400_300_220');
+                  console.log('✅ Шкаф загружен автоматически');
+                } else {
+                  console.error('❌ Managers не инициализированы');
+                }
+              } catch (err) {
+                console.error('❌ Ошибка загрузки шкафа:', err);
+                alert(`Ошибка загрузки шкафа: ${err instanceof Error ? err.message : String(err)}`);
+              }
+            }}
+            title="Загрузить шкаф tsh_400_300_220 на сцену"
+          >
+            Загрузить tsh_400_300_220
+          </button>
+          <button
+            className="test-button test-button-700"
+            onClick={async () => {
+              try {
+                // ТОЧНО ТАК ЖЕ КАК ПРИ АВТОМАТИЧЕСКОЙ ЗАГРУЗКЕ - используем managersRef.current
+                const initializedManagers = managersRef?.current || managers;
+                if (initializedManagers?.cabinet) {
+                  await initializedManagers.cabinet.loadCatalog();
+                  await initializedManagers.cabinet.addCabinetById('tsh_700_500_250');
+                  console.log('✅ Шкаф загружен автоматически');
+                } else {
+                  console.error('❌ Managers не инициализированы');
+                }
+              } catch (err) {
+                console.error('❌ Ошибка загрузки шкафа:', err);
+                alert(`Ошибка загрузки шкафа: ${err instanceof Error ? err.message : String(err)}`);
+              }
+            }}
+            title="Загрузить шкаф tsh_700_500_250 на сцену"
+          >
+            Загрузить tsh_700_500_250
+          </button>
+        </div>
+      )}
     </div>
   );
 };

@@ -4,41 +4,27 @@
       "id": "tsh_700_500_250",
       "name": "Шкаф tsh 700 500 250",
       "className": "tsh_700_500_250",
-      "modulePath": "../cabinets/tsh_700_500_250/tsh_700_500_250.js",
-      "category": "thermal",
+      "modulePath": "tsh_700_500_250/tsh_700_500_250.ts",
       "dimensions": {
         "width": 0,
         "height": 0,
         "depth": 0
       },
       "mountingType": "din_rail",
-      "mountingCapabilities": ["din_rail", "mounting_plate"],
-      "mountingZones": [
-        {
-          "type": "din_rail",
-          "componentNames": ["din_rail40_700_500_250_1", "din_rail40_700_500_250_2", "din_rail40_700_500_250_3"]
-        }
-      ],
-      "description": "Шкаф 0×0×0 мм (автоматически сгенерирован)",
-      "specs": {
-        "maxLoad": 50,
-        "maxPower": 3000
+      "description": "Шкаф 0×0×0 мм (автоматически сгенерирован)"
+    },
+    {
+      "id": "tsh_400_300_220",
+      "name": "Шкаф tsh 400 300 220",
+      "className": "tsh_400_300_220",
+      "modulePath": "../cabinets/tsh_400_300_220/tsh_400_300_220.ts",
+      "dimensions": {
+        "width": 0,
+        "height": 0,
+        "depth": 0
       },
-      "thermal": {
-        "heatingPower": 800,
-        "coolingPower": 0,
-        "insulation": "standard",
-        "operatingTemp": {
-          "min": -40,
-          "max": 55
-        }
-      },
-      "climate": {
-        "hasHeater": true,
-        "hasCooler": false,
-        "hasThermostat": false,
-        "hasHumidityControl": false
-      }
+      "mountingType": "din_rail",
+      "description": "Шкаф 0×0×0 мм (автоматически сгенерирован)"
     }
   ]
 }

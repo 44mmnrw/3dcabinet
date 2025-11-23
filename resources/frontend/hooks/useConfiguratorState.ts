@@ -233,7 +233,7 @@ export function useConfiguratorState(config: ConfiguratorConfig) {
         }
       }
 
-      return {
+      const newState: ConfiguratorState = {
         ...prev,
         currentStep: previousStep,
         history: newHistory,
@@ -241,9 +241,12 @@ export function useConfiguratorState(config: ConfiguratorConfig) {
         conflicts: [] as Conflict[],
         draftSaved: prev.draftSaved,
         isValid: prev.isValid,
-        visibleSteps: prev.visibleSteps,
-        lastSavedAt: prev.lastSavedAt
+        visibleSteps: prev.visibleSteps
       };
+      if (prev.lastSavedAt !== undefined) {
+        newState.lastSavedAt = prev.lastSavedAt;
+      }
+      return newState;
     });
   }, [config.steps, config.navigation.clearFutureOnBack]);
 
@@ -257,7 +260,7 @@ export function useConfiguratorState(config: ConfiguratorConfig) {
 
   // Получение всех параметров
   const getParams = useCallback(() => {
-    const params: Record<string, any> = {};
+    const params: Record<string, unknown> = {};
     Object.values(state.selections).forEach((selection) => {
       Object.assign(params, selection.params);
     });
