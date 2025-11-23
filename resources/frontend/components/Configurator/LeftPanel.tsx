@@ -184,7 +184,7 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
                   const cabinetId = await initializedManagers.cabinet.addCabinetById('tsh_700_500_250');
                   console.log('✅ Шкаф добавлен с ID:', cabinetId);
                   
-                  console.log('📊 Список шкафов на сцене:', initializedManagers.cabinet.getCabinetsList());
+                  console.log('📊 Все шкафы на сцене:', initializedManagers.cabinet.getAllCabinets());
                 } else {
                   console.error('❌ Managers не инициализированы');
                   console.error('managersRef:', managersRef);
