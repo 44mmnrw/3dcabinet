@@ -166,17 +166,33 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
             className="test-button test-button-700"
             onClick={async () => {
               try {
+                console.log('🔘 Клик на кнопку загрузки tsh_700_500_250');
+                console.log('📦 managersRef.current:', managersRef?.current);
+                console.log('📦 managers prop:', managers);
+                
                 // ТОЧНО ТАК ЖЕ КАК ПРИ АВТОМАТИЧЕСКОЙ ЗАГРУЗКЕ - используем managersRef.current
                 const initializedManagers = managersRef?.current || managers;
+                console.log('📦 Используется managers:', initializedManagers);
+                console.log('📦 cabinet существует?', !!initializedManagers?.cabinet);
+                
                 if (initializedManagers?.cabinet) {
-                  await initializedManagers.cabinet.loadCatalog();
-                  await initializedManagers.cabinet.addCabinetById('tsh_700_500_250');
-                  console.log('✅ Шкаф загружен автоматически');
+                  console.log('🔄 Загрузка каталога...');
+                  const catalog = await initializedManagers.cabinet.loadCatalog();
+                  console.log('✅ Каталог загружен:', catalog);
+                  
+                  console.log('🔄 Добавление шкафа tsh_700_500_250...');
+                  const cabinetId = await initializedManagers.cabinet.addCabinetById('tsh_700_500_250');
+                  console.log('✅ Шкаф добавлен с ID:', cabinetId);
+                  
+                  console.log('📊 Список шкафов на сцене:', initializedManagers.cabinet.getCabinetsList());
                 } else {
                   console.error('❌ Managers не инициализированы');
+                  console.error('managersRef:', managersRef);
+                  console.error('managers:', managers);
                 }
               } catch (err) {
                 console.error('❌ Ошибка загрузки шкафа:', err);
+                console.error('Stack trace:', (err as Error).stack);
                 alert(`Ошибка загрузки шкафа: ${err instanceof Error ? err.message : String(err)}`);
               }
             }}
