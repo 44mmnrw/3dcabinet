@@ -122,16 +122,16 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
         console.log('✅ Drag & Drop инициализирован');
       }
 
-      // Автоматическая загрузка шкафа по умолчанию - ОТКЛЮЧЕНА
-      // if (initializedManagers?.cabinet) {
-      //   try {
-      //     await initializedManagers.cabinet.loadCatalog();
-      //     await initializedManagers.cabinet.addCabinetById('tsh_700_500_250');
-      //     console.log('✅ Шкаф загружен автоматически');
-      //   } catch (err) {
-      //     console.error('❌ Ошибка загрузки шкафа:', err);
-      //   }
-      // }
+      // Автоматическая загрузка шкафа tsh_700_500_250
+      if (initializedManagers?.cabinet) {
+        try {
+          await initializedManagers.cabinet.loadCatalog();
+          await initializedManagers.cabinet.addCabinetById('tsh_700_500_250');
+          console.log('✅ Шкаф tsh_700_500_250 загружен автоматически');
+        } catch (err) {
+          console.error('❌ Ошибка автозагрузки шкафа:', err);
+        }
+      }
     };
 
     initScene();
