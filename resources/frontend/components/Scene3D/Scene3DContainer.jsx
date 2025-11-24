@@ -2,6 +2,11 @@ import React, { useEffect } from 'react';
 
 function Scene3DContainer({ managers, containerRef }) {
   useEffect(() => {
+    console.log('🔄 Scene3DContainer useEffect triggered', { 
+      hasManagers: !!managers, 
+      hasContainer: !!containerRef?.current 
+    });
+    
     if (!managers || !containerRef?.current) return;
 
     // Three.js рендерер уже создан в init.js
@@ -10,11 +15,21 @@ function Scene3DContainer({ managers, containerRef }) {
     const container = containerRef.current;
     
     if (renderer && renderer.domElement && container) {
-      // Проверяем, не добавлен ли уже canvas
-      if (!container.contains(renderer.domElement)) {
-      // Очищаем контейнер от старого канваса (если есть)
-        container.innerHTML = '';
+      // ФИКС React Strict Mode: удаляем ВСЕ canvas из контейнера перед добавлением правильного
+      const allCanvas = container.querySelectorAll('canvas');
+      allCanvas.forEach(c => {
+        if (c !== renderer.domElement) {
+          c.remove();
+          console.log('🗑️ Удалён дубликат canvas');
+        }
+      });
+      
+      // Проверяем, не добавлен ли уже canvas КАК ПРЯМОЙ РЕБЁНОК
+      if (renderer.domElement.parentElement !== container) {
         container.appendChild(renderer.domElement);
+        console.log('📦 Canvas добавлен в контейнер');
+      } else {
+        console.log('✅ Canvas уже в контейнере, пропускаем');
       }
       
       // Обновляем размер при монтировании
