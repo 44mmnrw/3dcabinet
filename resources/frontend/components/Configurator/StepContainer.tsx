@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Step, Selection } from '@/types/configurator';
+import type { Step, Selection, StepOption } from '@/types/configurator';
 import OptionCard from './OptionCard';
 import './StepContainer.css';
 
@@ -8,7 +8,7 @@ interface StepContainerProps {
   isVisible: boolean;
   isActive: boolean;
   selection?: Selection;
-  onSelect: (option: any) => void;
+  onSelect: (option: StepOption) => void;
 }
 
 const StepContainer: React.FC<StepContainerProps> = ({

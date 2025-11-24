@@ -2,8 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { ConfiguratorConfig, ConfiguratorState, StepOption } from '@/types/configurator';
 import { LeftPanel, RightPanel, StepContainer } from './index';
 import Scene3DContainer from '../Scene3D/Scene3DContainer';
-import { initializeManagers } from '../../three/managers/init.js';
 import './ConfiguratorWizard.css';
+
+// Импорт initializeManagers из TypeScript модуля
+import { initializeManagers } from '../../three/managers/init';
+import type { ManagersInitResult } from '../../three/types/managers.types';
 
 interface ConfiguratorWizardProps {
   config: ConfiguratorConfig;
@@ -26,10 +29,53 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
   onBack,
   onContinue,
 }) => {
-  const [managers, setManagers] = useState<any>(null);
-  const [showStepOverlay, setShowStepOverlay] = useState(false); // По умолчанию скрыто
-  const managersRef = useRef<any>(null);
+  const [managers, setManagers] = useState<ManagersInitResult | null>(null);
+  const [showStepOverlay, setShowStepOverlay] = useState(false);
+  const managersRef = useRef<ManagersInitResult | null>(null);
   const sceneContainerRef = useRef<HTMLDivElement>(null);
+
+  // Вычисляем видимые шаги и текущий шаг ДО использования в useEffect
+  const visibleStepsList = config.steps.filter((step) =>
+    state.visibleSteps.includes(step.id)
+  );
+  
+  // currentStep в state - это индекс в массиве всех шагов config.steps
+  // Нужно найти соответствующий шаг в видимых шагах
+  const currentStepInAllSteps = config.steps[state.currentStep];
+  const currentStep = currentStepInAllSteps && state.visibleSteps.includes(currentStepInAllSteps.id)
+    ? currentStepInAllSteps
+    : visibleStepsList[0] || null; // Если текущий шаг не виден, берем первый видимый
+  
+  const currentSelection = currentStep
+    ? state.selections[currentStep.id]
+    : undefined;
+
+  // Автоматическое открытие модального окна отключено
+  // Конфигуратор открывается только по нажатию кнопки "Линейная сборка" в LeftPanel
+  // useEffect(() => {
+  //   if (currentStep && !currentSelection) {
+  //     // Открываем модальное окно для текущего шага, если он не заполнен
+  //     setShowStepOverlay(true);
+  //   } else if (currentStep && currentSelection) {
+  //     // Если шаг заполнен, проверяем, есть ли следующий незаполненный шаг
+  //     const currentStepIndexInVisible = visibleStepsList.findIndex(
+  //       (s) => s.id === currentStep.id
+  //     );
+  //     const nextUnfilledStep = visibleStepsList.find(
+  //       (step, index) =>
+  //         index > currentStepIndexInVisible && !state.selections[step.id]
+  //     );
+  //     
+  //     if (nextUnfilledStep) {
+  //       // Есть следующий незаполненный шаг - оставляем модальное окно открытым
+  //       // Оно автоматически переключится на следующий шаг
+  //       setShowStepOverlay(true);
+  //     } else {
+  //       // Все шаги заполнены - закрываем модальное окно
+  //       setShowStepOverlay(false);
+  //     }
+  //   }
+  // }, [currentStep, currentSelection, state.visibleSteps, state.selections, config.steps]);
 
   // Инициализация Three.js менеджеров после монтирования контейнера
   useEffect(() => {
@@ -46,15 +92,29 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
       // Устанавливаем ID для контейнера, чтобы init.js мог его найти
       sceneContainerRef.current.id = 'scene-container';
       
-      const initializedManagers = await initializeManagers('scene-container');
-      
-      if (!initializedManagers) {
-        console.error('❌ Не удалось инициализировать менеджеры');
+      let initializedManagers;
+      try {
+        initializedManagers = await initializeManagers('scene-container');
+        
+        if (!initializedManagers) {
+          console.error('❌ Не удалось инициализировать менеджеры');
+          return;
+        }
+        
+        console.log('✅ Менеджеры инициализированы:', initializedManagers);
+      } catch (error) {
+        console.error('❌ Ошибка инициализации менеджеров:', error);
+        console.error('Stack:', (error as Error).stack);
         return;
       }
 
       managersRef.current = initializedManagers;
       setManagers(initializedManagers);
+      
+      // Сохраняем managers в window для отладки (дополнительно к отдельным объектам)
+      if (typeof window !== 'undefined') {
+        window.managers = initializedManagers;
+      }
       
       // Инициализация Drag & Drop
       if (initializedManagers?.initializeDragDrop) {
@@ -77,21 +137,11 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
     initScene();
   }, []);
 
-  const visibleStepsList = config.steps.filter((step) =>
-    state.visibleSteps.includes(step.id)
-  );
-  
-  const currentStepIndex = state.currentStep;
-  const currentStep = visibleStepsList[currentStepIndex] || null;
-  const currentSelection = currentStep
-    ? state.selections[currentStep.id]
-    : undefined;
-
   const handleSelectOption = (option: StepOption) => {
     if (currentStep && onSelectOption) {
       onSelectOption(currentStep.id, option);
-      // Скрываем overlay после выбора
-      closeStepModal();
+      // Модальное окно закроется автоматически через useEffect,
+      // когда появится следующий шаг или текущий будет заполнен
     }
   };
 
@@ -125,6 +175,8 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
           }
         }}
         showProgress={config.progress.showStepLabel}
+        managers={managers}
+        managersRef={managersRef}
       />
 
       {/* Центральная область: 3D сцена с overlay для выбора */}
@@ -143,7 +195,7 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
                 step={currentStep}
                 isVisible={true}
                 isActive={true}
-                selection={currentSelection}
+                {...(currentSelection !== undefined ? { selection: currentSelection } : {})}
                 onSelect={handleSelectOption}
               />
               <button
@@ -162,8 +214,8 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
       <RightPanel
         currentStep={currentStep}
         state={state}
-        onBack={onBack}
-        onContinue={onContinue}
+        {...(onBack !== undefined ? { onBack } : {})}
+        {...(onContinue !== undefined ? { onContinue } : {})}
         showBackButton={config.navigation.showBackButton}
       />
     </div>

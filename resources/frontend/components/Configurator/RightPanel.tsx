@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Step, ConfiguratorState, Conflict } from '@/types/configurator';
+import type { Step, ConfiguratorState } from '@/types/configurator';
 import BackButton from './BackButton';
 import ContinueButton from './ContinueButton';
 import ConflictResolver from './ConflictResolver';

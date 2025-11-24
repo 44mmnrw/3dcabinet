@@ -10,8 +10,8 @@ interface ProgressBarProps {
 
 const ProgressBar: React.FC<ProgressBarProps> = ({
   progress,
-  currentStep,
-  totalSteps,
+  currentStep: _currentStep,
+  totalSteps: _totalSteps,
   showLabel = true,
 }) => {
   return (

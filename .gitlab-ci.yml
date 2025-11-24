@@ -1,0 +1,93 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  NODE_ENV: production
+  # Директория кеша Node
+  NPM_CACHE_FOLDER: .npm
+  # Директория кеша Composer
+  COMPOSER_CACHE_DIR: .composer
+
+cache:
+  paths:
+    - .npm/
+    - node_modules/
+    - vendor/
+    - public/build/
+  key: ${CI_COMMIT_REF_SLUG}
+
+default:
+  image: node:20-bullseye
+  before_script:
+    - uname -a
+    - node --version
+    - npm --version
+    - apt-get update -y && apt-get install -y git unzip php-cli php-mbstring php-xml php-curl php-zip php-gd php-mysql
+    - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+    - php --version
+    - composer --version
+    - npm ci --cache .npm --prefer-offline
+    - composer install --no-dev --prefer-dist --optimize-autoloader
+
+build:app:
+  stage: build
+  script:
+    - echo "==> Building React/Vite front-end"
+    - npm run build
+    - echo "==> Generating SVG sprite (optional)"
+    - npm run build:icons || echo "Sprite generation skipped"
+    - echo "==> Laravel optimization"
+    - php artisan config:cache
+    - php artisan route:cache
+    - php artisan view:cache
+  artifacts:
+    expire_in: 2 days
+    paths:
+      - public/build/
+      - public/assets/sprite/sprite.svg
+    reports:
+      dotenv: build.env
+  rules:
+    - if: $CI_COMMIT_BRANCH == "typescript_react_vite"
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "production"
+
+deploy:prod:
+  stage: deploy
+  image: alpine:3.19
+  needs: ["build:app"]
+  before_script:
+    - apk add --no-cache openssh bash rsync
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+  script:
+    - echo "==> Deploying build artifacts to production via rsync"
+    - rsync -avz --delete public/build/ $SSH_USER@$SSH_HOST:$SSH_TARGET_PATH/public/build/
+    - rsync -avz public/assets/sprite/sprite.svg $SSH_USER@$SSH_HOST:$SSH_TARGET_PATH/public/assets/sprite/sprite.svg || echo "Sprite not found, skipping"
+    - echo "==> Running remote artisan optimizations"
+    - ssh $SSH_USER@$SSH_HOST "cd $SSH_TARGET_PATH && php artisan config:cache && php artisan route:cache && php artisan view:cache"
+  environment:
+    name: production
+    url: $APP_URL
+  rules:
+    - if: $CI_COMMIT_BRANCH == "production"
+    - if: $CI_COMMIT_TAG
+  only:
+    - production
+    - tags
+  dependencies:
+    - build:app
+
+# Пример настроек переменных в GitLab CI/CD (Settings → CI/CD → Variables):
+# SSH_PRIVATE_KEY: приватный ключ для деплоя (Protected, Masked)
+# SSH_HOST: хост сервера (например, nrwgroup.ru)
+# SSH_USER: пользователь деплоя (например, deploy или www-data)
+# SSH_TARGET_PATH: /var/www/project_folder
+# APP_URL: https://example.com
+
+# Дополнительные задачи при необходимости:
+# test:   запуск jest/phpunit
+# backup: создание бэкапа перед деплоем

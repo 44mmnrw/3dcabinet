@@ -11,7 +11,7 @@ interface ContinueButtonProps {
 const ContinueButton: React.FC<ContinueButtonProps> = ({
   disabled,
   onClick,
-  route,
+  route: _route, // _route зарезервировано для будущей навигации, сейчас не используется
   label = 'Продолжить →',
 }) => {
   return (

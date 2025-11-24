@@ -98,7 +98,7 @@ export interface ConfiguratorState {
   history: number[];
   conflicts: Conflict[];
   draftSaved: boolean;
-  lastSavedAt?: number;
+  lastSavedAt?: number | undefined;
 }
 
 /**

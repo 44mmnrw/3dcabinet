@@ -52,7 +52,7 @@ export const config = {
   },
   "rails": [
     {
-      "id": "din_rail40_700_500_250_1",
+      "id": "din_rail40_700_500_250",
       "file": "din_rail40_700_500_250.json",
       "scale": [
         0.001,
@@ -60,47 +60,9 @@ export const config = {
         0.001
       ],
       "position": [
-        0.15,
-        0,
-        -0.056
-      ],
-      "rotation": [
         0,
         0,
         0
-      ]
-    },
-    {
-      "id": "din_rail40_700_500_250_2",
-      "file": "din_rail40_700_500_250.json",
-      "scale": [
-        0.001,
-        0.001,
-        0.001
-      ],
-      "position": [
-        0.15,
-        -0.2,
-        -0.056
-      ],
-      "rotation": [
-        0,
-        0,
-        0
-      ]
-    },
-    {
-      "id": "din_rail40_700_500_250_3",
-      "file": "din_rail40_700_500_250.json",
-      "scale": [
-        0.001,
-        0.001,
-        0.001
-      ],
-      "position": [
-        0.15,
-        -0.4,
-        -0.056
       ],
       "rotation": [
         0,
@@ -110,11 +72,11 @@ export const config = {
     }
   ],
   "door": {
-    "componentName": "door_tsh_700_500_250",
+    "componentName": "door_700_500_250",
     "pivotOffset": {
-      "x": -0.093,
+      "x": 0.0,
       "y": 0.0,
-      "z": 0.172
+      "z": 0.0
     },
     "rotationAxis": "y"
   }

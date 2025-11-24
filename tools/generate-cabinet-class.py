@@ -2,11 +2,13 @@
 """
 Генератор классов шкафов для 3DCabinet
 
-Автоматически создаёт JavaScript класс шкафа на основе FreeCAD JSON-схем компонентов.
-Анализирует структуру папки, парсит размеры, генерирует код сборки и обновляет каталог.
+Автоматически создаёт TypeScript класс шкафа на основе FreeCAD JSON-схем компонентов.
+Анализирует структуру папки, парсит размеры, генерирует типизированный код сборки и обновляет каталог.
 
 Автор: 3DCabinet Team
-Дата: 15 ноября 2025
+Версия: 3.0.0
+Дата: 2025-11-16
+Последнее обновление: Генерация TypeScript классов с полной типизацией (v3.0.0)
 """
 
 import os
@@ -16,23 +18,102 @@ import argparse
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-# Шаблон JavaScript класса
-CLASS_TEMPLATE = """import * as THREE from '../../libs/three.module.js';
-import {{ FreeCADGeometryLoader }} from '../../loaders/FreeCADGeometryLoader.js';
+# Метаданные скрипта
+SCRIPT_VERSION = "3.0.0"
+SCRIPT_DATE = "2025-11-16"
+SCRIPT_AUTHOR = "3DCabinet Team"
+
+# Шаблон TypeScript класса
+CLASS_TEMPLATE = """import * as THREE from 'three';
+import {{ FreeCADGeometryLoader }} from '../../loaders/FreeCADGeometryLoader.ts';
 import {{ config as defaultConfig }} from './config.js';
-import {{ CabinetBase }} from '../CabinetBase.js';
+import {{ CabinetBase }} from '../CabinetBase.ts';
+
+/**
+ * Конфигурация двери из конфига
+ */
+interface DoorConfig {{
+    componentName?: string;
+    rotationAxis?: 'x' | 'y' | 'z';
+    pivotOffset?: {{
+        x?: number;
+        y?: number;
+        z?: number;
+    }};
+}}
+
+/**
+ * Конфигурация шкафа
+ */
+interface CabinetConfig {{
+    name?: string;
+    door?: DoorConfig;
+    components?: Record<string, {{
+        file: string;
+        scale?: number[];
+        position?: number[];
+    }}>;
+    rails?: Array<{{
+        id: string;
+        file: string;
+        scale?: number[];
+        position?: number[];
+        rotation?: number[];
+    }}>;
+    [key: string]: unknown;
+}}
+
+/**
+ * Информация о компоненте
+ */
+interface ComponentInfo {{
+    name: string;
+    visible: boolean;
+    position: {{
+        local: number[];
+        world: number[];
+    }};
+    scale: number[];
+}}
+
+/**
+ * Информация о сборке
+ */
+interface AssemblyInfo {{
+    name: string;
+    position: number[];
+    children: number;
+}}
+
+/**
+ * Полная информация о шкафе
+ */
+interface CabinetInfo {{
+    assembly: AssemblyInfo;
+    components: Record<string, ComponentInfo>;
+}}
+
+/**
+ * Опции для метода assemble
+ */
+interface AssembleOptions {{
+    basePath?: string;
+    config?: CabinetConfig;
+}}
 
 /**
  * Класс шкафа {class_name}
  * Автоматически сгенерирован из FreeCAD JSON-схем
  * Размеры: {width}×{height}×{depth} мм
- * Конфиг: config.json
+ * Конфиг: config.js
  * 
  * Структура: config содержит компоненты и рейки с позициями
  */
 export class {class_name} extends CabinetBase {{
+    protected loader: FreeCADGeometryLoader;
+
     constructor() {{
-        super(); // Вызиваем конструктор базового класса
+        super(); // Вызываем конструктор базового класса
         this.loader = new FreeCADGeometryLoader();
         this.assembly.name = '{class_name}_Assembly';
         
@@ -43,16 +124,16 @@ export class {class_name} extends CabinetBase {{
 
     /**
      * Загрузить конфиг (по умолчанию из встроенного модуля)
-     * @param {{Object}} customConfig - Пользовательский конфиг (если не указан, использует встроенный)
-     * @returns {{Object}} Загруженный конфиг
+     * @param customConfig - Пользовательский конфиг (если не указан, использует встроенный)
+     * @returns Загруженный конфиг
      */
-    async _loadConfig(customConfig) {{
+    async _loadConfig(customConfig?: CabinetConfig): Promise<CabinetConfig> {{
         try {{
             if (customConfig) {{
                 this.config = customConfig;
                 console.log('✅ Конфиг загружен (пользовательский):', this.config.name);
             }} else {{
-                this.config = defaultConfig;
+                this.config = defaultConfig as CabinetConfig;
                 console.log('✅ Конфиг загружен (встроенный):', this.config.name);
             }}
             
@@ -80,12 +161,12 @@ export class {class_name} extends CabinetBase {{
 
     /**
      * Сборка компонентов шкафа на основе конфига
-     * @param {{Object}} options - Опции сборки
-     * @param {{string}} options.basePath - Полный путь к папке моделей (например http://localhost:5173/assets/models/freecad)
-     * @param {{Object}} options.config - Пользовательский конфиг (если не указан, используется встроенный)
-     * @returns {{Promise<THREE.Group>}} Собранный шкаф
+     * @param options - Опции сборки
+     * @param options.basePath - Полный путь к папке моделей (например http://localhost:5173/assets/models/freecad)
+     * @param options.config - Пользовательский конфиг (если не указан, используется встроенный)
+     * @returns Собранный шкаф
      */
-    async assemble(options = {{}}) {{
+    async assemble(options: AssembleOptions = {{}}): Promise<THREE.Group> {{
         const basePath = options.basePath || (window.location.origin + '/assets/models/freecad');
         
         // Если конфиг не загружен — загружаем (по умолчанию встроенный)
@@ -115,17 +196,21 @@ export class {class_name} extends CabinetBase {{
 
     /**
      * Внутренний метод сборки на основе конфига
+     * @param basePath - Базовый путь к папке моделей
      */
-    async _assembleFromConfig(basePath) {{
+    protected async _assembleFromConfig(basePath: string): Promise<void> {{
         if (!this.config) throw new Error('Конфиг не загружен');
 
-        const folderName = this.config.name;
+        const folderName = this.config.name as string;
 
         // Обычные компоненты
         if (this.config.components) {{
-            for (const [varName, compDef] of Object.entries(this.config.components)) {{
+            const components = this.config.components as Record<string, {{ file: string; scale?: number[]; position?: number[] }}>;
+            for (const [varName, compDef] of Object.entries(components)) {{
                 const filename = compDef.file;
-                this.components[varName] = await this.loader.load(`${{basePath}}/${{folderName}}/${{filename}}`);
+                const filePath = `${{basePath}}/${{folderName}}/${{filename}}`;
+                
+                this.components[varName] = await this.loader.load(filePath);
                 this.components[varName].name = varName;
                 
                 const scale = compDef.scale || [0.001, 0.001, 0.001];
@@ -141,11 +226,13 @@ export class {class_name} extends CabinetBase {{
 
         // Рейки (может быть несколько с разными позициями!)
         if (this.config.rails && Array.isArray(this.config.rails)) {{
-            for (const railDef of this.config.rails) {{
+            const rails = this.config.rails as Array<{{ id: string; file: string; scale?: number[]; position?: number[]; rotation?: number[] }}>;
+            for (const railDef of rails) {{
                 const railId = railDef.id;
                 const filename = railDef.file;
+                const filePath = `${{basePath}}/${{folderName}}/${{filename}}`;
                 
-                this.components[railId] = await this.loader.load(`${{basePath}}/${{folderName}}/${{filename}}`);
+                this.components[railId] = await this.loader.load(filePath);
                 this.components[railId].name = railId;
                 
                 const scale = railDef.scale || [0.001, 0.001, 0.001];
@@ -166,9 +253,10 @@ export class {class_name} extends CabinetBase {{
 
     /**
      * Информация о сборке и компонентах
+     * @returns Информация о шкафе и его компонентах
      */
-    getInfo() {{
-        const info = {{
+    getInfo(): CabinetInfo {{
+        const info: CabinetInfo = {{
             assembly: {{
                 name: this.assembly.name,
                 position: this.assembly.position.toArray(),
@@ -191,20 +279,6 @@ export class {class_name} extends CabinetBase {{
             }};
         }});
         return info;
-    }}
-
-    /**
-     * Получить все компоненты шкафа
-     */
-    getComponents() {{ 
-        return this.components; 
-    }}
-
-    /**
-     * Получить корневую группу сборки
-     */
-    getAssembly() {{ 
-        return this.assembly; 
     }}
 }}
 """
@@ -443,8 +517,9 @@ def main():
         название папки может быть любым!
 
 Результат:
-  public/js/cabinets/MyCabinet/
-    └── MyCabinet.js  (сгенерированный класс)
+  resources/frontend/three/cabinets/MyCabinet/
+    ├── MyCabinet.ts  (сгенерированный TypeScript класс)
+    └── config.js     (конфиг с позициями компонентов)
   
   public/assets/models/cabinets/catalog.json  (обновлён)
         """
@@ -463,6 +538,12 @@ def main():
         help='Не обновлять catalog.json'
     )
     
+    parser.add_argument(
+        '--version',
+        action='version',
+        version=f'%(prog)s {SCRIPT_VERSION} ({SCRIPT_DATE})'
+    )
+    
     args = parser.parse_args()
     
     # Определяем корень проекта (на 2 уровня выше от tools/)
@@ -473,6 +554,8 @@ def main():
         print(f"❌ Ошибка: Папка '{source_path}' не найдена")
         return 1
     
+    # Вывод информации о версии
+    print(f"📦 Генератор классов шкафов v{SCRIPT_VERSION} ({SCRIPT_DATE})")
     print(f"🔍 Анализ папки: {source_path}")
     
     # Извлекаем имя класса из названия папки
@@ -510,11 +593,11 @@ def main():
         component_list=component_list
     )
     
-    # Создаём выходную директорию
-    output_dir = project_root / 'public' / 'js' / 'cabinets' / class_name
+    # Создаём выходную директорию (новая структура: resources/frontend/three/cabinets/)
+    output_dir = project_root / 'resources' / 'frontend' / 'three' / 'cabinets' / class_name
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    output_file = output_dir / f"{class_name}.js"
+    output_file = output_dir / f"{class_name}.ts"
     
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(class_code)
@@ -535,7 +618,8 @@ def main():
     # Обновляем каталог
     if not args.no_catalog:
         catalog_path = project_root / 'public' / 'assets' / 'models' / 'cabinets' / 'catalog.json'
-        module_path = f"../cabinets/{class_name}/{class_name}.js"
+        # Путь для каталога (относительный от public/js/cabinets/ для совместимости)
+        module_path = f"../cabinets/{class_name}/{class_name}.ts"
         
         catalog_entry = create_catalog_entry(class_name, width, height, depth, module_path)
         update_catalog(catalog_path, catalog_entry)

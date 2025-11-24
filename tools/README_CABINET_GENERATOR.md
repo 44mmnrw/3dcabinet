@@ -7,13 +7,13 @@
 ## 🎯 Что делает генератор
 
 1. **Анализирует папку** с FreeCAD JSON-схемами компонентов
-2. **Извлекает размеры** из названия папки (например, `TS_700_500_250` → 700×500×250 мм)
+2. **Вычисляет размеры** автоматически из геометрии компонентов (vertices в JSON-файлах)
 3. **Автоматически определяет компоненты**: читает ВСЕ `.json` файлы в папке (любые названия!)
 4. **Генерирует JavaScript-класс** с методом `assemble()` для загрузки найденных компонентов
-5. **Создаёт JSON-запись** для `catalog.json` с метаданными
-6. **Обновляет каталог** автоматически
+5. **Создаёт конфиг-файл** `config.js` с позициями компонентов
+6. **Обновляет каталог** `catalog.json` автоматически
 
-**🔥 Универсальность**: Генератор НЕ требует конкретных названий файлов (body, door, panel). Он анализирует ВСЕ JSON-файлы в папке и создаёт код загрузки для каждого найденного компонента.
+**🔥 Универсальность**: Генератор НЕ требует конкретных названий файлов (body, door, panel). Он анализирует ВСЕ JSON-файлы в папке и создаёт код загрузки для каждого найденного компонента. **Размеры вычисляются автоматически** из геометрии, название папки может быть любым!
 
 ---
 
@@ -28,28 +28,31 @@
 c:\laragon\www\3dcabinet\
 ├── tools/
 │   └── generate-cabinet-class.py          ← скрипт генератора
-├── public/
-│   ├── js/
-│   │   └── cabinets/
-│   │       └── TS_700_500_250/            ← сюда создаётся класс
-│   │           └── TS_700_500_250.js
-│   └── assets/
-│       └── models/
-│           ├── freecad/
-│           │   └── TS_700_500_250/        ← исходные JSON-схемы (ЛЮБЫЕ названия!)
-│           │       ├── body_700_500_250.json
-│           │       ├── door_700_500_250.json
-│           │       ├── panel_700_500_250.json
-│           │       └── din_rail40_700_500_250.json
-│           │   
-│           │   └── CustomCabinet_1000_600_300/  ← пример с другими названиями
-│           │       ├── корпус.json
-│           │       ├── крышка.json
-│           │       ├── задняя_стенка.json
-│           │       └── рейка_монтажная.json
-│           │
-│           └── cabinets/
-│               └── catalog.json           ← обновляется автоматически
+├── resources/
+│   └── frontend/
+│       └── three/
+│           └── cabinets/                  ← сюда создаётся класс (НОВАЯ СТРУКТУРА)
+│               └── TS_700_500_250/
+│                   ├── TS_700_500_250.js
+│                   └── config.js
+└── public/
+    └── assets/
+        └── models/
+            ├── freecad/                   ← исходные JSON-схемы (ЛЮБЫЕ названия!)
+            │   └── TS_700_500_250/
+            │       ├── body_700_500_250.json
+            │       ├── door_700_500_250.json
+            │       ├── panel_700_500_250.json
+            │       └── din_rail40_700_500_250.json
+            │   
+            │   └── CustomCabinet/         ← пример с другими названиями
+            │       ├── корпус.json
+            │       ├── крышка.json
+            │       ├── задняя_стенка.json
+            │       └── рейка_монтажная.json
+            │
+            └── cabinets/
+                └── catalog.json           ← обновляется автоматически
 ```
 
 ---
@@ -92,6 +95,8 @@ python tools/generate-cabinet-class.py --source public/assets/models/freecad/TS_
 
 ## 📝 Подробная инструкция по использованию
 
+> **📚 Полная инструкция**: См. файл [`INSTRUCTIONS_CABINET_GENERATOR.md`](./INSTRUCTIONS_CABINET_GENERATOR.md) для детального руководства.
+
 ### Шаг 1: Подготовка FreeCAD JSON-схем
 
 Экспортируйте модель шкафа из FreeCAD в JSON-формат и сохраните в папку:
@@ -115,10 +120,12 @@ public/assets/models/freecad/CustomCabinet_1000_600_300/
 └── рейка2.json
 ```
 
-**Важно!** Название папки **должно содержать размеры** в формате `*_WIDTH_HEIGHT_DEPTH`:
-- `TS_700_500_250` → ширина 700 мм, высота 500 мм, глубина 250 мм
-- `CustomCabinet_1200_800_400` → 1200×800×400 мм
-- `MyCabinet_1000_600_300` → 1000×600×300 мм
+**Важно!** Название папки может быть **любым** - размеры вычисляются автоматически из геометрии компонентов:
+- `TS_700_500_250` → размеры вычисляются из vertices в JSON
+- `CustomCabinet` → размеры вычисляются из vertices в JSON
+- `MyCabinet_1000_600_300` → размеры вычисляются из vertices в JSON
+
+Размеры определяются как максимальные значения координат из всех `vertices` во всех JSON-файлах компонентов.
 
 ### Шаг 2: Запуск генератора
 
@@ -135,28 +142,30 @@ python tools/generate-cabinet-class.py --source public/assets/models/freecad/TS_
 **Вывод в консоль:**
 ```
 🔍 Анализ папки: c:\laragon\www\3dcabinet\public\assets\models\freecad\TS_1200_800_400
-📏 Размеры: 1200×800×400 мм
 📦 Найдено компонентов: 4
-   - body_1200_800_400.json → this.components.body
-   - din_rail40_1200_800_400.json → this.components.din_rail40
-   - door_1200_800_400.json → this.components.door
-   - panel_1200_800_400.json → this.components.panel
-✅ Создан класс: public\js\cabinets\TS_1200_800_400\TS_1200_800_400.js
+   - body_1200_800_400.json → this.components.body_1200_800_400
+   - din_rail40_1200_800_400.json → this.components.din_rail40_1200_800_400
+   - door_1200_800_400.json → this.components.door_1200_800_400
+   - panel_1200_800_400.json → this.components.panel_1200_800_400
+📐 Анализ геометрии компонентов...
+📏 Размеры шкафа: 1200×800×400 мм (вычислено из vertices)
+⚙️  Генерация конфига JSON...
+✅ Создан класс: resources\frontend\three\cabinets\TS_1200_800_400\TS_1200_800_400.js
+✅ Создан конфиг: resources\frontend\three\cabinets\TS_1200_800_400\config.js
 ✅ Обновлён каталог: public\assets\models\cabinets\catalog.json
 
 🎉 Генерация завершена успешно!
-
-💡 Для использования в коде:
-   await cabinetManager.addCabinetById('TS_1200_800_400');
 ```
 
 ### Шаг 3: Проверка результата
 
-**Созданный класс:** `public/js/cabinets/TS_1200_800_400/TS_1200_800_400.js`
+**Созданный класс:** `resources/frontend/three/cabinets/TS_1200_800_400/TS_1200_800_400.js`
 
 ```javascript
-import * as THREE from '../../libs/three.module.js';
-import { FreeCADGeometryLoader } from '../../loaders/FreeCADGeometryLoader.js';
+import * as THREE from 'three';
+import { FreeCADGeometryLoader } from '../../loaders/FreeCADGeometryLoader.ts';
+import { config as defaultConfig } from './config.js';
+import { CabinetBase } from '../CabinetBase.ts';
 
 /**
  * Класс шкафа TS_1200_800_400
@@ -221,7 +230,7 @@ export class TS_1200_800_400 {
 ### Шаг 4: Использование в коде
 
 ```javascript
-// В test-assembler.js или другом коде
+// В Assembler.js или другом коде
 await cabinetManager.addCabinetById('TS_1200_800_400');
 ```
 
@@ -237,7 +246,8 @@ python tools/generate-cabinet-class.py --source public/assets/models/freecad/TS_
 ```
 
 **Результат:**
-- Создан класс `TS_700_500_250.js` с компонентами: body, door, panel, din_rail40
+- Создан класс `resources/frontend/three/cabinets/TS_700_500_250/TS_700_500_250.js`
+- Создан конфиг `resources/frontend/three/cabinets/TS_700_500_250/config.js`
 - Обновлён `catalog.json`
 
 ---
@@ -256,6 +266,7 @@ python tools/generate-cabinet-class.py --source public/assets/models/freecad/Cus
 **Результат:**
 - Класс с компонентами: `this.components.корпус`, `this.components.крышка`, `this.components.задняя_стенка`
 - Все найденные JSON автоматически загружаются
+- Размеры вычисляются автоматически из геометрии
 
 ---
 
@@ -266,7 +277,7 @@ python tools/generate-cabinet-class.py --source public/assets/models/freecad/TS_
 ```
 
 **Результат:**
-- Создан только `TS_700_500_250.js`
+- Создан класс `TS_700_500_250.js` и конфиг `config.js`
 - `catalog.json` **не изменён**
 
 ---
@@ -415,14 +426,16 @@ ls public\assets\models\freecad\TS_700_500_250
 
 ---
 
-### Ошибка 2: `❌ Не удалось извлечь размеры из названия 'CustomCabinet'`
+### Ошибка 2: Размеры шкафа = 0×0×0 мм
 
-**Причина:** Название папки не содержит размеры в формате `TS_WIDTH_HEIGHT_DEPTH`.
+**Причина:** JSON-файлы не содержат поле `vertices` с геометрией или оно пустое.
 
 **Решение:**
 ```powershell
-# Переименуйте папку в правильный формат:
-Rename-Item public\assets\models\freecad\CustomCabinet TS_1000_600_300
+# Проверьте JSON-файлы - они должны содержать поле "vertices":
+# {
+#   "vertices": [0, 0, 0, 1, 0, 0, ...]
+# }
 ```
 
 ---
@@ -463,8 +476,8 @@ python3 --version
 После генерации протестируйте класс:
 
 ```javascript
-// В test-assembler.js
-import { TS_1200_800_400 } from './cabinets/TS_1200_800_400/TS_1200_800_400.js';
+// В коде приложения
+import { TS_1200_800_400 } from './three/cabinets/TS_1200_800_400/TS_1200_800_400.js';
 
 const cabinet = new TS_1200_800_400();
 const assembly = await cabinet.assemble();
@@ -549,5 +562,7 @@ console.log(cabinet.getComponents());
 ---
 
 **Дата создания:** 15 ноября 2025  
-**Версия:** 1.0.0  
+**Версия:** 2.0.0 (обновлено 2025-11-16)  
 **Автор:** 3DCabinet Team
+
+> 📌 **Версионирование**: См. [`VERSIONING.md`](./VERSIONING.md) для информации о системе версионирования проекта.

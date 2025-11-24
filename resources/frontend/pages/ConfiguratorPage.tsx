@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { ConfiguratorWizard } from '@/components/Configurator';
 import { useConfiguratorState } from '@/hooks/useConfiguratorState';
-import { configuratorConfig } from '@/config/configuratorConfig';
+import { thermalCabinetConfig } from '@/config/ThermalCabinetConfig';
 import type { StepOption } from '@/types/configurator';
 
 /**
@@ -16,17 +16,18 @@ const ConfiguratorPage: React.FC = () => {
     goBack,
     getParams,
     saveDraft,
-  } = useConfiguratorState(configuratorConfig);
+  } = useConfiguratorState(thermalCabinetConfig);
 
   // Автосохранение черновика
   useEffect(() => {
-    if (configuratorConfig.storage.draftStorage?.autoSave) {
+    if (thermalCabinetConfig.storage.draftStorage?.autoSave) {
       const interval = setInterval(() => {
         saveDraft();
-      }, configuratorConfig.storage.draftStorage.autoSaveInterval);
+      }, thermalCabinetConfig.storage.draftStorage.autoSaveInterval);
 
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [saveDraft]);
 
   const handleContinue = () => {
@@ -37,9 +38,9 @@ const ConfiguratorPage: React.FC = () => {
     const params = getParams();
     
     // Сохранение параметров для передачи в 3D конфигуратор
-    if (configuratorConfig.continueButton.passParamsAs === 'localStorage') {
-      localStorage.setItem('cabinet-config-params', JSON.stringify(params));
-    } else if (configuratorConfig.continueButton.passParamsAs === 'query') {
+    if (thermalCabinetConfig.continueButton.passParamsAs === 'localStorage') {
+      localStorage.setItem('thermal-cabinet-config-params', JSON.stringify(params));
+    } else if (thermalCabinetConfig.continueButton.passParamsAs === 'query') {
       const queryString = new URLSearchParams(
         Object.entries(params).reduce((acc, [key, value]) => {
           acc[key] = String(value);
@@ -48,12 +49,13 @@ const ConfiguratorPage: React.FC = () => {
       ).toString();
       
       // Переход на страницу 3D конфигуратора с параметрами
-      window.location.href = `${configuratorConfig.continueButton.route}?${queryString}`;
+      window.location.href = `${thermalCabinetConfig.continueButton.route}?${queryString}`;
       return;
     }
 
     // Переход на страницу 3D конфигуратора
-    window.location.href = configuratorConfig.continueButton.route;
+    window.location.href = thermalCabinetConfig.continueButton.route;
+    return;
   };
 
   const handleStepClick = (stepIndex: number) => {
@@ -66,7 +68,7 @@ const ConfiguratorPage: React.FC = () => {
 
   return (
     <ConfiguratorWizard
-      config={configuratorConfig}
+      config={thermalCabinetConfig}
       state={state}
       onStepClick={handleStepClick}
       onSelectOption={handleSelectOption}
