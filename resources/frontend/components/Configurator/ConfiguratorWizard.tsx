@@ -112,6 +112,8 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
         steps={config.steps}
         state={state}
         onStepClick={onStepClick}
+        managers={managers}
+        managersRef={managersRef}
         onCategoryChange={(category) => {
           console.log('Категория изменена:', category);
           // Здесь будет логика переключения категории

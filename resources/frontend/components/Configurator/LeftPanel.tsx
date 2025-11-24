@@ -11,6 +11,8 @@ interface LeftPanelProps {
   onCategoryChange?: (category: CabinetCategory | null) => void;
   onAssemblyTypeClick?: (assemblyTypeId: string) => void;
   showProgress?: boolean;
+  managers?: any; // Managers для работы с 3D сценой
+  managersRef?: React.RefObject<any>;
 }
 
 const LeftPanel: React.FC<LeftPanelProps> = ({
@@ -19,11 +21,14 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
   onStepClick,
   onCategoryChange,
   onAssemblyTypeClick,
+  managers,
+  managersRef,
 }) => {
   // По умолчанию никакая категория не выбрана
   const [activeCategory, setActiveCategory] = useState<CabinetCategory | null>(null);
   const [activeAssemblyType, setActiveAssemblyType] = useState<string | null>(null);
   const [showAssemblyTypes, setShowAssemblyTypes] = useState(false);
+  const [cabinetLoaded, setCabinetLoaded] = useState(false); // Состояние загрузки модели
 
   const handleCategoryChange = (category: CabinetCategory) => {
     // Если кликнули на ту же категорию - скрываем assemblyTypes
@@ -69,6 +74,37 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
   const getAssemblyTypesForCategory = (category: CabinetCategory | null): Array<{ id: string; label: string; icon: string }> => {
     if (!category) return [];
     return assemblyTypesMap[category] || [];
+  };
+
+  // Обработчик добавления/удаления модели tsh_700_500_250
+  const handleToggleCabinet = async () => {
+    const m = managersRef?.current || managers;
+    
+    if (!m?.cabinet) {
+      console.error('❌ CabinetManager не инициализирован');
+      return;
+    }
+
+    try {
+      if (cabinetLoaded) {
+        // Удалить шкаф
+        const cabinets = m.cabinet.getAllCabinets();
+        if (cabinets.length > 0) {
+          const cabinetId = cabinets[0].id;
+          m.cabinet.removeCabinet(cabinetId);
+          setCabinetLoaded(false);
+          console.log('🗑️ Шкаф удалён');
+        }
+      } else {
+        // Добавить шкаф
+        await m.cabinet.loadCatalog();
+        await m.cabinet.addCabinetById('tsh_700_500_250');
+        setCabinetLoaded(true);
+        console.log('✅ Шкаф загружен');
+      }
+    } catch (error) {
+      console.error('❌ Ошибка при добавлении/удалении шкафа:', error);
+    }
   };
 
   return (
@@ -124,6 +160,17 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
             )}
           </div>
         )}
+      </div>
+
+      {/* Кнопка добавления/удаления модели tsh_700_500_250 */}
+      <div className="left-panel-footer">
+        <button
+          className={`toggle-cabinet-button ${cabinetLoaded ? 'loaded' : ''}`}
+          onClick={handleToggleCabinet}
+          disabled={!managers && !managersRef?.current}
+        >
+          {cabinetLoaded ? '🗑️ Удалить шкаф' : '➕ Загрузить шкаф TSH 700×500×250'}
+        </button>
       </div>
     </div>
   );
