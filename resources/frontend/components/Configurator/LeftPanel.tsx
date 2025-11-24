@@ -93,56 +93,12 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
           const cabinetId = cabinets[0].id;
           m.cabinet.removeCabinet(cabinetId);
           setCabinetLoaded(false);
-          console.log('🗑️ Шкаф удалён');
         }
       } else {
         // Добавить шкаф
-        console.log('🔄 Начинаем загрузку шкафа...');
-        console.log('📦 Managers:', {
-          cabinet: !!m.cabinet,
-          scene: !!m.scene,
-          camera: !!m.camera,
-          renderer: !!m.renderer
-        });
-        
         await m.cabinet.loadCatalog();
-        console.log('✅ Каталог загружен');
-        
-        const cabinetId = await m.cabinet.addCabinetById('tsh_700_500_250');
-        console.log('✅ Шкаф добавлен с ID:', cabinetId);
-        
-        // Проверяем, что шкаф действительно на сцене
-        console.log('🔍 Scene children:', m.scene.children.length);
-        const cabinetOnScene = m.scene.children.find((c: any) => c.name === cabinetId);
-        console.log('🔍 Cabinet на сцене:', cabinetOnScene);
-        
-        if (cabinetOnScene) {
-          console.log('🔍 Cabinet details:', {
-            visible: cabinetOnScene.visible,
-            children: cabinetOnScene.children?.length,
-            position: cabinetOnScene.position,
-            scale: cabinetOnScene.scale
-          });
-        }
-        
-        // Проверяем позицию камеры
-        console.log('📷 Camera position:', m.camera.position);
-        console.log('📷 Camera rotation:', m.camera.rotation);
-        console.log('📷 Controls target:', m.controls?.target);
-        
-        // ФИКС: Отодвигаем камеру подальше от шкафа
-        m.camera.position.set(2, 1.5, 3);
-        m.controls.target.set(0, 0.25, 0); // Смотрим на центр шкафа
-        m.controls.update();
-        
-        // Принудительный рендер
-        if (m.renderer && m.scene && m.camera) {
-          m.renderer.render(m.scene, m.camera);
-          console.log('🎨 Принудительный рендер выполнен');
-        }
-        
+        await m.cabinet.addCabinetById('tsh_700_500_250');
         setCabinetLoaded(true);
-        console.log('✅ Шкаф загружен полностью');
       }
     } catch (error) {
       console.error('❌ Ошибка при добавлении/удалении шкафа:', error);

@@ -71,5 +71,6 @@ export interface ManagersInitResult {
     equipmentMove: EquipmentMoveController;
     contextMenu: ContextMenuManager;
     initializeDragDrop: () => void;
+    cleanup: () => void;
 }
 

@@ -135,6 +135,14 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
     };
 
     initScene();
+    
+    // Cleanup при размонтировании компонента
+    return () => {
+      if (managersRef.current?.cleanup) {
+        console.log('🧹 Очистка Three.js сцены...');
+        managersRef.current.cleanup();
+      }
+    };
   }, []);
 
   const handleSelectOption = (option: StepOption) => {

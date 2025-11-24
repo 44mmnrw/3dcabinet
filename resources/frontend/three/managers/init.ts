@@ -90,12 +90,31 @@ export async function initializeManagers(containerId: string = 'scene-container'
     */
 
     // Запуск анимационного цикла
+    let animationId: number;
     function animate(): void {
-        requestAnimationFrame(animate);
+        animationId = requestAnimationFrame(animate);
         controls.update();
         renderer.render(scene, camera);
     }
     animate();
+
+    // Функция для остановки animation loop и очистки ресурсов
+    function cleanup(): void {
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+        }
+        
+        // Очистка контроллеров
+        dragDropController.cleanup?.();
+        equipmentMoveController.cleanup?.();
+        contextMenuManager.cleanup?.();
+        
+        // Очистка Three.js ресурсов
+        renderer.dispose();
+        renderer.forceContextLoss();
+        
+        console.log('🧹 Three.js ресурсы очищены');
+    }
 
     // Инициализация DND перенесена в React App - вызывается из useEffect
     // это необходимо потому что React компоненты ещё не смонтированы
@@ -134,7 +153,9 @@ export async function initializeManagers(containerId: string = 'scene-container'
         initializeDragDrop: () => {
             dragDropController.initialize('.equipment-card');
             contextMenuManager.initialize();
-        }
+        },
+        // Функция для очистки всех ресурсов при размонтировании
+        cleanup
     };
 }
 
