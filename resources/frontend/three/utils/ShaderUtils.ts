@@ -26,7 +26,7 @@ export interface ShaderMaterialOptions {
   depthWrite?: boolean;
   depthTest?: boolean;
   side?: THREE.Side;
-  defines?: Record<string, any>;
+  defines?: Record<string, string | number | boolean>;
 }
 
 /**

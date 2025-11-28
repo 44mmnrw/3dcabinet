@@ -1,11 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import type { ConfiguratorConfig, ConfiguratorState, StepOption } from '@/types/configurator';
 import { LeftPanel, RightPanel, StepContainer } from './index';
-import Scene3DContainer from '../Scene3D/Scene3DContainer';
 import './ConfiguratorWizard.css';
 
-// Импорт initializeManagers из TypeScript модуля
-import { initializeManagers } from '../../three/managers/init';
+// Lazy loading для Scene3DContainer - не блокирует начальный рендер
+const Scene3DContainer = lazy(() => import('../Scene3D/Scene3DContainer'));
+
+// Импорт initializeManagers из TypeScript модуля (динамический импорт для code splitting)
 import type { ManagersInitResult } from '../../three/types/managers.types';
 
 interface ConfiguratorWizardProps {
@@ -78,6 +79,7 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
   // }, [currentStep, currentSelection, state.visibleSteps, state.selections, config.steps]);
 
   // Инициализация Three.js менеджеров после монтирования контейнера
+  // ОТЛОЖЕНА для улучшения LCP - не блокирует рендер критического контента
   useEffect(() => {
     if (!sceneContainerRef.current) return;
 
@@ -87,51 +89,67 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
       
       if (!sceneContainerRef.current) return;
 
-      console.log('✅ Инициализация Three.js менеджеров...');
-      
-      // Устанавливаем ID для контейнера, чтобы init.js мог его найти
-      sceneContainerRef.current.id = 'scene-container';
-      
-      let initializedManagers;
-      try {
-        initializedManagers = await initializeManagers('scene-container');
+      // ОТЛОЖКА: Ждем завершения рендера критического контента (LCP)
+      // Используем requestIdleCallback для инициализации в свободное время
+      // или минимальную задержку для гарантии рендера LCP элемента
+      const initThreeJS = async () => {
+        console.log('✅ Инициализация Three.js менеджеров...');
         
-        if (!initializedManagers) {
-          console.error('❌ Не удалось инициализировать менеджеры');
+        // Устанавливаем ID для контейнера, чтобы init.js мог его найти
+        sceneContainerRef.current!.id = 'scene-container';
+        
+        // Динамический импорт Three.js для code splitting
+        let initializedManagers;
+        try {
+          const { initializeManagers } = await import('../../three/managers/init');
+          initializedManagers = await initializeManagers('scene-container');
+          
+          if (!initializedManagers) {
+            console.error('❌ Не удалось инициализировать менеджеры');
+            return;
+          }
+          
+          console.log('✅ Менеджеры инициализированы:', initializedManagers);
+        } catch (error) {
+          console.error('❌ Ошибка инициализации менеджеров:', error);
+          console.error('Stack:', (error as Error).stack);
           return;
         }
+
+        managersRef.current = initializedManagers;
+        setManagers(initializedManagers);
         
-        console.log('✅ Менеджеры инициализированы:', initializedManagers);
-      } catch (error) {
-        console.error('❌ Ошибка инициализации менеджеров:', error);
-        console.error('Stack:', (error as Error).stack);
-        return;
-      }
+        // Сохраняем managers в window для отладки (дополнительно к отдельным объектам)
+        if (typeof window !== 'undefined') {
+          window.managers = initializedManagers;
+        }
+        
+        // Инициализация Drag & Drop
+        if (initializedManagers?.initializeDragDrop) {
+          initializedManagers.initializeDragDrop();
+          console.log('✅ Drag & Drop инициализирован');
+        }
 
-      managersRef.current = initializedManagers;
-      setManagers(initializedManagers);
-      
-      // Сохраняем managers в window для отладки (дополнительно к отдельным объектам)
-      if (typeof window !== 'undefined') {
-        window.managers = initializedManagers;
-      }
-      
-      // Инициализация Drag & Drop
-      if (initializedManagers?.initializeDragDrop) {
-        initializedManagers.initializeDragDrop();
-        console.log('✅ Drag & Drop инициализирован');
-      }
+        // Автоматическая загрузка шкафа по умолчанию (закомментировано)
+        // if (initializedManagers?.cabinet) {
+        //   try {
+        //     await initializedManagers.cabinet.loadCatalog();
+        //     await initializedManagers.cabinet.addCabinetById('tsh_700_500_250');
+        //     console.log('✅ Шкаф загружен автоматически');
+        //   } catch (err) {
+        //     console.error('❌ Ошибка загрузки шкафа:', err);
+        //   }
+        // }
+      };
 
-      // Автоматическая загрузка шкафа по умолчанию (закомментировано)
-      // if (initializedManagers?.cabinet) {
-      //   try {
-      //     await initializedManagers.cabinet.loadCatalog();
-      //     await initializedManagers.cabinet.addCabinetById('tsh_700_500_250');
-      //     console.log('✅ Шкаф загружен автоматически');
-      //   } catch (err) {
-      //     console.error('❌ Ошибка загрузки шкафа:', err);
-      //   }
-      // }
+      // Используем requestIdleCallback если доступен, иначе задержка 500ms
+      // Это гарантирует, что LCP элемент уже отрендерен
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(initThreeJS, { timeout: 2000 });
+      } else {
+        // Fallback для браузеров без requestIdleCallback
+        setTimeout(initThreeJS, 500);
+      }
     };
 
     initScene();
@@ -169,7 +187,7 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
       <LeftPanel
         steps={config.steps}
         state={state}
-        onStepClick={onStepClick}
+        {...(onStepClick !== undefined ? { onStepClick } : {})}
         managers={managers}
         managersRef={managersRef}
         onCategoryChange={(category) => {
@@ -183,8 +201,6 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
           }
         }}
         showProgress={config.progress.showStepLabel}
-        managers={managers}
-        managersRef={managersRef}
       />
 
       {/* Центральная область: 3D сцена с overlay для выбора */}
@@ -192,7 +208,9 @@ const ConfiguratorWizard: React.FC<ConfiguratorWizardProps> = ({
         {/* 3D сцена Three.js */}
         <div ref={sceneContainerRef} id="scene-container" className="scene-panel" />
         {managers && (
-          <Scene3DContainer managers={managers} containerRef={sceneContainerRef} />
+          <Suspense fallback={<div className="scene-loading">Загрузка 3D сцены...</div>}>
+            <Scene3DContainer managers={managers} containerRef={sceneContainerRef} />
+          </Suspense>
         )}
 
         {/* Overlay с опциями выбора (показывается когда нужно выбрать опцию) */}

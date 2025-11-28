@@ -25,6 +25,84 @@
       },
       "mountingType": "din_rail",
       "description": "Шкаф 0×0×0 мм (автоматически сгенерирован)"
+    },
+    {
+      "id": "tsh_400_300_170",
+      "name": "Шкаф tsh 400 300 170",
+      "className": "tsh_400_300_170",
+      "modulePath": "../cabinets/tsh_400_300_170/tsh_400_300_170.ts",
+      "dimensions": {
+        "width": 0,
+        "height": 0,
+        "depth": 0
+      },
+      "mountingType": "din_rail",
+      "description": "Шкаф 0×0×0 мм (автоматически сгенерирован)"
+    },
+    {
+      "id": "tsh_350_250_150",
+      "name": "Шкаф tsh 350 250 150",
+      "className": "tsh_350_250_150",
+      "modulePath": "../cabinets/tsh_350_250_150/tsh_350_250_150.ts",
+      "dimensions": {
+        "width": 0,
+        "height": 0,
+        "depth": 0
+      },
+      "mountingType": "din_rail",
+      "description": "Шкаф 0×0×0 мм (автоматически сгенерирован)"
+    },
+    {
+      "id": "tsh_600_400_200",
+      "name": "Шкаф tsh 600 400 200",
+      "className": "tsh_600_400_200",
+      "modulePath": "../cabinets/tsh_600_400_200/tsh_600_400_200.ts",
+      "dimensions": {
+        "width": 0,
+        "height": 0,
+        "depth": 0
+      },
+      "mountingType": "din_rail",
+      "description": "Шкаф 0×0×0 мм (автоматически сгенерирован)"
+    },
+    {
+      "id": "tsh_500_400_240",
+      "name": "Шкаф tsh 500 400 240",
+      "className": "tsh_500_400_240",
+      "modulePath": "../cabinets/tsh_500_400_240/tsh_500_400_240.ts",
+      "dimensions": {
+        "width": 0,
+        "height": 0,
+        "depth": 0
+      },
+      "mountingType": "din_rail",
+      "description": "Шкаф 0×0×0 мм (автоматически сгенерирован)"
+    },
+    {
+      "id": "tsh_500_350_190",
+      "name": "Шкаф tsh 500 350 190",
+      "className": "tsh_500_350_190",
+      "modulePath": "../cabinets/tsh_500_350_190/tsh_500_350_190.ts",
+      "dimensions": {
+        "width": 0,
+        "height": 0,
+        "depth": 0
+      },
+      "mountingType": "din_rail",
+      "description": "Шкаф 0×0×0 мм (автоматически сгенерирован)"
+    },
+    {
+      "id": "tsh_800_600_260",
+      "name": "Шкаф tsh 800 600 260",
+      "className": "tsh_800_600_260",
+      "modulePath": "../cabinets/tsh_800_600_260/tsh_800_600_260.ts",
+      "dimensions": {
+        "width": 0,
+        "height": 0,
+        "depth": 0
+      },
+      "mountingType": "din_rail",
+      "description": "Шкаф 0×0×0 мм (автоматически сгенерирован)"
     }
   ]
 }

@@ -249,7 +249,7 @@ export class GeometryUtils {
     helpers.forEach(helper => {
       scene.remove(helper);
       if ('dispose' in helper && typeof helper.dispose === 'function') {
-        (helper as any).dispose();
+        (helper as { dispose: () => void }).dispose();
       }
     });
     

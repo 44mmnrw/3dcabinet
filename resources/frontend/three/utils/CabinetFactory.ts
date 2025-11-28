@@ -13,7 +13,7 @@ import type * as THREE from 'three';
  */
 export interface CabinetFactoryOptions {
     basePath?: string;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 /**

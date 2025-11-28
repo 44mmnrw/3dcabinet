@@ -42,7 +42,7 @@ interface LoadConfig {
  */
 interface FreeCADMetadata {
     mode?: string;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 /**

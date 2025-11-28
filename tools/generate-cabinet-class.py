@@ -131,10 +131,10 @@ export class {class_name} extends CabinetBase {{
         try {{
             if (customConfig) {{
                 this.config = customConfig;
-                console.log('✅ Конфиг загружен (пользовательский):', this.config.name);
+                console.log('✅ Конфиг загружен (пользовательский):', this.config['name']);
             }} else {{
                 this.config = defaultConfig as CabinetConfig;
-                console.log('✅ Конфиг загружен (встроенный):', this.config.name);
+                console.log('✅ Конфиг загружен (встроенный):', this.config['name']);
             }}
             
             // Инициализируем настройки двери из конфига
@@ -201,11 +201,11 @@ export class {class_name} extends CabinetBase {{
     protected async _assembleFromConfig(basePath: string): Promise<void> {{
         if (!this.config) throw new Error('Конфиг не загружен');
 
-        const folderName = this.config.name as string;
+        const folderName = this.config['name'] as string;
 
         // Обычные компоненты
-        if (this.config.components) {{
-            const components = this.config.components as Record<string, {{ file: string; scale?: number[]; position?: number[] }}>;
+        if (this.config['components']) {{
+            const components = this.config['components'] as Record<string, {{ file: string; scale?: number[]; position?: number[] }}>;
             for (const [varName, compDef] of Object.entries(components)) {{
                 const filename = compDef.file;
                 const filePath = `${{basePath}}/${{folderName}}/${{filename}}`;
@@ -216,8 +216,8 @@ export class {class_name} extends CabinetBase {{
                 const scale = compDef.scale || [0.001, 0.001, 0.001];
                 const pos = compDef.position || [0, 0, 0];
                 
-                this.components[varName].scale.set(...scale);
-                this.components[varName].position.set(...pos);
+                this.components[varName].scale.set(scale[0] ?? 0.001, scale[1] ?? 0.001, scale[2] ?? 0.001);
+                this.components[varName].position.set(pos[0] ?? 0, pos[1] ?? 0, pos[2] ?? 0);
                 this.assembly.add(this.components[varName]);
                 
                 console.log(`  📦 ${{varName}} загружен`);
@@ -225,8 +225,8 @@ export class {class_name} extends CabinetBase {{
         }}
 
         // Рейки (может быть несколько с разными позициями!)
-        if (this.config.rails && Array.isArray(this.config.rails)) {{
-            const rails = this.config.rails as Array<{{ id: string; file: string; scale?: number[]; position?: number[]; rotation?: number[] }}>;
+        if (this.config['rails'] && Array.isArray(this.config['rails'])) {{
+            const rails = this.config['rails'] as Array<{{ id: string; file: string; scale?: number[]; position?: number[]; rotation?: number[] }}>;
             for (const railDef of rails) {{
                 const railId = railDef.id;
                 const filename = railDef.file;
@@ -239,9 +239,9 @@ export class {class_name} extends CabinetBase {{
                 const pos = railDef.position || [0, 0, 0];
                 const rot = railDef.rotation || [0, 0, 0];
                 
-                this.components[railId].scale.set(...scale);
-                this.components[railId].position.set(...pos);
-                this.components[railId].rotation.set(...rot);
+                this.components[railId].scale.set(scale[0] ?? 0.001, scale[1] ?? 0.001, scale[2] ?? 0.001);
+                this.components[railId].position.set(pos[0] ?? 0, pos[1] ?? 0, pos[2] ?? 0);
+                this.components[railId].rotation.set(rot[0] ?? 0, rot[1] ?? 0, rot[2] ?? 0);
                 this.assembly.add(this.components[railId]);
                 
                 console.log(`  🔗 ${{railId}} загружен (pos: [${{pos.join(', ')}}])`);

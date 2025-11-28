@@ -3,10 +3,12 @@
  * Централизованное управление регистрацией и доступом к классам шкафов
  */
 
+import type { CabinetBase } from '../cabinets/CabinetBase.ts';
+
 /**
- * Конструктор класса шкафа (будет типизирован позже)
+ * Конструктор класса шкафа
  */
-type CabinetClassConstructor = new (...args: any[]) => any;
+type CabinetClassConstructor = new () => CabinetBase;
 
 /**
  * Реестр классов шкафов

@@ -3,7 +3,7 @@
  * Специализация для outdoor шкафов с системой климат-контроля
  */
 import { CabinetType } from './CabinetType.ts';
-import type { EquipmentConfig } from './equipment.types.js';
+import type { EquipmentConfig, EquipmentSpecifications } from './equipment.types.js';
 import type { CabinetCategory, MountingCapability, MountingZone, CabinetDimensions, CabinetSpecs } from './cabinet.types.js';
 import type { ValidationResult, ConfigurationRecommendation } from './CabinetType.ts';
 
@@ -92,7 +92,8 @@ export class ThermalCabinet extends CabinetType {
 
         // Проверка диапазона рабочих температур оборудования
         if (equipment.specifications) {
-            const operatingTemp = (equipment.specifications as any).operatingTemp;
+            const specs = equipment.specifications as EquipmentSpecifications & { operatingTemp?: { min: number; max: number } };
+            const operatingTemp = specs.operatingTemp;
             if (operatingTemp) {
                 const eqTemp = operatingTemp;
                 const cabTemp = this.thermal.operatingTemp;
@@ -108,7 +109,8 @@ export class ThermalCabinet extends CabinetType {
 
         // Проверка тепловыделения
         if (equipment.specifications) {
-            const heatDissipation = (equipment.specifications as any).heatDissipation;
+            const specs = equipment.specifications as EquipmentSpecifications & { heatDissipation?: number };
+            const heatDissipation = specs.heatDissipation;
             if (heatDissipation) {
                 const heatOutput = heatDissipation;
                 if (heatOutput > this.thermal.coolingPower) {
@@ -136,7 +138,8 @@ export class ThermalCabinet extends CabinetType {
 
         equipmentList.forEach(eq => {
             if (eq.specifications) {
-                const heatDissipation = (eq.specifications as any).heatDissipation;
+                const specs = eq.specifications as EquipmentSpecifications & { heatDissipation?: number };
+                const heatDissipation = specs.heatDissipation;
                 metrics.totalHeatDissipation += heatDissipation || 0;
                 metrics.totalPowerConsumption += eq.specifications.power || 0;
             }

@@ -89,6 +89,9 @@ export function getCabinetsByCategory(category: string): CabinetDefinition[] {
  * Получить все доступные шкафы
  */
 export function getAvailableCabinets(): CabinetDefinition[] {
-    return CABINETS_CATALOG.filter(cabinet => (cabinet as any).inStock !== false);
+    return CABINETS_CATALOG.filter(cabinet => {
+        const extended = cabinet as CabinetDefinition & { inStock?: boolean };
+        return extended.inStock !== false;
+    });
 }
 

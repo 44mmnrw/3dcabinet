@@ -6,27 +6,15 @@
 import { strategyRegistry } from './StrategyRegistry.ts';
 import type { MountingStrategy } from './MountingStrategies.ts';
 import type { EquipmentConfig } from '../types/equipment.types.js';
-
-/**
- * Интерфейс для CabinetType (будет типизирован позже)
- */
-interface CabinetType {
-    mountingCapabilities?: string[];
-    [key: string]: any;
-}
-
-/**
- * Интерфейс для CabinetBase (будет типизирован позже)
- */
-interface CabinetBase {
-    [key: string]: any;
-}
+import type { CabinetType } from '../types/CabinetType.ts';
+import type { CabinetBase } from '../cabinets/CabinetBase.ts';
 
 /**
  * Опции для создания стратегии
  */
 export interface StrategyOptions {
-    [key: string]: any;
+    cabinetType?: CabinetType | null;
+    [key: string]: unknown;
 }
 
 /**
@@ -38,13 +26,18 @@ export interface ValidationResult {
 }
 
 /**
+ * Конструктор стратегии монтажа
+ */
+type StrategyConstructor = new (cabinet: CabinetBase, cabinetType?: CabinetType | null) => MountingStrategy;
+
+/**
  * Информация о стратегии
  */
 export interface StrategyInfo {
     type: string;
     aliases: string[];
     available: boolean;
-    StrategyClass: any;  // StrategyConstructor - будет типизирован позже
+    StrategyClass: StrategyConstructor | null;
 }
 
 /**

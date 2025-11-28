@@ -108,6 +108,18 @@
   line-height: 1.6;
 }
 
+/* Индикатор загрузки 3D сцены */
+.scene-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--color-gray);
+  font-size: 0.875rem;
+  z-index: 10;
+  pointer-events: none;
+}
+
 /* Адаптивность */
 @media (max-width: 768px) {
   .configurator-wizard {

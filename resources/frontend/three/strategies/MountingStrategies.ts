@@ -1,27 +1,8 @@
 import * as THREE from 'three';
 import { PHYSICAL, DEFAULTS } from '../constants/PhysicalConstants.ts';
 import type { EquipmentConfig } from '../types/equipment.types.js';
-import type { MountingZone } from '../types/cabinet.types.js';
-
-/**
- * Интерфейс для CabinetType (будет типизирован позже)
- */
-interface CabinetType {
-    getMountingZones?: (type: string) => MountingZone[] | undefined;
-    specs?: {
-        rackUnits?: number;
-        [key: string]: any;
-    };
-    [key: string]: any;
-}
-
-/**
- * Интерфейс для CabinetBase (будет типизирован позже)
- */
-interface CabinetBase {
-    getComponents: () => Record<string, THREE.Object3D>;
-    [key: string]: any;
-}
+import type { CabinetType } from '../types/CabinetType.ts';
+import type { CabinetBase } from '../cabinets/CabinetBase.ts';
 
 /**
  * Позиция для монтажа на DIN-рейке
@@ -118,7 +99,7 @@ export abstract class MountingStrategy {
         return true;
     }
 
-    getAvailablePositions(): any[] {
+    getAvailablePositions(): AvailableSlot[] {
         return [];
     }
 }
@@ -618,9 +599,10 @@ export class DINRailStrategy extends MountingStrategy {
                 const xOffset = this._findNextFreePosition(railIndex, railBBox, equipmentWidth);
                 console.log(`✅ Найдено свободное место: рейка ${railIndex}, X=${xOffset.toFixed(3)}м`);
                 return { railIndex, xOffset };
-            } catch (e: any) {
+            } catch (e: unknown) {
                 // Рейка заполнена, пробуем следующую
-                console.log(`   ⚠️ Рейка ${railIndex}: ${e.message}`);
+                const errorMessage = e instanceof Error ? e.message : String(e);
+                console.log(`   ⚠️ Рейка ${railIndex}: ${errorMessage}`);
                 continue;
             }
         }
@@ -713,7 +695,13 @@ export class RackUnitStrategy extends MountingStrategy {
 
         // Используем cabinetType если доступен
         const unitHeightMM = this.cabinetType 
-            ? ((this.cabinetType.specs?.rackUnits || DEFAULTS.RACK_HEIGHT_U) * PHYSICAL.RACK_UNIT_HEIGHT_MM / DEFAULTS.RACK_HEIGHT_U)
+            ? (() => {
+                const specs = this.cabinetType!.specs as { rackUnits?: number } | undefined;
+                const rackUnits = (specs?.rackUnits !== undefined && typeof specs.rackUnits === 'number') 
+                    ? specs.rackUnits 
+                    : DEFAULTS.RACK_HEIGHT_U;
+                return (rackUnits * PHYSICAL.RACK_UNIT_HEIGHT_MM / DEFAULTS.RACK_HEIGHT_U);
+            })()
             : PHYSICAL.RACK_UNIT_HEIGHT_MM;
         const unitHeight = unitHeightMM * PHYSICAL.MM_TO_M;
         const yPosition = unitIndex * unitHeight;

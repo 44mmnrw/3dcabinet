@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 /**
- * Интерфейс для сборщика модели (будет типизирован позже)
+ * Интерфейс для сборщика модели
  */
 interface ModelAssembler {
     assemble: () => Promise<THREE.Group>;
@@ -9,7 +9,7 @@ interface ModelAssembler {
     setComponentVisibility?: (componentName: string, visible: boolean) => void;
     setComponentPosition?: (componentName: string, x: number, y: number, z: number) => void;
     getComponents?: () => Record<string, THREE.Object3D>;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 /**
@@ -19,7 +19,7 @@ interface ModelMetadata {
     name: string;
     description: string;
     addedAt: number;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 /**

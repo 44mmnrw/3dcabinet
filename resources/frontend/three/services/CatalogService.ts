@@ -10,7 +10,7 @@ import type { CabinetDefinition } from '../types/cabinet.types.js';
  */
 export interface Catalog {
     cabinets: CabinetDefinition[];
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 /**

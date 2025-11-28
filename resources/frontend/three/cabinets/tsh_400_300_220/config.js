@@ -10,8 +10,8 @@ export const config = {
     "depth": 0.0
   },
   "components": {
-    "body_400х300х220": {
-      "file": "body_400х300х220.json",
+    "body_400_300_220": {
+      "file": "body_400_300_220.json",
       "scale": [
         0.001,
         0.001,
@@ -23,8 +23,8 @@ export const config = {
         0
       ]
     },
-    "door_400х300х220": {
-      "file": "door_400х300х220.json",
+    "door_400_300_220": {
+      "file": "door_400_300_220.json",
       "scale": [
         0.001,
         0.001,
@@ -36,8 +36,8 @@ export const config = {
         0
       ]
     },
-    "panel_400х300х220": {
-      "file": "panel_400х300х220.json",
+    "panel_400_300_220": {
+      "file": "panel_400_300_220.json",
       "scale": [
         0.001,
         0.001,
@@ -52,8 +52,8 @@ export const config = {
   },
   "rails": [
     {
-      "id": "din_rail_230",
-      "file": "din_rail_230.json",
+      "id": "din_rail_240",
+      "file": "din_rail_240.json",
       "scale": [
         0.001,
         0.001,

@@ -62,7 +62,7 @@ export async function initializeManagers(containerId: string = 'scene-container'
         equipmentManager,
         eventBus,
         controls // Передаём OrbitControls для отключения во время перемещения
-    } as any);
+    });
 
     // Инициализация контекстного меню (ПКМ для удаления)
     const contextMenuManager = new ContextMenuManager({
@@ -105,9 +105,9 @@ export async function initializeManagers(containerId: string = 'scene-container'
         }
         
         // Очистка контроллеров
-        dragDropController.cleanup?.();
-        equipmentMoveController.cleanup?.();
-        contextMenuManager.cleanup?.();
+        dragDropController.dispose?.();
+        equipmentMoveController.dispose?.();
+        contextMenuManager.dispose?.();
         
         // Очистка Three.js ресурсов
         renderer.dispose();

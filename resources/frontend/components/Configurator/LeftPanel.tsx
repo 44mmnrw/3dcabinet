@@ -97,7 +97,7 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
       } else {
         // Добавить шкаф
         await m.cabinet.loadCatalog();
-        await m.cabinet.addCabinetById('tsh_700_500_250');
+        await m.cabinet.addCabinetById('tsh_800_600_260');
         setCabinetLoaded(true);
       }
     } catch (error) {

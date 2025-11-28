@@ -2,12 +2,34 @@
 FreeCAD Export Script для Three.js
 Экспортирует геометрию из FreeCAD в JSON формат для Three.js
 
-ИНСТРУКЦИЯ:
-1. Открой FreeCAD
-2. Создай/открой модель шкафа
-3. Открой Python консоль (View → Panels → Python console)
-4. Скопируй и вставь этот код
-5. Запусти: export_to_threejs("cabinet_geometry.json")
+═══════════════════════════════════════════════════════════════
+КАК ЗАПУСТИТЬ В КОНСОЛИ FREECAD:
+═══════════════════════════════════════════════════════════════
+
+1. Откройте FreeCAD и загрузите вашу модель
+2. Откройте Python консоль: View → Panels → Python console
+3. Загрузите скрипт одной командой:
+   
+   exec(open(r'C:\laragon\www\3dcabinet\tools\freecad\export_to_threejs.py', encoding='utf-8').read())
+
+4. После загрузки используйте любую функцию:
+   
+   # Базовый экспорт (с триангуляцией)
+   export_to_threejs("C:/Users/YourName/Downloads/cabinet.json")
+   
+   # Рекомендуется: средний баланс (плавные кривые, ~1-3 MB)
+   export_medium("C:/Users/YourName/Downloads/cabinet.json", points_per_edge=8)
+   
+   # Ультра-лёгкий (минимум размера)
+   export_ultra_light("C:/Users/YourName/Downloads/cabinet.json", points_per_edge=3)
+   
+   # Супер-лёгкий (только прямые линии)
+   export_super_light("C:/Users/YourName/Downloads/cabinet.json")
+   
+   # Быстрый экспорт в папку Downloads
+   quick_export()
+
+═══════════════════════════════════════════════════════════════
 """
 
 import FreeCAD as App
@@ -544,12 +566,24 @@ def export_super_light(output_file):
 
 
 print("✅ Скрипт загружен!")
-print("\n📖 Использование:")
-print("   export_medium('path/to/output.json')       # БАЛАНС! (8 точек, ~1-3 MB) ⭐⭐⭐")
-print("   export_super_light('path/to/output.json')  # минимум (прямые линии)")
-print("   export_ultra_light('path/to/output.json')  # лёгкий (3-5 точек)")
-print("   export_optimized('path/to/output.json')    # с триангуляцией")
-print("\n💡 Рекомендации:")
-print("   - export_medium() — ЛУЧШИЙ БАЛАНС для веба (плавные кривые, ~1-3 MB)")
-print("   - export_ultra_light(file, 10) — можно настроить детализацию")
-print("   - export_super_light() — если нужен минимум (~50-200 KB)")
+print("\n" + "="*60)
+print("📖 БЫСТРЫЙ СТАРТ:")
+print("="*60)
+print("\n1️⃣  РЕКОМЕНДУЕТСЯ (баланс детализация/размер):")
+print("   export_medium('C:/Users/YourName/Downloads/cabinet.json', points_per_edge=8)")
+print("   → Плавные кривые, ~1-3 MB, оптимально для веба ⭐⭐⭐")
+print("\n2️⃣  УЛЬТРА-ЛЁГКИЙ (минимум размера):")
+print("   export_ultra_light('C:/Users/YourName/Downloads/cabinet.json', points_per_edge=3)")
+print("   → ~200-500 KB, можно настроить детализацию (3-10 точек)")
+print("\n3️⃣  СУПЕР-ЛЁГКИЙ (только прямые линии):")
+print("   export_super_light('C:/Users/YourName/Downloads/cabinet.json')")
+print("   → ~50-200 KB, только прямые рёбра (начало + конец)")
+print("\n4️⃣  С ТРИАНГУЛЯЦИЕЙ (полная геометрия):")
+print("   export_optimized('C:/Users/YourName/Downloads/cabinet.json')")
+print("   → Полная 3D модель с полигонами")
+print("\n5️⃣  БЫСТРЫЙ ЭКСПОРТ (в папку Downloads):")
+print("   quick_export()")
+print("   → Автоматически сохраняет в Downloads/cabinet_geometry.json")
+print("\n" + "="*60)
+print("💡 ПОДСКАЗКА: Замените 'YourName' на ваше имя пользователя Windows!")
+print("="*60)
