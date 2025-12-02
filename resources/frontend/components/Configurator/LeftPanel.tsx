@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import type { Step, ConfiguratorState } from '@/types/configurator';
+import { getAssetLoader } from '@/three/loaders/AssetLoader';
+import * as THREE from 'three';
 import './LeftPanel.css';
 
 export type CabinetCategory = 'thermal' | 'telecom-wall' | 'telecom-floor';
@@ -29,6 +31,17 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
   const [activeAssemblyType, setActiveAssemblyType] = useState<string | null>(null);
   const [showAssemblyTypes, setShowAssemblyTypes] = useState(false);
   const [cabinetLoaded, setCabinetLoaded] = useState(false); // Состояние загрузки модели
+  
+  // Стейт для тестовой модели
+  const [testModelLoaded, setTestModelLoaded] = useState(false);
+  const [testModelObject, setTestModelObject] = useState<THREE.Object3D | null>(null);
+  
+  // Стейт для управления материалом тестовой модели
+  const [modelColor, setModelColor] = useState('#97a3db'); // Голубоватый по умолчанию
+  const [modelOpacity, setModelOpacity] = useState(1.0);
+  const [showEdges, setShowEdges] = useState(false); // Показывать рёбра
+  const [edgeLines, setEdgeLines] = useState<THREE.LineSegments[]>([]); // Массив линий рёбер
+  const [edgeColor, setEdgeColor] = useState('#666666'); // Цвет рёбер (серый по умолчанию)
 
   const handleCategoryChange = (category: CabinetCategory) => {
     // Если кликнули на ту же категорию - скрываем assemblyTypes
@@ -105,6 +118,139 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
     }
   };
 
+  // Обработчик загрузки/удаления тестовой модели test.gltf
+  const handleToggleTestModel = async () => {
+    const scene = (window as any).scene as THREE.Scene | undefined;
+    
+    if (!scene) {
+      console.error('❌ Сцена не найдена в window.scene');
+      return;
+    }
+
+    try {
+      if (testModelLoaded && testModelObject) {
+        // Удалить тестовую модель
+        // Сначала очистить линии рёбер
+        edgeLines.forEach(line => {
+          line.geometry.dispose();
+          (line.material as THREE.Material).dispose();
+        });
+        setEdgeLines([]);
+        setShowEdges(false);
+        
+        scene.remove(testModelObject);
+        testModelObject.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            const mesh = child as THREE.Mesh;
+            mesh.geometry?.dispose();
+            if (Array.isArray(mesh.material)) {
+              mesh.material.forEach(m => m.dispose());
+            } else {
+              mesh.material?.dispose();
+            }
+          }
+        });
+        setTestModelObject(null);
+        setTestModelLoaded(false);
+        console.log('✅ Тестовая модель удалена');
+      } else {
+        // Загрузить тестовую модель
+        console.log('📦 Загрузка test.gltf...');
+        const loader = getAssetLoader();
+        const model = await loader.load('/assets/models/freecad/webGL/test.gltf');
+        
+        // Вычислить bounding box и установить модель на "пол"
+        const box = new THREE.Box3().setFromObject(model);
+        const minY = box.min.y;
+        if (minY < 0) {
+          model.position.y -= minY; // Поднять модель так, чтобы низ был на y=0
+        }
+        
+        scene.add(model);
+        setTestModelObject(model);
+        setTestModelLoaded(true);
+        console.log('✅ Тестовая модель загружена:', model);
+      }
+    } catch (error) {
+      console.error('❌ Ошибка при загрузке/удалении тестовой модели:', error);
+    }
+  };
+
+  // Обработчик изменения цвета модели
+  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const color = e.target.value;
+    setModelColor(color);
+    
+    if (testModelObject) {
+      testModelObject.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const mesh = child as THREE.Mesh;
+          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          materials.forEach((mat) => {
+            if (mat && 'color' in mat) {
+              (mat as THREE.MeshStandardMaterial).color.setStyle(color);
+            }
+          });
+        }
+      });
+    }
+  };
+
+  // Обработчик изменения прозрачности модели
+  const handleOpacityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const opacity = parseFloat(e.target.value);
+    setModelOpacity(opacity);
+    
+    if (testModelObject) {
+      testModelObject.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const mesh = child as THREE.Mesh;
+          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          materials.forEach((mat) => {
+            if (mat) {
+              mat.transparent = opacity < 1.0;
+              mat.opacity = opacity;
+              mat.needsUpdate = true;
+            }
+          });
+        }
+      });
+    }
+  };
+
+  // Обработчик переключения отображения рёбер
+  const handleToggleEdges = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const show = e.target.checked;
+    setShowEdges(show);
+    
+    if (testModelObject) {
+      if (show && edgeLines.length === 0) {
+        // Создать рёбра для всех мешей
+        const newEdgeLines: THREE.LineSegments[] = [];
+        testModelObject.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            const mesh = child as THREE.Mesh;
+            const edgesGeometry = new THREE.EdgesGeometry(mesh.geometry, 30); // 30° угол
+            const edgeMaterial = new THREE.LineBasicMaterial({ 
+              color: edgeColor,
+              linewidth: 1 // WebGL ограничение - всегда 1px
+            });
+            const lineSegments = new THREE.LineSegments(edgesGeometry, edgeMaterial);
+            mesh.add(lineSegments); // Добавляем как дочерний объект меша
+            newEdgeLines.push(lineSegments);
+          }
+        });
+        setEdgeLines(newEdgeLines);
+        console.log(`✅ Добавлено ${newEdgeLines.length} линий рёбер`);
+      } else {
+        // Переключить видимость существующих рёбер
+        edgeLines.forEach(line => {
+          line.visible = show;
+        });
+      }
+    }
+  };
+
   return (
     <div className="configurator-left-panel">
       <div className="left-panel-header">
@@ -169,6 +315,70 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
         >
           {cabinetLoaded ? '🗑️ Удалить шкаф' : '➕ Загрузить шкаф TSH 700×500×250'}
         </button>
+        <button
+          className={`toggle-cabinet-button test-model-button ${testModelLoaded ? 'loaded' : ''}`}
+          onClick={handleToggleTestModel}
+          title="Загрузить тестовую модель test.gltf"
+        >
+          {testModelLoaded ? '🗑️ Удалить test.gltf' : '📦 Загрузить test.gltf'}
+        </button>
+        
+        {/* Управление материалом тестовой модели */}
+        {testModelLoaded && (
+          <div className="material-controls" style={{ marginTop: '12px', padding: '12px', background: '#f5f5f5', borderRadius: '8px' }}>
+            <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: '14px' }}>🎨 Материал модели</div>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <label style={{ fontSize: '13px', minWidth: '50px' }}>Цвет:</label>
+              <input 
+                type="color" 
+                value={modelColor}
+                onChange={handleColorChange}
+                style={{ width: '40px', height: '28px', border: 'none', cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: '12px', color: '#666' }}>{modelColor}</span>
+            </div>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label style={{ fontSize: '13px', minWidth: '50px' }}>Opacity:</label>
+              <input 
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={modelOpacity}
+                onChange={handleOpacityChange}
+                style={{ flex: 1 }}
+              />
+              <span style={{ fontSize: '12px', color: '#666', minWidth: '35px' }}>{(modelOpacity * 100).toFixed(0)}%</span>
+            </div>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+              <label style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox"
+                  checked={showEdges}
+                  onChange={handleToggleEdges}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                Показать грани
+              </label>
+              <input 
+                type="color" 
+                value={edgeColor}
+                onChange={(e) => {
+                  const color = e.target.value;
+                  setEdgeColor(color);
+                  edgeLines.forEach(line => {
+                    (line.material as THREE.LineBasicMaterial).color.setStyle(color);
+                  });
+                }}
+                style={{ width: '28px', height: '20px', border: 'none', cursor: 'pointer', marginLeft: 'auto' }}
+                title="Цвет граней"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

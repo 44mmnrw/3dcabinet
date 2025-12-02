@@ -1,37 +1,12 @@
 {
-  "_react-vendor-OvXVS5lI.js": {
-    "file": "assets/react-vendor-OvXVS5lI.js",
-    "name": "react-vendor"
-  },
-  "_three-core-D_wobi9u.js": {
-    "file": "assets/three-core-D_wobi9u.js",
-    "name": "three-core"
-  },
-  "_three-utils-Dff9PDBI.js": {
-    "file": "assets/three-utils-Dff9PDBI.js",
-    "name": "three-utils",
+  "_init-CuuSIzqK.js": {
+    "file": "assets/init-CuuSIzqK.js",
+    "name": "init",
+    "isDynamicEntry": true,
     "imports": [
-      "_three-core-D_wobi9u.js"
-    ]
-  },
-  "resources/css/app.css": {
-    "file": "assets/app-BXO7QTRd.css",
-    "src": "resources/css/app.css",
-    "isEntry": true,
-    "name": "app",
-    "names": [
-      "app.css"
-    ]
-  },
-  "resources/frontend/app.tsx": {
-    "file": "assets/app-C633yBlx.js",
-    "name": "app",
-    "src": "resources/frontend/app.tsx",
-    "isEntry": true,
-    "imports": [
-      "_react-vendor-OvXVS5lI.js",
-      "_three-core-D_wobi9u.js",
-      "_three-utils-Dff9PDBI.js"
+      "_three-core-tjYGQBe6.js",
+      "resources/frontend/app.tsx",
+      "_three-utils-Bqr642f-.js"
     ],
     "dynamicImports": [
       "resources/frontend/three/types/ThermalCabinet.ts",
@@ -44,9 +19,63 @@
       "resources/frontend/three/types/CabinetType.ts",
       "resources/frontend/three/types/CabinetType.ts",
       "resources/frontend/three/types/CabinetType.ts"
+    ]
+  },
+  "_react-vendor-OvXVS5lI.js": {
+    "file": "assets/react-vendor-OvXVS5lI.js",
+    "name": "react-vendor"
+  },
+  "_three-core-tjYGQBe6.js": {
+    "file": "assets/three-core-tjYGQBe6.js",
+    "name": "three-core"
+  },
+  "_three-utils-Bqr642f-.js": {
+    "file": "assets/three-utils-Bqr642f-.js",
+    "name": "three-utils",
+    "imports": [
+      "_three-core-tjYGQBe6.js"
+    ]
+  },
+  "resources/css/app.css": {
+    "file": "assets/app-BXO7QTRd.css",
+    "src": "resources/css/app.css",
+    "isEntry": true,
+    "name": "app",
+    "names": [
+      "app.css"
+    ]
+  },
+  "resources/frontend/app.tsx": {
+    "file": "assets/app-nKH6UkUL.js",
+    "name": "app",
+    "src": "resources/frontend/app.tsx",
+    "isEntry": true,
+    "imports": [
+      "_react-vendor-OvXVS5lI.js",
+      "_three-utils-Bqr642f-.js",
+      "_three-core-tjYGQBe6.js"
+    ],
+    "dynamicImports": [
+      "resources/frontend/components/Scene3D/Scene3DContainer.jsx",
+      "_init-CuuSIzqK.js"
     ],
     "css": [
-      "assets/app-DVz6dWpy.css",
+      "assets/app-DQnv1vkQ.css",
+      "assets/app-BXO7QTRd.css"
+    ]
+  },
+  "resources/frontend/components/Scene3D/Scene3DContainer.jsx": {
+    "file": "assets/Scene3DContainer-Bl60uXhT.js",
+    "name": "Scene3DContainer",
+    "src": "resources/frontend/components/Scene3D/Scene3DContainer.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/frontend/app.tsx",
+      "_react-vendor-OvXVS5lI.js",
+      "_three-utils-Bqr642f-.js",
+      "_three-core-tjYGQBe6.js"
+    ],
+    "css": [
       "assets/app-BXO7QTRd.css"
     ]
   },
@@ -57,39 +86,41 @@
     "isDynamicEntry": true
   },
   "resources/frontend/three/types/ServerCabinet.ts": {
-    "file": "assets/ServerCabinet-Bnar41Z-.js",
+    "file": "assets/ServerCabinet-Cfyg4rAN.js",
     "name": "ServerCabinet",
     "src": "resources/frontend/three/types/ServerCabinet.ts",
     "isDynamicEntry": true,
     "imports": [
       "resources/frontend/three/types/CabinetType.ts",
+      "_init-CuuSIzqK.js",
+      "_three-core-tjYGQBe6.js",
       "resources/frontend/app.tsx",
       "_react-vendor-OvXVS5lI.js",
-      "_three-core-D_wobi9u.js",
-      "_three-utils-Dff9PDBI.js"
+      "_three-utils-Bqr642f-.js"
     ],
     "css": [
       "assets/app-BXO7QTRd.css"
     ]
   },
   "resources/frontend/three/types/TelecomCabinet.ts": {
-    "file": "assets/TelecomCabinet-BbfbGsiK.js",
+    "file": "assets/TelecomCabinet-CxHoZiOc.js",
     "name": "TelecomCabinet",
     "src": "resources/frontend/three/types/TelecomCabinet.ts",
     "isDynamicEntry": true,
     "imports": [
       "resources/frontend/three/types/CabinetType.ts",
+      "_init-CuuSIzqK.js",
+      "_three-core-tjYGQBe6.js",
       "resources/frontend/app.tsx",
       "_react-vendor-OvXVS5lI.js",
-      "_three-core-D_wobi9u.js",
-      "_three-utils-Dff9PDBI.js"
+      "_three-utils-Bqr642f-.js"
     ],
     "css": [
       "assets/app-BXO7QTRd.css"
     ]
   },
   "resources/frontend/three/types/ThermalCabinet.ts": {
-    "file": "assets/ThermalCabinet-3spXJ5Dn.js",
+    "file": "assets/ThermalCabinet-47gcYw_x.js",
     "name": "ThermalCabinet",
     "src": "resources/frontend/three/types/ThermalCabinet.ts",
     "isDynamicEntry": true,
