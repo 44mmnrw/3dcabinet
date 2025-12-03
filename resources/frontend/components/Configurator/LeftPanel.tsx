@@ -42,6 +42,14 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
   const [showEdges, setShowEdges] = useState(false); // Показывать рёбра
   const [edgeLines, setEdgeLines] = useState<THREE.LineSegments[]>([]); // Массив линий рёбер
   const [edgeColor, setEdgeColor] = useState('#666666'); // Цвет рёбер (серый по умолчанию)
+  
+  // Стейт для масштабирования модели по осям
+  const [scaleX, setScaleX] = useState(1.0);
+  const [scaleY, setScaleY] = useState(1.0);
+  const [scaleZ, setScaleZ] = useState(1.0);
+  
+  // Стейт для вращения двери (DOOR_SET)
+  const [doorRotation, setDoorRotation] = useState(0); // Угол в градусах (0-120)
 
   const handleCategoryChange = (category: CabinetCategory) => {
     // Если кликнули на ту же категорию - скрываем assemblyTypes
@@ -376,6 +384,160 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
                 style={{ width: '28px', height: '20px', border: 'none', cursor: 'pointer', marginLeft: 'auto' }}
                 title="Цвет граней"
               />
+            </div>
+            
+            {/* Масштабирование по осям */}
+            <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #ddd' }}>
+              <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: '14px' }}>📐 Масштаб (Scale)</div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                <label style={{ fontSize: '13px', minWidth: '65px', color: '#e74c3c' }}>X (ширина):</label>
+                <input 
+                  type="range"
+                  min="0.1"
+                  max="3"
+                  step="0.05"
+                  value={scaleX}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setScaleX(val);
+                    if (testModelObject) testModelObject.scale.x = val;
+                  }}
+                  style={{ flex: 1 }}
+                />
+                <span style={{ fontSize: '12px', color: '#666', minWidth: '40px' }}>{scaleX.toFixed(2)}</span>
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                <label style={{ fontSize: '13px', minWidth: '65px', color: '#27ae60' }}>Y (высота):</label>
+                <input 
+                  type="range"
+                  min="0.1"
+                  max="3"
+                  step="0.05"
+                  value={scaleY}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setScaleY(val);
+                    if (testModelObject) testModelObject.scale.y = val;
+                  }}
+                  style={{ flex: 1 }}
+                />
+                <span style={{ fontSize: '12px', color: '#666', minWidth: '40px' }}>{scaleY.toFixed(2)}</span>
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                <label style={{ fontSize: '13px', minWidth: '65px', color: '#3498db' }}>Z (глубина):</label>
+                <input 
+                  type="range"
+                  min="0.1"
+                  max="3"
+                  step="0.05"
+                  value={scaleZ}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setScaleZ(val);
+                    if (testModelObject) testModelObject.scale.z = val;
+                  }}
+                  style={{ flex: 1 }}
+                />
+                <span style={{ fontSize: '12px', color: '#666', minWidth: '40px' }}>{scaleZ.toFixed(2)}</span>
+              </div>
+              
+              <button
+                onClick={() => {
+                  setScaleX(1.0);
+                  setScaleY(1.0);
+                  setScaleZ(1.0);
+                  if (testModelObject) {
+                    testModelObject.scale.set(1, 1, 1);
+                  }
+                }}
+                style={{ 
+                  marginTop: '6px', 
+                  padding: '4px 12px', 
+                  fontSize: '12px', 
+                  background: '#ecf0f1', 
+                  border: '1px solid #bdc3c7',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                🔄 Сбросить масштаб
+              </button>
+            </div>
+            
+            {/* Вращение двери (DOOR_SET) */}
+            <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #ddd' }}>
+              <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: '14px' }}>🚪 Вращение двери</div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label style={{ fontSize: '13px', minWidth: '65px', color: '#9b59b6' }}>Угол Y:</label>
+                <input 
+                  type="range"
+                  min="0"
+                  max="120"
+                  step="1"
+                  value={doorRotation}
+                  onChange={(e) => {
+                    const angle = parseFloat(e.target.value);
+                    setDoorRotation(angle);
+                    if (testModelObject) {
+                      // Найти DOOR_SET по имени
+                      const doorSet = testModelObject.getObjectByName('DOOR_SET');
+                      if (doorSet) {
+                        // Преобразуем градусы в радианы и вращаем вокруг Y
+                        doorSet.rotation.y = (angle * Math.PI) / 180;
+                      } else {
+                        console.warn('⚠️ DOOR_SET не найден в модели');
+                      }
+                    }
+                  }}
+                  style={{ flex: 1 }}
+                />
+                <span style={{ fontSize: '12px', color: '#666', minWidth: '35px' }}>{doorRotation}°</span>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <button
+                  onClick={() => {
+                    setDoorRotation(0);
+                    if (testModelObject) {
+                      const doorSet = testModelObject.getObjectByName('DOOR_SET');
+                      if (doorSet) doorSet.rotation.y = 0;
+                    }
+                  }}
+                  style={{ 
+                    padding: '4px 12px', 
+                    fontSize: '12px', 
+                    background: '#ecf0f1', 
+                    border: '1px solid #bdc3c7',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Закрыто (0°)
+                </button>
+                <button
+                  onClick={() => {
+                    setDoorRotation(90);
+                    if (testModelObject) {
+                      const doorSet = testModelObject.getObjectByName('DOOR_SET');
+                      if (doorSet) doorSet.rotation.y = Math.PI / 2;
+                    }
+                  }}
+                  style={{ 
+                    padding: '4px 12px', 
+                    fontSize: '12px', 
+                    background: '#ecf0f1', 
+                    border: '1px solid #bdc3c7',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Открыто (90°)
+                </button>
+              </div>
             </div>
           </div>
         )}
