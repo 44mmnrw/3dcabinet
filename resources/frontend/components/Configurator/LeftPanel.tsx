@@ -1,8 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import type { Step, ConfiguratorState } from '@/types/configurator';
 import { getAssetLoader } from '@/three/loaders/AssetLoader';
 import * as THREE from 'three';
 import './LeftPanel.css';
+
+// Импорт утилит параметрического ресайза
+import {
+  type NodeOriginalData,
+  type ModelOriginalData,
+  collectOriginalData,
+  applyParametricResize as applyResize,
+  hasCustomResizeRules
+} from '@/utils/parametricResize';
 
 export type CabinetCategory = 'thermal' | 'telecom-wall' | 'telecom-floor';
 
@@ -36,20 +45,19 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
   const [testModelLoaded, setTestModelLoaded] = useState(false);
   const [testModelObject, setTestModelObject] = useState<THREE.Object3D | null>(null);
   
-  // Стейт для управления материалом тестовой модели
-  const [modelColor, setModelColor] = useState('#97a3db'); // Голубоватый по умолчанию
-  const [modelOpacity, setModelOpacity] = useState(1.0);
-  const [showEdges, setShowEdges] = useState(false); // Показывать рёбра
-  const [edgeLines, setEdgeLines] = useState<THREE.LineSegments[]>([]); // Массив линий рёбер
-  const [edgeColor, setEdgeColor] = useState('#666666'); // Цвет рёбер (серый по умолчанию)
-  
-  // Стейт для масштабирования модели по осям
-  const [scaleX, setScaleX] = useState(1.0);
-  const [scaleY, setScaleY] = useState(1.0);
-  const [scaleZ, setScaleZ] = useState(1.0);
-  
   // Стейт для вращения двери (DOOR_SET)
   const [doorRotation, setDoorRotation] = useState(0); // Угол в градусах (0-120)
+  
+  // Стейт для отображения граней
+  const [showEdges, setShowEdges] = useState(false);
+  
+  // Стейт для параметрического ресайза
+  const [cabinetWidth, setCabinetWidth] = useState(800);   // мм
+  const [cabinetHeight, setCabinetHeight] = useState(600); // мм
+  const [cabinetDepth, setCabinetDepth] = useState(250);   // мм
+  const [originalCabinetSize, setOriginalCabinetSize] = useState<THREE.Vector3 | null>(null);
+  const [nodesOriginalData, setNodesOriginalData] = useState<Map<string, NodeOriginalData>>(new Map());
+  const [modelOriginalData, setModelOriginalData] = useState<ModelOriginalData | null>(null);
 
   const handleCategoryChange = (category: CabinetCategory) => {
     // Если кликнули на ту же категорию - скрываем assemblyTypes
@@ -138,14 +146,6 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
     try {
       if (testModelLoaded && testModelObject) {
         // Удалить тестовую модель
-        // Сначала очистить линии рёбер
-        edgeLines.forEach(line => {
-          line.geometry.dispose();
-          (line.material as THREE.Material).dispose();
-        });
-        setEdgeLines([]);
-        setShowEdges(false);
-        
         scene.remove(testModelObject);
         testModelObject.traverse((child) => {
           if ((child as THREE.Mesh).isMesh) {
@@ -167,12 +167,33 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
         const loader = getAssetLoader();
         const model = await loader.load('/assets/models/freecad/webGL/test.gltf');
         
-        // Вычислить bounding box и установить модель на "пол"
-        const box = new THREE.Box3().setFromObject(model);
-        const minY = box.min.y;
+        // === Сохраняем оригинальные данные ДО любых трансформаций ===
+        const { nodes: nodesData, model: modelData } = collectOriginalData(model);
+        
+        const sizeInMm = new THREE.Vector3(
+          modelData.size.x * 1000,
+          modelData.size.y * 1000,
+          modelData.size.z * 1000
+        );
+        setOriginalCabinetSize(sizeInMm);
+        setCabinetWidth(Math.round(sizeInMm.x));
+        setCabinetHeight(Math.round(sizeInMm.y));
+        setCabinetDepth(Math.round(sizeInMm.z));
+        
+        // Установить модель на "пол" (ПОСЛЕ сохранения оригинальных данных)
+        const minY = modelData.min.y;
         if (minY < 0) {
-          model.position.y -= minY; // Поднять модель так, чтобы низ был на y=0
+          model.position.y -= minY;
         }
+        setNodesOriginalData(nodesData);
+        setModelOriginalData(modelData);
+        
+        // Логируем узлы с кастомными правилами
+        const customNodes = Array.from(nodesData.entries())
+          .filter(([_, data]) => hasCustomResizeRules(data.rules));
+        console.log(`📊 Сохранены оригинальные данные для ${nodesData.size} узлов (${customNodes.length} с кастомными правилами)`);
+        console.log(`📐 Модель: центр (${modelData.center.x.toFixed(4)}, ${modelData.center.y.toFixed(4)}, ${modelData.center.z.toFixed(4)}), размер (${modelData.size.x.toFixed(4)}, ${modelData.size.y.toFixed(4)}, ${modelData.size.z.toFixed(4)})`);
+        // === Конец сохранения оригинальных данных ===
         
         scene.add(model);
         setTestModelObject(model);
@@ -184,80 +205,34 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
     }
   };
 
-  // Обработчик изменения цвета модели
-  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const color = e.target.value;
-    setModelColor(color);
-    
-    if (testModelObject) {
-      testModelObject.traverse((child) => {
-        if ((child as THREE.Mesh).isMesh) {
-          const mesh = child as THREE.Mesh;
-          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-          materials.forEach((mat) => {
-            if (mat && 'color' in mat) {
-              (mat as THREE.MeshStandardMaterial).color.setStyle(color);
-            }
-          });
-        }
-      });
+  // Применить параметрический ресайз ко всем узлам модели
+  const handleParametricResize = useCallback((newWidth: number, newHeight: number, newDepth: number) => {
+    if (!testModelObject || !originalCabinetSize || !modelOriginalData || nodesOriginalData.size === 0) {
+      return;
     }
-  };
+    
+    const newSize = new THREE.Vector3(newWidth, newHeight, newDepth);
+    applyResize(testModelObject, nodesOriginalData, modelOriginalData, originalCabinetSize, newSize);
+  }, [testModelObject, originalCabinetSize, modelOriginalData, nodesOriginalData]);
 
-  // Обработчик изменения прозрачности модели
-  const handleOpacityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const opacity = parseFloat(e.target.value);
-    setModelOpacity(opacity);
-    
-    if (testModelObject) {
-      testModelObject.traverse((child) => {
-        if ((child as THREE.Mesh).isMesh) {
-          const mesh = child as THREE.Mesh;
-          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-          materials.forEach((mat) => {
-            if (mat) {
-              mat.transparent = opacity < 1.0;
-              mat.opacity = opacity;
-              mat.needsUpdate = true;
-            }
-          });
-        }
-      });
-    }
-  };
+  // Обработчики изменения размеров с применением параметрического ресайза
+  const handleWidthChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value, 10);
+    setCabinetWidth(val);
+    handleParametricResize(val, cabinetHeight, cabinetDepth);
+  }, [handleParametricResize, cabinetHeight, cabinetDepth]);
 
-  // Обработчик переключения отображения рёбер
-  const handleToggleEdges = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const show = e.target.checked;
-    setShowEdges(show);
-    
-    if (testModelObject) {
-      if (show && edgeLines.length === 0) {
-        // Создать рёбра для всех мешей
-        const newEdgeLines: THREE.LineSegments[] = [];
-        testModelObject.traverse((child) => {
-          if ((child as THREE.Mesh).isMesh) {
-            const mesh = child as THREE.Mesh;
-            const edgesGeometry = new THREE.EdgesGeometry(mesh.geometry, 30); // 30° угол
-            const edgeMaterial = new THREE.LineBasicMaterial({ 
-              color: edgeColor,
-              linewidth: 1 // WebGL ограничение - всегда 1px
-            });
-            const lineSegments = new THREE.LineSegments(edgesGeometry, edgeMaterial);
-            mesh.add(lineSegments); // Добавляем как дочерний объект меша
-            newEdgeLines.push(lineSegments);
-          }
-        });
-        setEdgeLines(newEdgeLines);
-        console.log(`✅ Добавлено ${newEdgeLines.length} линий рёбер`);
-      } else {
-        // Переключить видимость существующих рёбер
-        edgeLines.forEach(line => {
-          line.visible = show;
-        });
-      }
-    }
-  };
+  const handleHeightChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value, 10);
+    setCabinetHeight(val);
+    handleParametricResize(cabinetWidth, val, cabinetDepth);
+  }, [handleParametricResize, cabinetWidth, cabinetDepth]);
+
+  const handleDepthChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value, 10);
+    setCabinetDepth(val);
+    handleParametricResize(cabinetWidth, cabinetHeight, val);
+  }, [handleParametricResize, cabinetWidth, cabinetHeight]);
 
   return (
     <div className="configurator-left-panel">
@@ -331,144 +306,11 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
           {testModelLoaded ? '🗑️ Удалить test.gltf' : '📦 Загрузить test.gltf'}
         </button>
         
-        {/* Управление материалом тестовой модели */}
+        {/* Управление тестовой моделью */}
         {testModelLoaded && (
           <div className="material-controls" style={{ marginTop: '12px', padding: '12px', background: '#f5f5f5', borderRadius: '8px' }}>
-            <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: '14px' }}>🎨 Материал модели</div>
-            
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <label style={{ fontSize: '13px', minWidth: '50px' }}>Цвет:</label>
-              <input 
-                type="color" 
-                value={modelColor}
-                onChange={handleColorChange}
-                style={{ width: '40px', height: '28px', border: 'none', cursor: 'pointer' }}
-              />
-              <span style={{ fontSize: '12px', color: '#666' }}>{modelColor}</span>
-            </div>
-            
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <label style={{ fontSize: '13px', minWidth: '50px' }}>Opacity:</label>
-              <input 
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={modelOpacity}
-                onChange={handleOpacityChange}
-                style={{ flex: 1 }}
-              />
-              <span style={{ fontSize: '12px', color: '#666', minWidth: '35px' }}>{(modelOpacity * 100).toFixed(0)}%</span>
-            </div>
-            
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
-              <label style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                <input 
-                  type="checkbox"
-                  checked={showEdges}
-                  onChange={handleToggleEdges}
-                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                />
-                Показать грани
-              </label>
-              <input 
-                type="color" 
-                value={edgeColor}
-                onChange={(e) => {
-                  const color = e.target.value;
-                  setEdgeColor(color);
-                  edgeLines.forEach(line => {
-                    (line.material as THREE.LineBasicMaterial).color.setStyle(color);
-                  });
-                }}
-                style={{ width: '28px', height: '20px', border: 'none', cursor: 'pointer', marginLeft: 'auto' }}
-                title="Цвет граней"
-              />
-            </div>
-            
-            {/* Масштабирование по осям */}
-            <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #ddd' }}>
-              <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: '14px' }}>📐 Масштаб (Scale)</div>
-              
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                <label style={{ fontSize: '13px', minWidth: '65px', color: '#e74c3c' }}>X (ширина):</label>
-                <input 
-                  type="range"
-                  min="0.1"
-                  max="3"
-                  step="0.05"
-                  value={scaleX}
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value);
-                    setScaleX(val);
-                    if (testModelObject) testModelObject.scale.x = val;
-                  }}
-                  style={{ flex: 1 }}
-                />
-                <span style={{ fontSize: '12px', color: '#666', minWidth: '40px' }}>{scaleX.toFixed(2)}</span>
-              </div>
-              
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                <label style={{ fontSize: '13px', minWidth: '65px', color: '#27ae60' }}>Y (высота):</label>
-                <input 
-                  type="range"
-                  min="0.1"
-                  max="3"
-                  step="0.05"
-                  value={scaleY}
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value);
-                    setScaleY(val);
-                    if (testModelObject) testModelObject.scale.y = val;
-                  }}
-                  style={{ flex: 1 }}
-                />
-                <span style={{ fontSize: '12px', color: '#666', minWidth: '40px' }}>{scaleY.toFixed(2)}</span>
-              </div>
-              
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                <label style={{ fontSize: '13px', minWidth: '65px', color: '#3498db' }}>Z (глубина):</label>
-                <input 
-                  type="range"
-                  min="0.1"
-                  max="3"
-                  step="0.05"
-                  value={scaleZ}
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value);
-                    setScaleZ(val);
-                    if (testModelObject) testModelObject.scale.z = val;
-                  }}
-                  style={{ flex: 1 }}
-                />
-                <span style={{ fontSize: '12px', color: '#666', minWidth: '40px' }}>{scaleZ.toFixed(2)}</span>
-              </div>
-              
-              <button
-                onClick={() => {
-                  setScaleX(1.0);
-                  setScaleY(1.0);
-                  setScaleZ(1.0);
-                  if (testModelObject) {
-                    testModelObject.scale.set(1, 1, 1);
-                  }
-                }}
-                style={{ 
-                  marginTop: '6px', 
-                  padding: '4px 12px', 
-                  fontSize: '12px', 
-                  background: '#ecf0f1', 
-                  border: '1px solid #bdc3c7',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-              >
-                🔄 Сбросить масштаб
-              </button>
-            </div>
-            
             {/* Вращение двери (DOOR_SET) */}
-            <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #ddd' }}>
+            <div>
               <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: '14px' }}>🚪 Вращение двери</div>
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -539,6 +381,150 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
                 </button>
               </div>
             </div>
+            
+            {/* Отображение граней */}
+            <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #ddd' }}>
+              <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: '14px' }}>🔲 Грани модели</div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '13px' }}>
+                  <input 
+                    type="checkbox"
+                    checked={showEdges}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setShowEdges(checked);
+                      if (testModelObject) {
+                        testModelObject.traverse((child) => {
+                          if ((child as THREE.Mesh).isMesh) {
+                            const mesh = child as THREE.Mesh;
+                            
+                            // Удаляем существующие грани
+                            const existingEdges = mesh.children.find(c => c.type === 'LineSegments');
+                            if (existingEdges) {
+                              mesh.remove(existingEdges);
+                              (existingEdges as THREE.LineSegments).geometry.dispose();
+                              ((existingEdges as THREE.LineSegments).material as THREE.Material).dispose();
+                            }
+                            
+                            // Добавляем новые грани если включено
+                            if (checked && mesh.geometry) {
+                              const edges = new THREE.EdgesGeometry(mesh.geometry, 15);
+                              const line = new THREE.LineSegments(
+                                edges, 
+                                new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 1 })
+                              );
+                              mesh.add(line);
+                            }
+                          }
+                        });
+                      }
+                    }}
+                    style={{ marginRight: '8px' }}
+                  />
+                  <span>Показать грани (edges)</span>
+                </label>
+              </div>
+              
+              <div style={{ fontSize: '11px', color: '#888', marginTop: '6px' }}>
+                Отображает рёбра геометрии с углом &gt; 15°
+              </div>
+            </div>
+            
+            {/* === ПАРАМЕТРИЧЕСКИЙ РЕСАЙЗ === */}
+            {originalCabinetSize && (
+              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #ddd' }}>
+                <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: '14px' }}>📐 Параметрический ресайз</div>
+                <div style={{ fontSize: '11px', color: '#888', marginBottom: '8px' }}>
+                  Оригинал: {Math.round(originalCabinetSize.x)}×{Math.round(originalCabinetSize.y)}×{Math.round(originalCabinetSize.z)} мм
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '13px', minWidth: '65px', color: '#e74c3c' }}>Ширина:</label>
+                  <input 
+                    type="range"
+                    min={Math.round(originalCabinetSize.x * 0.5)}
+                    max={Math.round(originalCabinetSize.x * 1.5)}
+                    step="10"
+                    value={cabinetWidth}
+                    onChange={handleWidthChange}
+                    style={{ flex: 1 }}
+                  />
+                  <span style={{ fontSize: '12px', color: '#666', minWidth: '55px' }}>{cabinetWidth} мм</span>
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '13px', minWidth: '65px', color: '#27ae60' }}>Высота:</label>
+                  <input 
+                    type="range"
+                    min={Math.round(originalCabinetSize.y * 0.5)}
+                    max={Math.round(originalCabinetSize.y * 1.5)}
+                    step="10"
+                    value={cabinetHeight}
+                    onChange={handleHeightChange}
+                    style={{ flex: 1 }}
+                  />
+                  <span style={{ fontSize: '12px', color: '#666', minWidth: '55px' }}>{cabinetHeight} мм</span>
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '13px', minWidth: '65px', color: '#3498db' }}>Глубина:</label>
+                  <input 
+                    type="range"
+                    min={Math.round(originalCabinetSize.z * 0.5)}
+                    max={Math.round(originalCabinetSize.z * 1.5)}
+                    step="10"
+                    value={cabinetDepth}
+                    onChange={handleDepthChange}
+                    style={{ flex: 1 }}
+                  />
+                  <span style={{ fontSize: '12px', color: '#666', minWidth: '55px' }}>{cabinetDepth} мм</span>
+                </div>
+                
+                <button
+                  onClick={() => {
+                    if (originalCabinetSize) {
+                      const w = Math.round(originalCabinetSize.x);
+                      const h = Math.round(originalCabinetSize.y);
+                      const d = Math.round(originalCabinetSize.z);
+                      setCabinetWidth(w);
+                      setCabinetHeight(h);
+                      setCabinetDepth(d);
+                      handleParametricResize(w, h, d);
+                    }
+                  }}
+                  style={{ 
+                    marginTop: '8px', 
+                    padding: '6px 16px', 
+                    fontSize: '12px', 
+                    background: '#3498db', 
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  🔄 Сбросить размеры
+                </button>
+                
+                {/* Информация о найденных правилах */}
+                {nodesOriginalData.size > 0 && (
+                  <div style={{ marginTop: '12px', fontSize: '11px', color: '#666' }}>
+                    <div style={{ fontWeight: 600, marginBottom: '4px' }}>Найдено узлов с правилами:</div>
+                    {Array.from(nodesOriginalData.entries())
+                      .filter(([_, data]) => data.rules.resize_x !== 'scale' || data.rules.resize_y !== 'scale' || data.rules.resize_z !== 'scale')
+                      .map(([name, data]) => (
+                        <div key={name} style={{ padding: '2px 0', borderBottom: '1px solid #eee' }}>
+                          <strong>{name}</strong>: {data.rules.resize_x}/{data.rules.resize_y}/{data.rules.resize_z}
+                          {data.rules.anchor_x !== 'center' && ` anchor_x:${data.rules.anchor_x}`}
+                          {data.rules.anchor_y !== 'bottom' && ` anchor_y:${data.rules.anchor_y}`}
+                        </div>
+                      ))
+                    }
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
