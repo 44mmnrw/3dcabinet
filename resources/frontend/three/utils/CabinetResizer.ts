@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 /**
  * CabinetResizer v2.0
- * 
+ * внеси
  * Параметрический ресайз 3D моделей шкафов (GLB/GLTF)
  * 
  * Основан на ТЗ v2.0: Система адаптивного масштабирования
@@ -78,6 +78,7 @@ export interface NodeOriginalData {
   localPosition: THREE.Vector3;
   worldPosition: THREE.Vector3;
   localScale: THREE.Vector3;
+  size: THREE.Vector3;
   rules: ResizeRules;
   parentName: string | null;
 }
@@ -244,11 +245,15 @@ export function collectOriginalData(model: THREE.Object3D): {
     const rules = getResizeRules(child);
     const worldPos = new THREE.Vector3();
     child.getWorldPosition(worldPos);
+    const nodeBox = new THREE.Box3().setFromObject(child);
+    const nodeSize = new THREE.Vector3();
+    nodeBox.getSize(nodeSize);
     
     nodes.set(child.name, {
       localPosition: child.position.clone(),
       worldPosition: worldPos,
       localScale: child.scale.clone(),
+      size: nodeSize.clone(),
       rules,
       parentName: child.parent?.name || null
     });
@@ -327,7 +332,7 @@ export function applyParametricResize(
     const data = nodesData.get(child.name);
     if (!data || !needsProcessing(data.rules)) return;
     
-    processNode(child, data, scale, sizeDelta, nodesData);
+    processNode(child, data, scale, nodesData, modelData);
   });
   
   // --- 6. Обновляем мировые матрицы ---
@@ -341,8 +346,8 @@ function processNode(
   child: THREE.Object3D,
   data: NodeOriginalData,
   rootScale: THREE.Vector3,
-  rootSizeDelta: THREE.Vector3,
-  nodesData: Map<string, NodeOriginalData>
+  nodesData: Map<string, NodeOriginalData>,
+  modelData: ModelOriginalData
 ): void {
   const rules = data.rules;
   const origPos = data.localPosition;
@@ -351,15 +356,20 @@ function processNode(
   // Получаем effectiveScale (учитывая цепочку родителей)
   const effScale = getEffectiveScale(child, nodesData, rootScale);
   
-  // Получаем sizeDelta для этого узла (от ближайшего масштабируемого родителя)
-  const sizeDelta = getEffectiveSizeDelta(child, nodesData, rootSizeDelta);
+  // Получаем sizeDelta относительно ближайшего масштабируемого родителя
+  const { parentSize, parentScale } = getParentSizeAndScale(child, nodesData, modelData, rootScale);
+  const sizeDelta = new THREE.Vector3(
+    parentSize.x * (parentScale.x - 1),
+    parentSize.y * (parentScale.y - 1),
+    parentSize.z * (parentScale.z - 1)
+  );
   
   // --- Компенсация геометрии (child.scale) ---
-  // Если resize !== 'scale', компенсируем растяжение от rootScale
+  // Если resize !== 'scale', компенсируем растяжение, которое реально дошло до узла
   const newScale = new THREE.Vector3(
-    rules.resize_x !== 'scale' ? safeDiv(origScale.x, rootScale.x) : origScale.x,
-    rules.resize_y !== 'scale' ? safeDiv(origScale.y, rootScale.y) : origScale.y,
-    rules.resize_z !== 'scale' ? safeDiv(origScale.z, rootScale.z) : origScale.z
+    rules.resize_x !== 'scale' ? safeDiv(origScale.x, effScale.x) : origScale.x,
+    rules.resize_y !== 'scale' ? safeDiv(origScale.y, effScale.y) : origScale.y,
+    rules.resize_z !== 'scale' ? safeDiv(origScale.z, effScale.z) : origScale.z
   );
   
   // --- Компенсация позиции ---
@@ -370,7 +380,7 @@ function processNode(
     newPos.x = calculatePositionByAnchor(origPos.x, rules.anchor_x, effScale.x, sizeDelta.x);
   } else if (rules.resize_x === 'absolute') {
     // absolute: сохраняем мировую позицию → newLocal = origWorld / parentWorldScale
-    newPos.x = safeDiv(origPos.x, effScale.x);
+    newPos.x = safeDiv(data.worldPosition.x - getParentWorldPosition(child).x, getParentWorldScale(child).x);
   } else {
     newPos.x = origPos.x;
   }
@@ -379,7 +389,7 @@ function processNode(
   if (rules.resize_y === 'move') {
     newPos.y = calculatePositionByAnchor(origPos.y, rules.anchor_y, effScale.y, sizeDelta.y);
   } else if (rules.resize_y === 'absolute') {
-    newPos.y = safeDiv(origPos.y, effScale.y);
+    newPos.y = safeDiv(data.worldPosition.y - getParentWorldPosition(child).y, getParentWorldScale(child).y);
   } else {
     newPos.y = origPos.y;
   }
@@ -388,7 +398,7 @@ function processNode(
   if (rules.resize_z === 'move') {
     newPos.z = calculatePositionByAnchor(origPos.z, rules.anchor_z, effScale.z, sizeDelta.z);
   } else if (rules.resize_z === 'absolute') {
-    newPos.z = safeDiv(origPos.z, effScale.z);
+    newPos.z = safeDiv(data.worldPosition.z - getParentWorldPosition(child).z, getParentWorldScale(child).z);
   } else {
     newPos.z = origPos.z;
   }
@@ -438,8 +448,8 @@ function calculatePositionByAnchor(
     case 'left':
     case 'bottom':
     case 'front':
-      // Фиксированный отступ от origin
-      return safeDiv(origPos, scale);
+      // Фиксированный отступ от origin (учитываем сдвиг левого/нижнего/переднего края)
+      return safeDiv(origPos, scale) - safeDiv(sizeDelta, 2 * scale);
       
     case 'right':
     case 'top':
@@ -465,49 +475,68 @@ function getEffectiveScale(
   nodesData: Map<string, NodeOriginalData>,
   rootScale: THREE.Vector3
 ): THREE.Vector3 {
-  const effScale = rootScale.clone();
+  const effScale = new THREE.Vector3(1, 1, 1);
+  let current: THREE.Object3D | null = child.parent;
+  let blockedX = false;
+  let blockedY = false;
+  let blockedZ = false;
   
-  let current = child.parent;
   while (current) {
     const parentData = nodesData.get(current.name);
     if (parentData) {
-      // Если родитель по оси НЕ масштабируется, то для ребёнка scale = 1
-      if (parentData.rules.resize_x !== 'scale') effScale.x = 1;
-      if (parentData.rules.resize_y !== 'scale') effScale.y = 1;
-      if (parentData.rules.resize_z !== 'scale') effScale.z = 1;
+      if (parentData.rules.resize_x !== 'scale') blockedX = true;
+      if (parentData.rules.resize_y !== 'scale') blockedY = true;
+      if (parentData.rules.resize_z !== 'scale') blockedZ = true;
     }
     current = current.parent;
   }
+  
+  effScale.set(
+    blockedX ? 1 : rootScale.x,
+    blockedY ? 1 : rootScale.y,
+    blockedZ ? 1 : rootScale.z
+  );
   
   return effScale;
 }
 
 /**
- * Вычисляет sizeDelta для узла с учётом иерархии
- * 
- * Если родитель по оси НЕ масштабируется, sizeDelta = 0 для этой оси
- * (т.к. размер родителя не меняется)
+ * Возвращает размер и масштаб ближайшего родителя для расчёта sizeDelta
  */
-function getEffectiveSizeDelta(
+function getParentSizeAndScale(
   child: THREE.Object3D,
   nodesData: Map<string, NodeOriginalData>,
-  rootSizeDelta: THREE.Vector3
-): THREE.Vector3 {
-  const sizeDelta = rootSizeDelta.clone();
-  
-  let current = child.parent;
-  while (current) {
-    const parentData = nodesData.get(current.name);
+  modelData: ModelOriginalData,
+  rootScale: THREE.Vector3
+): { parentSize: THREE.Vector3; parentScale: THREE.Vector3 } {
+  const parent = child.parent;
+  if (parent) {
+    const parentData = nodesData.get(parent.name);
     if (parentData) {
-      // Если родитель по оси НЕ масштабируется, sizeDelta = 0
-      if (parentData.rules.resize_x !== 'scale') sizeDelta.x = 0;
-      if (parentData.rules.resize_y !== 'scale') sizeDelta.y = 0;
-      if (parentData.rules.resize_z !== 'scale') sizeDelta.z = 0;
+      const parentEffScale = getEffectiveScale(parent, nodesData, rootScale);
+      return { parentSize: parentData.size.clone(), parentScale: parentEffScale };
     }
-    current = current.parent;
   }
-  
-  return sizeDelta;
+  // Фолбэк к размерам модели
+  return { parentSize: modelData.size.clone(), parentScale: rootScale.clone() };
+}
+
+/**
+ * Получает мировую позицию родителя (для absolute)
+ */
+function getParentWorldPosition(child: THREE.Object3D): THREE.Vector3 {
+  const v = new THREE.Vector3();
+  if (child.parent) child.parent.getWorldPosition(v);
+  return v;
+}
+
+/**
+ * Получает мировой scale родителя (для absolute)
+ */
+function getParentWorldScale(child: THREE.Object3D): THREE.Vector3 {
+  const v = new THREE.Vector3(1, 1, 1);
+  if (child.parent) child.parent.getWorldScale(v);
+  return v;
 }
 
 // ============================================================================
