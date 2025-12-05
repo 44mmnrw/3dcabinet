@@ -2028,7 +2028,8 @@
 				"booleans":{
 					"canvas":1
 				},
-				"resize_x":"move"
+				"resize_x":"move",
+				"anchor_x":"right"
 			},
 			"mesh":106,
 			"name":"WALLS_RIGHT",
@@ -2171,12 +2172,7 @@
 				120
 			],
 			"extras":{
-				"poliigon_props":{},
-				"anchor_x":"right",
-				"anchor_y":"top",
-				"resize_x":"fixed",
-				"resize_z":"move",
-				"resize_y":"move"
+				"poliigon_props":{}
 			},
 			"name":"LOCK_SET_01",
 			"translation":[

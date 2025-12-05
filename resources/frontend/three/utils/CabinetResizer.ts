@@ -392,6 +392,12 @@ function calculateNewPosition(
   
   switch (anchor) {
     case 'right':
+      // Для right: симметрично left, но сдвигаемся вправо
+      // (т.к. масштабирование идёт от центра по X)
+      offset = origPos;
+      newPos = offset + (newSize - origSize) / 2;
+      break;
+      
     case 'top':
     case 'back':
       // Привязка к max краю: сохраняем расстояние от max
