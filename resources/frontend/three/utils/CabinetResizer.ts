@@ -462,3 +462,5 @@ export function getModelSizeInMm(model: THREE.Object3D): THREE.Vector3 {
   return new THREE.Vector3(size.x * 1000, size.y * 1000, size.z * 1000);
 }
 
+
+// Force HMR update 15:11:46
