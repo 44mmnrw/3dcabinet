@@ -10,7 +10,7 @@ import {
   type ModelOriginalData,
   collectOriginalData,
   applyParametricResize as applyResize,
-  hasCustomResizeRules
+  needsProcessing
 } from '@/three/utils/CabinetResizer';
 
 export type CabinetCategory = 'thermal' | 'telecom-wall' | 'telecom-floor';
@@ -190,7 +190,7 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
         
         // Логируем узлы с кастомными правилами
         const customNodes = Array.from(nodesData.entries())
-          .filter(([_, data]) => hasCustomResizeRules(data.rules));
+          .filter(([_, data]) => needsProcessing(data.rules));
         console.log(`📊 Сохранены оригинальные данные для ${nodesData.size} узлов (${customNodes.length} с кастомными правилами)`);
         console.log(`📐 Модель: центр (${modelData.center.x.toFixed(4)}, ${modelData.center.y.toFixed(4)}, ${modelData.center.z.toFixed(4)}), размер (${modelData.size.x.toFixed(4)}, ${modelData.size.y.toFixed(4)}, ${modelData.size.z.toFixed(4)})`);
         // === Конец сохранения оригинальных данных ===
@@ -325,13 +325,15 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
                     const angle = parseFloat(e.target.value);
                     setDoorRotation(angle);
                     if (testModelObject) {
-                      // Найти DOOR_SET по имени
-                      const doorSet = testModelObject.getObjectByName('DOOR_SET');
-                      if (doorSet) {
+                      // Ищем узел для вращения: DOOR_HINGE > DOOR_SET > DOOR_FRAME
+                      const doorNode = testModelObject.getObjectByName('DOOR_HINGE') ||
+                                       testModelObject.getObjectByName('DOOR_SET') ||
+                                       testModelObject.getObjectByName('DOOR_FRAME');
+                      if (doorNode) {
                         // Преобразуем градусы в радианы и вращаем вокруг Y
-                        doorSet.rotation.y = (angle * Math.PI) / 180;
+                        doorNode.rotation.y = (angle * Math.PI) / 180;
                       } else {
-                        console.warn('⚠️ DOOR_SET не найден в модели');
+                        console.warn('⚠️ Узел двери (DOOR_HINGE/DOOR_SET/DOOR_FRAME) не найден в модели');
                       }
                     }
                   }}
@@ -345,8 +347,10 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
                   onClick={() => {
                     setDoorRotation(0);
                     if (testModelObject) {
-                      const doorSet = testModelObject.getObjectByName('DOOR_SET');
-                      if (doorSet) doorSet.rotation.y = 0;
+                      const doorNode = testModelObject.getObjectByName('DOOR_HINGE') ||
+                                       testModelObject.getObjectByName('DOOR_SET') ||
+                                       testModelObject.getObjectByName('DOOR_FRAME');
+                      if (doorNode) doorNode.rotation.y = 0;
                     }
                   }}
                   style={{ 
@@ -364,8 +368,10 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
                   onClick={() => {
                     setDoorRotation(90);
                     if (testModelObject) {
-                      const doorSet = testModelObject.getObjectByName('DOOR_SET');
-                      if (doorSet) doorSet.rotation.y = Math.PI / 2;
+                      const doorNode = testModelObject.getObjectByName('DOOR_HINGE') ||
+                                       testModelObject.getObjectByName('DOOR_SET') ||
+                                       testModelObject.getObjectByName('DOOR_FRAME');
+                      if (doorNode) doorNode.rotation.y = Math.PI / 2;
                     }
                   }}
                   style={{ 
