@@ -1,6 +1,6 @@
 {
-  "_init-CuuSIzqK.js": {
-    "file": "assets/init-CuuSIzqK.js",
+  "_init-DOQ13xWX.js": {
+    "file": "assets/init-DOQ13xWX.js",
     "name": "init",
     "isDynamicEntry": true,
     "imports": [
@@ -46,7 +46,7 @@
     ]
   },
   "resources/frontend/app.tsx": {
-    "file": "assets/app-nKH6UkUL.js",
+    "file": "assets/app-C-hEHL57.js",
     "name": "app",
     "src": "resources/frontend/app.tsx",
     "isEntry": true,
@@ -57,7 +57,7 @@
     ],
     "dynamicImports": [
       "resources/frontend/components/Scene3D/Scene3DContainer.jsx",
-      "_init-CuuSIzqK.js"
+      "_init-DOQ13xWX.js"
     ],
     "css": [
       "assets/app-DQnv1vkQ.css",
@@ -65,7 +65,7 @@
     ]
   },
   "resources/frontend/components/Scene3D/Scene3DContainer.jsx": {
-    "file": "assets/Scene3DContainer-Bl60uXhT.js",
+    "file": "assets/Scene3DContainer-CIowzGOJ.js",
     "name": "Scene3DContainer",
     "src": "resources/frontend/components/Scene3D/Scene3DContainer.jsx",
     "isDynamicEntry": true,
@@ -86,13 +86,13 @@
     "isDynamicEntry": true
   },
   "resources/frontend/three/types/ServerCabinet.ts": {
-    "file": "assets/ServerCabinet-Cfyg4rAN.js",
+    "file": "assets/ServerCabinet-C2b5_Ng-.js",
     "name": "ServerCabinet",
     "src": "resources/frontend/three/types/ServerCabinet.ts",
     "isDynamicEntry": true,
     "imports": [
       "resources/frontend/three/types/CabinetType.ts",
-      "_init-CuuSIzqK.js",
+      "_init-DOQ13xWX.js",
       "_three-core-tjYGQBe6.js",
       "resources/frontend/app.tsx",
       "_react-vendor-OvXVS5lI.js",
@@ -103,13 +103,13 @@
     ]
   },
   "resources/frontend/three/types/TelecomCabinet.ts": {
-    "file": "assets/TelecomCabinet-CxHoZiOc.js",
+    "file": "assets/TelecomCabinet-AbUrTSuY.js",
     "name": "TelecomCabinet",
     "src": "resources/frontend/three/types/TelecomCabinet.ts",
     "isDynamicEntry": true,
     "imports": [
       "resources/frontend/three/types/CabinetType.ts",
-      "_init-CuuSIzqK.js",
+      "_init-DOQ13xWX.js",
       "_three-core-tjYGQBe6.js",
       "resources/frontend/app.tsx",
       "_react-vendor-OvXVS5lI.js",

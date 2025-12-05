@@ -1,316 +1,458 @@
 import * as THREE from 'three';
-import type { CabinetBase } from '../cabinets/CabinetBase.ts';
 
 /**
- * Константы стандарта 19" rack
+ * Параметрический ресайз 3D моделей (GLB/GLTF)
+ * 
+ * Читает правила из glTF Custom Properties (userData.extras)
+ * и применяет масштабирование/перемещение узлов модели.
+ * 
+ * ЛОГИКА:
+ * - scale:    объект масштабируется вместе с родителем (по умолчанию)
+ * - move:     объект НЕ масштабируется, позиция пересчитывается от anchor
+ * - fixed:    объект НЕ масштабируется, позиция пересчитывается от anchor (= move)
+ * - absolute: объект НЕ масштабируется, мировая позиция НЕ меняется
  */
-const UNIT_HEIGHT_MM = 44.45; // Высота 1U в миллиметрах
+
+// ========== ТИПЫ ==========
+export type ResizeAction = 'scale' | 'move' | 'fixed' | 'absolute';
+export type AnchorX = 'left' | 'center' | 'right';
+export type AnchorY = 'bottom' | 'center' | 'top';
+export type AnchorZ = 'front' | 'center' | 'back';
+
+export interface ResizeRules {
+  resize_x: ResizeAction;
+  resize_y: ResizeAction;
+  resize_z: ResizeAction;
+  anchor_x: AnchorX;
+  anchor_y: AnchorY;
+  anchor_z: AnchorZ;
+}
+
+export interface NodeOriginalData {
+  localPosition: THREE.Vector3;   // Локальная позиция (child.position)
+  worldPosition: THREE.Vector3;   // Мировая позиция (для absolute)
+  localScale: THREE.Vector3;      // Локальный масштаб (child.scale)
+  rules: ResizeRules;
+}
+
+export interface ModelOriginalData {
+  size: THREE.Vector3;    // Размер модели в метрах
+  min: THREE.Vector3;     // Минимальные координаты bbox
+  max: THREE.Vector3;     // Максимальные координаты bbox
+  center: THREE.Vector3;  // Центр модели
+}
+
+// ========== КОНСТАНТЫ ==========
+const DEFAULT_RULES: ResizeRules = {
+  resize_x: 'scale',
+  resize_y: 'scale',
+  resize_z: 'scale',
+  anchor_x: 'center',
+  anchor_y: 'bottom',
+  anchor_z: 'center',
+};
+
+// ========== ФУНКЦИИ ПАРАМЕТРИЧЕСКОГО РЕСАЙЗА ==========
 
 /**
- * Теги для классификации компонентов
+ * Читает правила ресайза из userData (glTF extras)
+ * 
+ * ВАЖНО: В glTF custom properties могут быть:
+ * - В node.extras → попадает в object.userData
+ * - В mesh.extras → попадает в mesh.geometry.userData (для Mesh объектов)
+ * 
+ * Проверяем оба места!
  */
-const TAG_SCALE = '[SCALE]';
-const TAG_FIXED = '[FIXED]';
-const TAG_FIXED_POS = '[FIXED_POS]';
-const TAG_DOOR = '[DOOR]';
-const TAG_PANEL = '[PANEL]';
-
-/**
- * Категории компонентов
- */
-interface ComponentCategory {
-    type: 'vertical' | 'horizontal' | 'door' | 'panel' | 'fixed' | 'fixed_pos';
-    scale: boolean;
-    scaleAxis: 'all' | 'z' | 'none';
-    movePosition: boolean;
+export function getResizeRules(obj: THREE.Object3D): ResizeRules {
+  // Собираем userData из node И из mesh geometry
+  const nodeUserData = obj.userData || {};
+  
+  // Для Mesh объектов проверяем также geometry.userData (там mesh.extras)
+  let meshUserData: Record<string, unknown> = {};
+  if (obj instanceof THREE.Mesh && obj.geometry?.userData) {
+    meshUserData = obj.geometry.userData;
+  }
+  
+  // Node extras имеют приоритет над mesh extras
+  // (mesh extras — fallback, если в node не указано)
+  const userData = { ...meshUserData, ...nodeUserData };
+  const rules: ResizeRules = { ...DEFAULT_RULES };
+  
+  // Shorthand: presize_xyz применяется ко всем осям
+  const shorthand = userData['presize_xyz'] || userData['resize_xyz'];
+  if (shorthand && ['scale', 'move', 'fixed', 'absolute'].includes(shorthand as string)) {
+    rules.resize_x = shorthand as ResizeAction;
+    rules.resize_y = shorthand as ResizeAction;
+    rules.resize_z = shorthand as ResizeAction;
+  }
+  
+  // Индивидуальные оси переопределяют shorthand
+  const rx = userData['presize_x'] || userData['resize_x'];
+  const ry = userData['presize_y'] || userData['resize_y'];
+  const rz = userData['presize_z'] || userData['resize_z'];
+  
+  if (rx && ['scale', 'move', 'fixed', 'absolute'].includes(rx as string)) rules.resize_x = rx as ResizeAction;
+  if (ry && ['scale', 'move', 'fixed', 'absolute'].includes(ry as string)) rules.resize_y = ry as ResizeAction;
+  if (rz && ['scale', 'move', 'fixed', 'absolute'].includes(rz as string)) rules.resize_z = rz as ResizeAction;
+  
+  // Anchors
+  if (userData['anchor_x']) rules.anchor_x = userData['anchor_x'] as AnchorX;
+  if (userData['anchor_y']) rules.anchor_y = userData['anchor_y'] as AnchorY;
+  if (userData['anchor_z']) rules.anchor_z = userData['anchor_z'] as AnchorZ;
+  
+  return rules;
 }
 
 /**
- * Информация о компоненте для изменения размера
+ * Проверяет, нужна ли обработка узла (есть ли нестандартные правила)
  */
-interface ComponentResizeInfo {
-    object: THREE.Object3D;
-    originalScale: THREE.Vector3;
-    originalPosition: THREE.Vector3;
-    category: ComponentCategory;
+export function needsProcessing(rules: ResizeRules): boolean {
+  return rules.resize_x !== 'scale' || 
+         rules.resize_y !== 'scale' || 
+         rules.resize_z !== 'scale';
 }
 
 /**
- * Утилита для изменения размеров шкафа в браузере
- * 
- * Анализирует имена компонентов на теги и применяет масштабирование/позиционирование
- * аналогично FreeCAD скрипту Cab42_Structured.py
- * 
- * ⚠️ ПЕРСПЕКТИВНАЯ РАЗРАБОТКА
- * 
- * Данная функциональность находится в стадии разработки и требует тщательного анализа
- * рисков перед внедрением в production:
- * 
- * 1. Версионирование алгоритма масштабирования
- *    - При изменении логики масштабирования старые проекты могут отображаться некорректно
- *    - Необходимо хранить версию алгоритма вместе с конфигурацией шкафа
- * 
- * 2. Хранение позиций оборудования
- *    - Позиции оборудования хранятся в БД (cabinet_configurations.equipment_positions)
- *    - При динамическом изменении модели координаты могут стать невалидными
- *    - Требуется миграция/пересчет позиций при изменении алгоритма
- * 
- * 3. Производительность
- *    - Динамическое масштабирование требует пересчета при каждой загрузке проекта
- *    - Необходимо кэширование результатов для часто используемых размеров
- * 
- * 4. Точность и округление
- *    - Накопление ошибок округления при многократных пересчетах
- *    - Риск рассинхронизации с физическими моделями
- * 
- * 5. Совместимость с существующими проектами
- *    - Старые проекты созданы с фиксированными моделями
- *    - Требуется стратегия миграции или поддержка обоих подходов
- * 
- * Рекомендации:
- * - Рассмотреть гибридный подход: хранить базовую модель + параметры масштабирования
- * - Добавить версионирование в схему БД (resize_algorithm_version)
- * - Реализовать валидацию позиций оборудования после масштабирования
- * - Предусмотреть возможность "заморозки" модели для критичных проектов
+ * Проверяет, есть ли кастомные правила ресайза
+ * Принимает либо ResizeRules объект, либо THREE.Object3D модель
  */
-export class CabinetResizer {
-    private cabinet: CabinetBase;
-    private componentsInfo: Map<string, ComponentResizeInfo>;
-    private originalHeight: number;
-    private baseZ: number;
-
-    constructor(cabinet: CabinetBase) {
-        this.cabinet = cabinet;
-        this.componentsInfo = new Map();
-        this.originalHeight = 0;
-        this.baseZ = 0;
-        
-        // Анализируем компоненты при создании
-        this._analyzeComponents();
+export function hasCustomResizeRules(input: ResizeRules | THREE.Object3D): boolean {
+  // Если передан объект правил (ResizeRules)
+  if ('resize_x' in input && 'resize_y' in input && 'resize_z' in input) {
+    return needsProcessing(input as ResizeRules);
+  }
+  
+  // Если передан THREE.Object3D
+  const model = input as THREE.Object3D;
+  if (!model || typeof model.traverse !== 'function') {
+    console.warn('hasCustomResizeRules: invalid input, expected ResizeRules or THREE.Object3D');
+    return false;
+  }
+  
+  let hasRules = false;
+  
+  model.traverse((child) => {
+    if (hasRules) return; // Уже нашли, выходим
+    
+    const rules = getResizeRules(child);
+    if (needsProcessing(rules)) {
+      hasRules = true;
     }
-
-    /**
-     * Анализ компонентов и определение их категорий
-     */
-    private _analyzeComponents(): void {
-        const components = this.cabinet.getComponents();
-        
-        // Находим базовую высоту (минимальная Z координата)
-        let minZ = Infinity;
-        let maxZ = -Infinity;
-
-        for (const [name, obj] of Object.entries(components)) {
-            if (!obj) continue;
-
-            // Получаем bbox для определения высоты
-            const bbox = new THREE.Box3().setFromObject(obj);
-            minZ = Math.min(minZ, bbox.min.z);
-            maxZ = Math.max(maxZ, bbox.max.z);
-
-            // Определяем категорию по тегам в имени
-            const category = this._classifyComponent(name);
-            
-            // Сохраняем оригинальные значения
-            this.componentsInfo.set(name, {
-                object: obj,
-                originalScale: obj.scale.clone(),
-                originalPosition: obj.position.clone(),
-                category
-            });
-        }
-
-        this.baseZ = minZ;
-        this.originalHeight = maxZ - minZ;
-    }
-
-    /**
-     * Классификация компонента по тегам в имени
-     */
-    private _classifyComponent(name: string): ComponentCategory {
-        const nameUpper = name.toUpperCase();
-
-        // Проверяем теги (важно: FIXED_POS перед FIXED!)
-        if (nameUpper.includes(TAG_SCALE)) {
-            return {
-                type: 'vertical',
-                scale: true,
-                scaleAxis: 'all',
-                movePosition: false
-            };
-        } else if (nameUpper.includes(TAG_FIXED_POS)) {
-            return {
-                type: 'fixed_pos',
-                scale: false,
-                scaleAxis: 'none',
-                movePosition: true
-            };
-        } else if (nameUpper.includes(TAG_FIXED)) {
-            return {
-                type: 'fixed',
-                scale: false,
-                scaleAxis: 'none',
-                movePosition: false
-            };
-        } else if (nameUpper.includes(TAG_DOOR)) {
-            return {
-                type: 'door',
-                scale: true,
-                scaleAxis: 'z',
-                movePosition: false
-            };
-        } else if (nameUpper.includes(TAG_PANEL)) {
-            return {
-                type: 'panel',
-                scale: true,
-                scaleAxis: 'z',
-                movePosition: false
-            };
-        } else {
-            // По умолчанию - фиксированный
-            return {
-                type: 'fixed',
-                scale: false,
-                scaleAxis: 'none',
-                movePosition: false
-            };
-        }
-    }
-
-    /**
-     * Изменить размер шкафа
-     * 
-     * @param targetUnits - Целевое количество юнитов (6-47U)
-     * @param options - Опции изменения размера
-     */
-    resize(targetUnits: number, options: {
-        scaleDoors?: boolean;
-        scalePanels?: boolean;
-    } = {}): void {
-        const { scaleDoors = true, scalePanels = true } = options;
-
-        if (targetUnits < 6 || targetUnits > 47) {
-            throw new Error(`Недопустимое количество юнитов: ${targetUnits}. Допустимо: 6-47U`);
-        }
-
-        const targetHeight = targetUnits * UNIT_HEIGHT_MM;
-        const scaleFactor = targetHeight / this.originalHeight;
-
-        console.log(`🔧 Изменение размера шкафа: ${(this.originalHeight / UNIT_HEIGHT_MM).toFixed(1)}U → ${targetUnits}U`);
-        console.log(`   Коэффициент масштабирования: ${scaleFactor.toFixed(4)}`);
-
-        // Применяем изменения к компонентам
-        for (const [name, info] of this.componentsInfo.entries()) {
-            const { object, originalScale, originalPosition, category } = info;
-
-            // Масштабирование
-            if (category.scale) {
-                if (category.scaleAxis === 'all') {
-                    // Масштабируем по всем осям
-                    object.scale.set(
-                        originalScale.x * scaleFactor,
-                        originalScale.y * scaleFactor,
-                        originalScale.z * scaleFactor
-                    );
-                    console.log(`   ✅ ${name}: масштабирован (все оси)`);
-                } else if (category.scaleAxis === 'z') {
-                    // Масштабируем только по высоте
-                    if ((category.type === 'door' && scaleDoors) || 
-                        (category.type === 'panel' && scalePanels)) {
-                        object.scale.set(
-                            originalScale.x,
-                            originalScale.y,
-                            originalScale.z * scaleFactor
-                        );
-                        console.log(`   ✅ ${name}: масштабирован (только Z)`);
-                    }
-                }
-            } else {
-                // Восстанавливаем оригинальный масштаб
-                object.scale.copy(originalScale);
-            }
-
-            // Позиционирование
-            if (category.movePosition) {
-                // Вычисляем относительную позицию по Z
-                const relativeZ = originalPosition.z - this.baseZ;
-                const newZ = this.baseZ + (relativeZ * scaleFactor);
-
-                // Новая позиция (X и Y остаются без изменений)
-                object.position.set(
-                    originalPosition.x,
-                    originalPosition.y,
-                    newZ
-                );
-                console.log(`   📍 ${name}: позиция Z ${originalPosition.z.toFixed(2)} → ${newZ.toFixed(2)} мм`);
-            } else {
-                // Восстанавливаем оригинальную позицию
-                object.position.copy(originalPosition);
-            }
-
-            // Обновляем матрицу
-            object.updateMatrixWorld(true);
-        }
-
-        console.log(`✅ Размер шкафа изменён: ${targetUnits}U (${targetHeight.toFixed(2)} мм)`);
-    }
-
-    /**
-     * Сбросить размеры к оригинальным значениям
-     */
-    reset(): void {
-        for (const [, info] of this.componentsInfo.entries()) {
-            info.object.scale.copy(info.originalScale);
-            info.object.position.copy(info.originalPosition);
-            info.object.updateMatrixWorld(true);
-        }
-        console.log('🔄 Размеры шкафа сброшены к оригинальным значениям');
-    }
-
-    /**
-     * Получить текущую высоту шкафа в юнитах
-     */
-    getCurrentUnits(): number {
-        return Math.round(this.originalHeight / UNIT_HEIGHT_MM);
-    }
-
-    /**
-     * Получить информацию о компонентах
-     */
-    getComponentsInfo(): Map<string, ComponentResizeInfo> {
-        return new Map(this.componentsInfo);
-    }
-
-    /**
-     * Получить статистику по категориям компонентов
-     */
-    getStatistics(): Record<string, number> {
-        const stats: Record<string, number> = {};
-        
-        for (const info of this.componentsInfo.values()) {
-            const type = info.category.type;
-            stats[type] = (stats[type] || 0) + 1;
-        }
-        
-        return stats;
-    }
+  });
+  
+  return hasRules;
 }
 
 /**
- * Вспомогательная функция для быстрого изменения размера шкафа
- * 
- * @param cabinet - Экземпляр шкафа
- * @param targetUnits - Целевое количество юнитов
- * @param options - Опции изменения размера
+ * Собирает оригинальные данные для всех узлов модели
  */
-export function resizeCabinet(
-    cabinet: CabinetBase,
-    targetUnits: number,
-    options: {
-        scaleDoors?: boolean;
-        scalePanels?: boolean;
-    } = {}
+export function collectOriginalData(model: THREE.Object3D): { 
+  nodes: Map<string, NodeOriginalData>, 
+  model: ModelOriginalData 
+} {
+  const nodesMap = new Map<string, NodeOriginalData>();
+  
+  // BBox всей модели
+  const modelBox = new THREE.Box3().setFromObject(model);
+  const modelSize = new THREE.Vector3();
+  const modelCenter = new THREE.Vector3();
+  modelBox.getSize(modelSize);
+  modelBox.getCenter(modelCenter);
+  
+  const modelData: ModelOriginalData = {
+    size: modelSize.clone(),
+    min: modelBox.min.clone(),
+    max: modelBox.max.clone(),
+    center: modelCenter.clone()
+  };
+  
+  console.log(`📦 Модель: ${(modelSize.x * 1000).toFixed(0)}×${(modelSize.y * 1000).toFixed(0)}×${(modelSize.z * 1000).toFixed(0)} мм`);
+  
+  // Собираем данные узлов
+  model.traverse((child) => {
+    if (child.name && child !== model) {
+      const rules = getResizeRules(child);
+      
+      // Получаем мировую позицию
+      const worldPos = new THREE.Vector3();
+      child.getWorldPosition(worldPos);
+      
+      nodesMap.set(child.name, {
+        localPosition: child.position.clone(),
+        worldPosition: worldPos,
+        localScale: child.scale.clone(),
+        rules
+      });
+      
+      // Детальный лог для WALLS_* и LOCK_*
+      if (child.name.startsWith('WALLS_') || child.name.startsWith('LOCK_')) {
+        const meshUserData = (child instanceof THREE.Mesh && child.geometry?.userData) 
+          ? child.geometry.userData 
+          : {};
+        console.log(`🔍 ${child.name}:`, {
+          nodeUserData: child.userData,
+          meshUserData: meshUserData,
+          parent: child.parent?.name,
+          localPosition: `(${child.position.x.toFixed(4)}, ${child.position.y.toFixed(4)}, ${child.position.z.toFixed(4)})`,
+          worldPosition: `(${worldPos.x.toFixed(4)}, ${worldPos.y.toFixed(4)}, ${worldPos.z.toFixed(4)})`,
+          rules
+        });
+      }
+      
+      // Логируем узлы с нестандартными правилами
+      if (needsProcessing(rules)) {
+        console.log(`🔧 ${child.name}: (${rules.resize_x}, ${rules.resize_y}, ${rules.resize_z}) anchor=(${rules.anchor_x}, ${rules.anchor_y}, ${rules.anchor_z})`);
+      }
+    }
+  });
+  
+  return { nodes: nodesMap, model: modelData };
+}
+
+/**
+ * Применяет параметрический ресайз
+ * 
+ * @param model - корневой объект модели
+ * @param nodesData - оригинальные данные узлов
+ * @param modelData - оригинальные данные модели (size, min, max, center)
+ * @param originalSizeMm - оригинальный размер модели в мм (для расчёта scale)
+ * @param newSizeMm - новый размер в миллиметрах (x, y, z)
+ */
+export function applyParametricResize(
+  model: THREE.Object3D,
+  nodesData: Map<string, NodeOriginalData>,
+  modelData: ModelOriginalData,
+  originalSizeMm: THREE.Vector3,
+  newSizeMm: THREE.Vector3
 ): void {
-    const resizer = new CabinetResizer(cabinet);
-    resizer.resize(targetUnits, options);
+  // Конвертируем мм в метры
+  const origSize = new THREE.Vector3(
+    originalSizeMm.x / 1000,
+    originalSizeMm.y / 1000,
+    originalSizeMm.z / 1000
+  );
+  
+  const newSize = new THREE.Vector3(
+    newSizeMm.x / 1000,
+    newSizeMm.y / 1000,
+    newSizeMm.z / 1000
+  );
+  
+  // Коэффициенты масштабирования
+  const scaleX = newSize.x / origSize.x;
+  const scaleY = newSize.y / origSize.y;
+  const scaleZ = newSize.z / origSize.z;
+  
+  console.log(`📐 Ресайз: ${originalSizeMm.x.toFixed(0)}×${originalSizeMm.y.toFixed(0)}×${originalSizeMm.z.toFixed(0)} → ${newSizeMm.x.toFixed(0)}×${newSizeMm.y.toFixed(0)}×${newSizeMm.z.toFixed(0)} мм (scale: ${scaleX.toFixed(2)}, ${scaleY.toFixed(2)}, ${scaleZ.toFixed(2)})`);
+  
+  // 1. Масштабируем корень модели
+  model.scale.set(scaleX, scaleY, scaleZ);
+  
+  // 2. Компенсируем смещение — фиксируем точку масштабирования
+  // После scale от origin (0,0,0) модель сдвигается. Возвращаем на место.
+  // Ось X: масштабируется от центра модели
+  const offsetX = modelData.center.x * (1 - scaleX);
+  // Ось Y: масштабируется от нижнего края (min.y)
+  const offsetY = modelData.min.y * (1 - scaleY);
+  // Ось Z: масштабируется от переднего края (min.z)
+  const offsetZ = modelData.min.z * (1 - scaleZ);
+  model.position.set(offsetX, offsetY, offsetZ);
+  
+  // 3. Обрабатываем узлы с нестандартными правилами
+  model.traverse((child) => {
+    const data = nodesData.get(child.name);
+    if (!data || !needsProcessing(data.rules)) {
+      return; // scale по всем осям — ничего не делаем
+    }
+    
+    const rules = data.rules;
+    
+    // --- МАСШТАБ ---
+    // Компенсируем родительский scale для осей с move/fixed/absolute
+    const childScaleX = rules.resize_x === 'scale' ? data.localScale.x : data.localScale.x / scaleX;
+    const childScaleY = rules.resize_y === 'scale' ? data.localScale.y : data.localScale.y / scaleY;
+    const childScaleZ = rules.resize_z === 'scale' ? data.localScale.z : data.localScale.z / scaleZ;
+    child.scale.set(childScaleX, childScaleY, childScaleZ);
+    
+    // --- ПОЗИЦИЯ ---
+    // scale:    позиция масштабируется вместе с родителем (ничего не делаем)
+    // move:     позиция пересчитывается относительно anchor
+    // fixed:    позиция пересчитывается относительно anchor (= move)
+    // absolute: мировая позиция НЕ меняется
+    
+    let newPosX = data.localPosition.x;
+    let newPosY = data.localPosition.y;
+    let newPosZ = data.localPosition.z;
+    
+    // X axis
+    if (rules.resize_x === 'absolute') {
+      // Для absolute: восстанавливаем оригинальную мировую позицию
+      // Нужно преобразовать worldPosition обратно в локальную систему координат
+      // local = (world - parentWorld) / parentScale
+      // Но т.к. у нас может быть вложенная иерархия, используем матрицы
+      const targetWorldPos = new THREE.Vector3(
+        data.worldPosition.x,
+        child.position.y, // Y и Z пока не трогаем
+        child.position.z
+      );
+      // Преобразуем мировую позицию в локальную систему родителя
+      const parentWorldMatrix = new THREE.Matrix4();
+      if (child.parent) {
+        child.parent.updateMatrixWorld(true);
+        parentWorldMatrix.copy(child.parent.matrixWorld).invert();
+      }
+      targetWorldPos.applyMatrix4(parentWorldMatrix);
+      newPosX = targetWorldPos.x;
+    } else if (rules.resize_x === 'fixed' || rules.resize_x === 'move') {
+      // Пересчитываем позицию от anchor
+      newPosX = calculateNewPosition(
+        data.localPosition.x,
+        origSize.x,
+        newSize.x,
+        scaleX,
+        rules.anchor_x
+      );
+    }
+    
+    // Y axis
+    if (rules.resize_y === 'absolute') {
+      const targetWorldPos = new THREE.Vector3(
+        child.position.x,
+        data.worldPosition.y,
+        child.position.z
+      );
+      const parentWorldMatrix = new THREE.Matrix4();
+      if (child.parent) {
+        child.parent.updateMatrixWorld(true);
+        parentWorldMatrix.copy(child.parent.matrixWorld).invert();
+      }
+      targetWorldPos.applyMatrix4(parentWorldMatrix);
+      newPosY = targetWorldPos.y;
+    } else if (rules.resize_y === 'fixed' || rules.resize_y === 'move') {
+      newPosY = calculateNewPosition(
+        data.localPosition.y,
+        origSize.y,
+        newSize.y,
+        scaleY,
+        rules.anchor_y
+      );
+    }
+    
+    // Z axis
+    if (rules.resize_z === 'absolute') {
+      const targetWorldPos = new THREE.Vector3(
+        child.position.x,
+        child.position.y,
+        data.worldPosition.z
+      );
+      const parentWorldMatrix = new THREE.Matrix4();
+      if (child.parent) {
+        child.parent.updateMatrixWorld(true);
+        parentWorldMatrix.copy(child.parent.matrixWorld).invert();
+      }
+      targetWorldPos.applyMatrix4(parentWorldMatrix);
+      newPosZ = targetWorldPos.z;
+    } else if (rules.resize_z === 'fixed' || rules.resize_z === 'move') {
+      newPosZ = calculateNewPosition(
+        data.localPosition.z,
+        origSize.z,
+        newSize.z,
+        scaleZ,
+        rules.anchor_z
+      );
+    }
+    
+    child.position.set(newPosX, newPosY, newPosZ);
+    
+    console.log(`   ${child.name}: pos=(${newPosX.toFixed(4)}, ${newPosY.toFixed(4)}, ${newPosZ.toFixed(4)})`);
+  });
+}
+
+/**
+ * Вычисляет новую локальную позицию для оси с move/fixed
+ * 
+ * ВАЖНО: Для оси X модель масштабируется от центра!
+ * Это значит что левый и правый края сдвигаются на (newSize - origSize) / 2
+ * 
+ * @param origPos - оригинальная локальная позиция
+ * @param origSize - оригинальный размер модели по оси
+ * @param newSize - новый размер модели по оси
+ * @param scale - коэффициент масштабирования
+ * @param anchor - точка привязки
+ */
+function calculateNewPosition(
+  origPos: number,
+  origSize: number,
+  newSize: number,
+  scale: number,
+  anchor: string
+): number {
+  let offset: number;
+  let newPos: number;
+  
+  switch (anchor) {
+    case 'right':
+    case 'top':
+    case 'back':
+      // Привязка к max краю: сохраняем расстояние от max
+      offset = origSize - origPos;
+      newPos = newSize - offset;
+      break;
+      
+    case 'left':
+      // Для left: учитываем что левый край сдвинулся влево на половину прироста
+      // (т.к. масштабирование идёт от центра по X)
+      offset = origPos;
+      newPos = offset - (newSize - origSize) / 2;
+      break;
+      
+    case 'bottom':
+    case 'front':
+      // Для bottom/front: край не сдвигается (масштабирование от min)
+      offset = origPos;
+      newPos = offset;
+      break;
+      
+    case 'center':
+    default:
+      // Привязка к центру: сохраняем относительную позицию от центра
+      offset = origPos - origSize / 2;
+      newPos = newSize / 2 + offset;
+      break;
+  }
+  
+  // Конвертируем в локальные координаты (делим на scale родителя)
+  return newPos / scale;
+}
+
+/**
+ * Сбрасывает модель к оригинальным размерам
+ */
+export function resetToOriginal(
+  model: THREE.Object3D,
+  nodesData: Map<string, NodeOriginalData>
+): void {
+  model.scale.set(1, 1, 1);
+  model.position.set(0, 0, 0);
+  
+  model.traverse((child) => {
+    const data = nodesData.get(child.name);
+    if (data) {
+      child.position.copy(data.localPosition);
+      child.scale.copy(data.localScale);
+    }
+  });
+  
+  console.log('🔄 Модель сброшена');
+}
+
+/**
+ * Получает текущий размер модели в мм
+ */
+export function getModelSizeInMm(model: THREE.Object3D): THREE.Vector3 {
+  const box = new THREE.Box3().setFromObject(model);
+  const size = new THREE.Vector3();
+  box.getSize(size);
+  return new THREE.Vector3(size.x * 1000, size.y * 1000, size.z * 1000);
 }
 

@@ -11,7 +11,7 @@ import {
   collectOriginalData,
   applyParametricResize as applyResize,
   hasCustomResizeRules
-} from '@/utils/parametricResize';
+} from '@/three/utils/CabinetResizer';
 
 export type CabinetCategory = 'thermal' | 'telecom-wall' | 'telecom-floor';
 
