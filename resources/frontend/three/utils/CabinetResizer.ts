@@ -265,9 +265,148 @@ export function collectOriginalData(model: THREE.Object3D): {
 // ============================================================================
 
 /**
+ * Проверяет, является ли объект точкой поворота (pivot)
+ * Читает extras.pivot из glTF
+ * Поддерживает как булево true, так и строку "true"
+ */
+function isPivotNode(obj: THREE.Object3D): boolean {
+  const pivot = obj.userData?.['pivot'];
+  return pivot === true || pivot === 'true';
+}
+
+/**
+ * Вычисляет scale, который нужно применить к объекту, чтобы компенсировать
+ * унаследованный scale от родителя и получить желаемый результат.
+ * 
+ * При неравномерном scale родителя и повороте ребёнка, scale "протекает" 
+ * между осями. Эта функция вычисляет точную компенсацию для любого угла.
+ * 
+ * @param inheritedScale - scale, унаследованный от родителя (в мировой СК)
+ * @param desiredLocalScale - желаемый scale в локальной СК объекта
+ * @param obj - объект с поворотом
+ * @returns scale, который нужно установить объекту
+ */
+function computePivotCompensation(
+  inheritedScale: THREE.Vector3,
+  desiredLocalScale: THREE.Vector3,
+  obj: THREE.Object3D
+): THREE.Vector3 {
+  // Идея: мы хотим чтобы итоговый эффект на локальные оси был = desiredLocalScale
+  // 
+  // Родительский scale S = diag(sx, sy, sz) применяется в мировой СК
+  // Поворот объекта R переводит из локальной СК в мировую
+  // 
+  // Эффективный scale в локальной СК:
+  // S_local = R^(-1) * S * R
+  // 
+  // Это не диагональная матрица при промежуточных углах!
+  // Но мы можем применить только диагональный scale (node.scale).
+  // 
+  // Решение: используем SVD или приближение.
+  // 
+  // Более простой подход: полностью компенсируем родительский scale,
+  // применяя обратную матрицу, затем применяем желаемый scale.
+  //
+  // Но node.scale — это только диагональный scale!
+  // 
+  // ПРАКТИЧЕСКОЕ РЕШЕНИЕ:
+  // Для поворота только по Y (как у двери), формула упрощается:
+  // cos(θ) и sin(θ) определяют смешивание X и Z
+  // Y остаётся неизменным
+  
+  const angle = obj.rotation.y; // Предполагаем поворот только по Y
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  
+  const sx = inheritedScale.x;
+  const sy = inheritedScale.y;
+  const sz = inheritedScale.z;
+  
+  // Для поворота по Y на угол θ матрица поворота:
+  // R = [cos(θ)  0  sin(θ)]
+  //     [  0     1    0   ]
+  //     [-sin(θ) 0  cos(θ)]
+  //
+  // Родительский scale S = diag(sx, sy, sz) применяется в мировой СК.
+  // Эффект на локальные оси: R^(-1) * S * R
+  //
+  // Для поворота по Y, диагональные элементы матрицы R^(-1) * S * R:
+  // - (0,0) = cos²(θ)*sx + sin²(θ)*sz
+  // - (1,1) = sy
+  // - (2,2) = sin²(θ)*sx + cos²(θ)*sz
+  //
+  // Если мы применим node.scale = (nx, ny, nz), то итоговый эффект на локальные оси:
+  // - localX: (cos²*sx + sin²*sz) * nx
+  // - localY: sy * ny
+  // - localZ: (sin²*sx + cos²*sz) * nz
+  //
+  // Чтобы получить desiredLocalScale:
+  // nx = desiredLocalScale.x / (cos²*sx + sin²*sz)
+  // ny = desiredLocalScale.y / sy
+  // nz = desiredLocalScale.z / (sin²*sx + cos²*sz)
+  
+  const cos2 = cos * cos;
+  const sin2 = sin * sin;
+  
+  // Эффект родительского scale на локальные оси (диагональные элементы):
+  const effectOnLocalX = cos2 * sx + sin2 * sz;
+  const effectOnLocalY = sy;
+  const effectOnLocalZ = sin2 * sx + cos2 * sz;
+  
+  // Компенсация + желаемый scale:
+  // Формула: node.scale = desiredLocalScale / effectOnLocal
+  //
+  // ПРОБЛЕМА: При одинаковом rootScale и разных углах поворота,
+  // localSize получается разным, хотя должен быть одинаковым!
+  //
+  // При повороте 0°: localSize = originalSize * 1,1,1 = originalSize (правильно!)
+  // При повороте 46°: localSize = originalSize * compensatedScale, где compensatedScale зависит от rootScale
+  //
+  // РЕШЕНИЕ: Чтобы localSize был одинаковым при одинаковом rootScale и разных углах,
+  // нужно чтобы итоговый эффект на локальные оси был = desiredLocalScale.
+  // 
+  // Итоговый эффект = effectOnLocal * compensatedScale
+  // Мы хотим: effectOnLocal * compensatedScale = desiredLocalScale
+  // Поэтому: compensatedScale = desiredLocalScale / effectOnLocal
+  //
+  // НО! При повороте 46° effectOnLocal зависит от inheritedScale (который = rootScale),
+  // поэтому compensatedScale тоже зависит от rootScale, что приводит к разным localSize.
+  //
+  // ПРАВИЛЬНОЕ РЕШЕНИЕ: При повороте двери нужно полностью компенсировать родительский scale,
+  // а затем применять желаемый scale. Но это уже делается формулой выше.
+  //
+  // Проблема может быть в том, что формула effectOnLocal не учитывает недиагональные элементы
+  // матрицы R^(-1) * S * R (shear), которые появляются при неоднородном масштабе.
+  const compensatedScale = new THREE.Vector3(
+    safeDiv(desiredLocalScale.x, effectOnLocalX),
+    safeDiv(desiredLocalScale.y, effectOnLocalY),
+    safeDiv(desiredLocalScale.z, effectOnLocalZ)
+  );
+  
+  // Логируем для диагностики
+  const rotationDeg = (angle * 180 / Math.PI).toFixed(1);
+  console.log(`[PIVOT COMPENSATION] ${obj.name}:`, {
+    rotation: `${rotationDeg}°`,
+    inheritedScale: `${sx.toFixed(3)}, ${sy.toFixed(3)}, ${sz.toFixed(3)}`,
+    desiredLocalScale: `${desiredLocalScale.x.toFixed(3)}, ${desiredLocalScale.y.toFixed(3)}, ${desiredLocalScale.z.toFixed(3)}`,
+    effectOnLocal: `${effectOnLocalX.toFixed(3)}, ${effectOnLocalY.toFixed(3)}, ${effectOnLocalZ.toFixed(3)}`,
+    compensatedScale: `${compensatedScale.x.toFixed(3)}, ${compensatedScale.y.toFixed(3)}, ${compensatedScale.z.toFixed(3)}`,
+    cos2: cos2.toFixed(3),
+    sin2: sin2.toFixed(3)
+  });
+  
+  return compensatedScale;
+}
+
+/**
  * Применяет параметрический ресайз к модели
  * 
- * @param model - корневой объект модели
+ * ВАЖНО: Масштабирование применяется к дочерним узлам первого уровня (не к корню),
+ * чтобы поддержать плоскую иерархию (DOOR_HINGE и TSHM на одном уровне).
+ * 
+ * Для узлов с pivot=true scale преобразуется в их локальную СК.
+ * 
+ * @param model - корневой объект модели (TSHM_WRAPPER)
  * @param nodesData - оригинальные данные узлов (из collectOriginalData)
  * @param modelData - оригинальные данные модели
  * @param originalSizeMm - оригинальный размер в мм
@@ -286,35 +425,127 @@ export function applyParametricResize(
     return;
   }
   
-  // --- 2. Вычисляем scale и sizeDelta ---
+  // --- 2. Вычисляем scale ---
   const scale = new THREE.Vector3(
     safeDiv(newSizeMm.x, originalSizeMm.x),
     safeDiv(newSizeMm.y, originalSizeMm.y),
     safeDiv(newSizeMm.z, originalSizeMm.z)
   );
   
-
-  
-  // --- 3. Применяем scale к корню модели ---
-  model.scale.copy(scale);
-  
-  // --- 4. Компенсируем позицию модели (фиксируем точку масштабирования) ---
-  // X: от центра, Y: от низа, Z: от переда
-  const offsetX = modelData.center.x * (1 - scale.x);
-  const offsetY = modelData.min.y * (1 - scale.y);
-  const offsetZ = modelData.min.z * (1 - scale.z);
-  model.position.set(offsetX, offsetY, offsetZ);
-  
-  // --- 5. Обрабатываем узлы с кастомными правилами ---
-  model.traverse((child) => {
-    const data = nodesData.get(child.name);
-    if (!data || !needsProcessing(data.rules)) return;
+  // --- 3. Применяем scale к каждому дочернему узлу первого уровня ---
+  for (const child of model.children) {
+    const childData = nodesData.get(child.name);
     
-    processNode(child, data, scale, nodesData, modelData);
+    // ВАЖНО: Сбрасываем scale до (1,1,1) перед применением нового,
+    // чтобы избежать накопления scale при повторных вызовах функции
+    // Мы всегда применяем scale относительно оригинального размера модели
+    child.scale.set(1, 1, 1);
+    
+    // Обычный узел: применяем scale напрямую
+    child.scale.copy(scale);
+    
+    // Компенсируем позицию относительно точки масштабирования
+    if (childData) {
+      const origPos = childData.localPosition;
+      const offsetX = modelData.center.x * (1 - scale.x);
+      const offsetY = modelData.min.y * (1 - scale.y);
+      const offsetZ = modelData.min.z * (1 - scale.z);
+      child.position.set(
+        origPos.x * scale.x + offsetX,
+        origPos.y * scale.y + offsetY,
+        origPos.z * scale.z + offsetZ
+      );
+    }
+  }
+  
+  // --- 4. Обновляем мировые матрицы перед обработкой pivot-узлов ---
+  model.updateMatrixWorld(true);
+  
+  // --- 5. Обрабатываем pivot-узлы (на любом уровне вложенности) ---
+  // Сначала сбрасываем scale всех pivot-узлов до (1,1,1) перед применением нового,
+  // чтобы избежать накопления scale при изменении угла поворота
+  // ВАЖНО: Сбрасываем до (1,1,1), а не до nodeData.localScale, потому что
+  // мы хотим применять scale относительно оригинального размера модели,
+  // без учета предыдущих масштабирований
+  model.traverse((node) => {
+    if (isPivotNode(node)) {
+      node.scale.set(1, 1, 1);
+    }
   });
   
-  // --- 6. Обновляем мировые матрицы ---
+  // Обновляем мировые матрицы после сброса scale
   model.updateMatrixWorld(true);
+  
+  // Теперь применяем компенсацию к pivot-узлам
+  model.traverse((node) => {
+    if (isPivotNode(node)) {
+      // Для pivot-узла (дверь) используем точную формулу компенсации
+      // которая учитывает cos²/sin² смешивание осей при любом угле поворота
+      
+      // Получаем реальный унаследованный scale от родителя
+      const inheritedScale = new THREE.Vector3(1, 1, 1);
+      if (node.parent) {
+        node.parent.getWorldScale(inheritedScale);
+      } else {
+        // Если нет родителя, используем rootScale
+        inheritedScale.copy(scale);
+      }
+      
+      // Желаемый scale в локальной СК = такой же как rootScale
+      // (ширина двери масштабируется как ширина шкафа, высота как высота и т.д.)
+      // 
+      // ВАЖНО: При повороте двери её размер в локальной СК должен быть одинаковым
+      // при одинаковом rootScale, независимо от угла поворота.
+      // Поэтому desiredLocalScale = rootScale (чтобы дверь масштабировалась вместе со шкафом)
+      const desiredLocal = scale.clone();
+      
+      // Вычисляем компенсацию с учётом угла поворота
+      // Формула: compensatedScale = desiredLocalScale / effectOnLocal
+      // где effectOnLocal = cos²*inheritedScale.x + sin²*inheritedScale.z (для X)
+      const compensatedScale = computePivotCompensation(inheritedScale, desiredLocal, node);
+      
+      node.scale.copy(compensatedScale);
+    }
+  });
+  
+  // --- 6. Обрабатываем узлы с кастомными правилами ---
+  model.traverse((node) => {
+    const data = nodesData.get(node.name);
+    if (!data || !needsProcessing(data.rules)) return;
+    
+    processNode(node, data, scale, nodesData, modelData);
+  });
+  
+  // --- 7. Обновляем мировые матрицы ---
+  model.updateMatrixWorld(true);
+  
+  // --- 8. Логируем итоговые размеры двери в мировых и локальных координатах ---
+  model.traverse((node) => {
+    if (node.name === 'DOOR_HINGE' || node.name === 'DOOR') {
+      // Размер в мировых координатах
+      const box = new THREE.Box3().setFromObject(node);
+      const worldSize = box.getSize(new THREE.Vector3());
+      const worldCenter = box.getCenter(new THREE.Vector3());
+      
+      // Размер в локальной СК: используем оригинальный размер и применяем scale
+      const nodeData = nodesData.get(node.name);
+      const localSize = nodeData ? new THREE.Vector3(
+        nodeData.size.x * node.scale.x,
+        nodeData.size.y * node.scale.y,
+        nodeData.size.z * node.scale.z
+      ) : new THREE.Vector3();
+      
+      const rotationDeg = (node.rotation.y * 180 / Math.PI).toFixed(1);
+      console.log(`[DOOR FINAL] ${node.name}:`, {
+        rotation: `${rotationDeg}°`,
+        worldSize: `${(worldSize.x * 1000).toFixed(1)} x ${(worldSize.y * 1000).toFixed(1)} x ${(worldSize.z * 1000).toFixed(1)} mm`,
+        localSize: `${(localSize.x * 1000).toFixed(1)} x ${(localSize.y * 1000).toFixed(1)} x ${(localSize.z * 1000).toFixed(1)} mm`,
+        worldCenter: `${worldCenter.x.toFixed(3)}, ${worldCenter.y.toFixed(3)}, ${worldCenter.z.toFixed(3)}`,
+        localScale: `${node.scale.x.toFixed(3)}, ${node.scale.y.toFixed(3)}, ${node.scale.z.toFixed(3)}`,
+        localPos: `${node.position.x.toFixed(3)}, ${node.position.y.toFixed(3)}, ${node.position.z.toFixed(3)}`
+      });
+    }
+  });
 }
 
 /**
@@ -341,6 +572,21 @@ function processNode(
     parentSize.y * (parentScale.y - 1),
     parentSize.z * (parentScale.z - 1)
   );
+  
+  // Логируем для элементов двери
+  if (child.name.includes('DOOR') || child.name.includes('AMPLIF') || child.name.includes('HINGE')) {
+    const parentName = child.parent?.name || 'none';
+    const parentRotation = child.parent ? (child.parent.rotation.y * 180 / Math.PI).toFixed(1) : '0';
+    console.log(`[DOOR NODE] ${child.name}:`, {
+      parent: parentName,
+      parentRotation: `${parentRotation}°`,
+      rootScale: `${rootScale.x.toFixed(2)}, ${rootScale.y.toFixed(2)}, ${rootScale.z.toFixed(2)}`,
+      effScale: `${effScale.x.toFixed(2)}, ${effScale.y.toFixed(2)}, ${effScale.z.toFixed(2)}`,
+      parentScale: `${parentScale.x.toFixed(2)}, ${parentScale.y.toFixed(2)}, ${parentScale.z.toFixed(2)}`,
+      sizeDelta: `${sizeDelta.x.toFixed(2)}, ${sizeDelta.y.toFixed(2)}, ${sizeDelta.z.toFixed(2)}`,
+      rules: `resize_x=${rules.resize_x}, anchor_x=${rules.anchor_x}`
+    });
+  }
   
   // --- Компенсация геометрии (child.scale) ---
   // Если resize !== 'scale', компенсируем растяжение, которое реально дошло до узла
@@ -384,6 +630,20 @@ function processNode(
   // --- Применяем ---
   child.scale.copy(newScale);
   child.position.copy(newPos);
+  
+  // Логируем итоговые размеры для элементов двери после обработки
+  if (child.name.includes('DOOR') || child.name.includes('AMPLIF') || child.name.includes('HINGE')) {
+    child.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(child);
+    const worldSize = box.getSize(new THREE.Vector3());
+    const worldCenter = box.getCenter(new THREE.Vector3());
+    console.log(`[DOOR NODE RESULT] ${child.name}:`, {
+      worldSize: `${(worldSize.x * 1000).toFixed(1)} x ${(worldSize.y * 1000).toFixed(1)} x ${(worldSize.z * 1000).toFixed(1)} mm`,
+      worldCenter: `${worldCenter.x.toFixed(3)}, ${worldCenter.y.toFixed(3)}, ${worldCenter.z.toFixed(3)}`,
+      localScale: `${newScale.x.toFixed(3)}, ${newScale.y.toFixed(3)}, ${newScale.z.toFixed(3)}`,
+      localPos: `${newPos.x.toFixed(3)}, ${newPos.y.toFixed(3)}, ${newPos.z.toFixed(3)}`
+    });
+  }
 }
 
 /**
@@ -440,7 +700,7 @@ function getEffectiveScale(
   nodesData: Map<string, NodeOriginalData>,
   rootScale: THREE.Vector3
 ): THREE.Vector3 {
-  const effScale = new THREE.Vector3(1, 1, 1);
+  let effScale = rootScale.clone();
   let current: THREE.Object3D | null = child.parent;
   let blockedX = false;
   let blockedY = false;
@@ -448,6 +708,7 @@ function getEffectiveScale(
   
   while (current) {
     const parentData = nodesData.get(current.name);
+    
     if (parentData) {
       if (parentData.rules.resize_x !== 'scale') blockedX = true;
       if (parentData.rules.resize_y !== 'scale') blockedY = true;
@@ -456,17 +717,17 @@ function getEffectiveScale(
     current = current.parent;
   }
   
-  effScale.set(
-    blockedX ? 1 : rootScale.x,
-    blockedY ? 1 : rootScale.y,
-    blockedZ ? 1 : rootScale.z
-  );
+  // Применяем блокировку
+  if (blockedX) effScale.x = 1;
+  if (blockedY) effScale.y = 1;
+  if (blockedZ) effScale.z = 1;
   
   return effScale;
 }
 
 /**
  * Возвращает размер и масштаб ближайшего родителя для расчёта sizeDelta
+ * Размеры остаются в исходной СК (как при закрытой двери)
  */
 function getParentSizeAndScale(
   child: THREE.Object3D,
@@ -479,7 +740,8 @@ function getParentSizeAndScale(
     const parentData = nodesData.get(parent.name);
     if (parentData) {
       const parentEffScale = getEffectiveScale(parent, nodesData, rootScale);
-      return { parentSize: parentData.size.clone(), parentScale: parentEffScale };
+      const parentSize = parentData.size.clone();
+      return { parentSize, parentScale: parentEffScale };
     }
   }
   // Фолбэк к размерам модели

@@ -323,6 +323,16 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
                       if (doorNode) {
                         // Преобразуем градусы в радианы и вращаем вокруг Y
                         doorNode.rotation.y = (angle * Math.PI) / 180;
+                        
+                        // ВАЖНО: После изменения угла нужно пересчитать compensatedScale
+                        // для pivot-узлов, чтобы компенсировать эффект поворота
+                        handleParametricResize(cabinetWidth, cabinetHeight, cabinetDepth);
+                        
+                        // DEBUG: Логируем размер двери в мировых координатах
+                        doorNode.updateMatrixWorld(true);
+                        const box = new THREE.Box3().setFromObject(doorNode);
+                        const size = box.getSize(new THREE.Vector3());
+                        console.log(`[Door rotation ${angle}°] World AABB: ${(size.x * 1000).toFixed(1)} x ${(size.y * 1000).toFixed(1)} x ${(size.z * 1000).toFixed(1)} mm`);
                       } else {
                         console.warn('⚠️ Узел двери (DOOR_HINGE/DOOR_SET/DOOR_FRAME) не найден в модели');
                       }
@@ -341,7 +351,11 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
                       const doorNode = testModelObject.getObjectByName('DOOR_HINGE') ||
                                        testModelObject.getObjectByName('DOOR_SET') ||
                                        testModelObject.getObjectByName('DOOR_FRAME');
-                      if (doorNode) doorNode.rotation.y = 0;
+                      if (doorNode) {
+                        doorNode.rotation.y = 0;
+                        // Пересчитываем compensatedScale после изменения угла
+                        handleParametricResize(cabinetWidth, cabinetHeight, cabinetDepth);
+                      }
                     }
                   }}
                   style={{ 
@@ -362,7 +376,11 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
                       const doorNode = testModelObject.getObjectByName('DOOR_HINGE') ||
                                        testModelObject.getObjectByName('DOOR_SET') ||
                                        testModelObject.getObjectByName('DOOR_FRAME');
-                      if (doorNode) doorNode.rotation.y = Math.PI / 2;
+                      if (doorNode) {
+                        doorNode.rotation.y = Math.PI / 2;
+                        // Пересчитываем compensatedScale после изменения угла
+                        handleParametricResize(cabinetWidth, cabinetHeight, cabinetDepth);
+                      }
                     }
                   }}
                   style={{ 
