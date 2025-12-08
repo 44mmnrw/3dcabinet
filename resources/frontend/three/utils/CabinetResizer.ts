@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 /**
  * CabinetResizer v2.0
- * внеси
+ * 
  * Параметрический ресайз 3D моделей шкафов (GLB/GLTF)
  * 
  * Основан на ТЗ v2.0: Система адаптивного масштабирования
@@ -353,47 +353,12 @@ function computePivotCompensation(
   const effectOnLocalY = sy;
   const effectOnLocalZ = sin2 * sx + cos2 * sz;
   
-  // Компенсация + желаемый scale:
-  // Формула: node.scale = desiredLocalScale / effectOnLocal
-  //
-  // ПРОБЛЕМА: При одинаковом rootScale и разных углах поворота,
-  // localSize получается разным, хотя должен быть одинаковым!
-  //
-  // При повороте 0°: localSize = originalSize * 1,1,1 = originalSize (правильно!)
-  // При повороте 46°: localSize = originalSize * compensatedScale, где compensatedScale зависит от rootScale
-  //
-  // РЕШЕНИЕ: Чтобы localSize был одинаковым при одинаковом rootScale и разных углах,
-  // нужно чтобы итоговый эффект на локальные оси был = desiredLocalScale.
-  // 
-  // Итоговый эффект = effectOnLocal * compensatedScale
-  // Мы хотим: effectOnLocal * compensatedScale = desiredLocalScale
-  // Поэтому: compensatedScale = desiredLocalScale / effectOnLocal
-  //
-  // НО! При повороте 46° effectOnLocal зависит от inheritedScale (который = rootScale),
-  // поэтому compensatedScale тоже зависит от rootScale, что приводит к разным localSize.
-  //
-  // ПРАВИЛЬНОЕ РЕШЕНИЕ: При повороте двери нужно полностью компенсировать родительский scale,
-  // а затем применять желаемый scale. Но это уже делается формулой выше.
-  //
-  // Проблема может быть в том, что формула effectOnLocal не учитывает недиагональные элементы
-  // матрицы R^(-1) * S * R (shear), которые появляются при неоднородном масштабе.
+  // Компенсация: compensatedScale = desiredLocalScale / effectOnLocal
   const compensatedScale = new THREE.Vector3(
     safeDiv(desiredLocalScale.x, effectOnLocalX),
     safeDiv(desiredLocalScale.y, effectOnLocalY),
     safeDiv(desiredLocalScale.z, effectOnLocalZ)
   );
-  
-  // Логируем для диагностики
-  const rotationDeg = (angle * 180 / Math.PI).toFixed(1);
-  console.log(`[PIVOT COMPENSATION] ${obj.name}:`, {
-    rotation: `${rotationDeg}°`,
-    inheritedScale: `${sx.toFixed(3)}, ${sy.toFixed(3)}, ${sz.toFixed(3)}`,
-    desiredLocalScale: `${desiredLocalScale.x.toFixed(3)}, ${desiredLocalScale.y.toFixed(3)}, ${desiredLocalScale.z.toFixed(3)}`,
-    effectOnLocal: `${effectOnLocalX.toFixed(3)}, ${effectOnLocalY.toFixed(3)}, ${effectOnLocalZ.toFixed(3)}`,
-    compensatedScale: `${compensatedScale.x.toFixed(3)}, ${compensatedScale.y.toFixed(3)}, ${compensatedScale.z.toFixed(3)}`,
-    cos2: cos2.toFixed(3),
-    sin2: sin2.toFixed(3)
-  });
   
   return compensatedScale;
 }
@@ -518,34 +483,6 @@ export function applyParametricResize(
   
   // --- 7. Обновляем мировые матрицы ---
   model.updateMatrixWorld(true);
-  
-  // --- 8. Логируем итоговые размеры двери в мировых и локальных координатах ---
-  model.traverse((node) => {
-    if (node.name === 'DOOR_HINGE' || node.name === 'DOOR') {
-      // Размер в мировых координатах
-      const box = new THREE.Box3().setFromObject(node);
-      const worldSize = box.getSize(new THREE.Vector3());
-      const worldCenter = box.getCenter(new THREE.Vector3());
-      
-      // Размер в локальной СК: используем оригинальный размер и применяем scale
-      const nodeData = nodesData.get(node.name);
-      const localSize = nodeData ? new THREE.Vector3(
-        nodeData.size.x * node.scale.x,
-        nodeData.size.y * node.scale.y,
-        nodeData.size.z * node.scale.z
-      ) : new THREE.Vector3();
-      
-      const rotationDeg = (node.rotation.y * 180 / Math.PI).toFixed(1);
-      console.log(`[DOOR FINAL] ${node.name}:`, {
-        rotation: `${rotationDeg}°`,
-        worldSize: `${(worldSize.x * 1000).toFixed(1)} x ${(worldSize.y * 1000).toFixed(1)} x ${(worldSize.z * 1000).toFixed(1)} mm`,
-        localSize: `${(localSize.x * 1000).toFixed(1)} x ${(localSize.y * 1000).toFixed(1)} x ${(localSize.z * 1000).toFixed(1)} mm`,
-        worldCenter: `${worldCenter.x.toFixed(3)}, ${worldCenter.y.toFixed(3)}, ${worldCenter.z.toFixed(3)}`,
-        localScale: `${node.scale.x.toFixed(3)}, ${node.scale.y.toFixed(3)}, ${node.scale.z.toFixed(3)}`,
-        localPos: `${node.position.x.toFixed(3)}, ${node.position.y.toFixed(3)}, ${node.position.z.toFixed(3)}`
-      });
-    }
-  });
 }
 
 /**
@@ -572,21 +509,6 @@ function processNode(
     parentSize.y * (parentScale.y - 1),
     parentSize.z * (parentScale.z - 1)
   );
-  
-  // Логируем для элементов двери
-  if (child.name.includes('DOOR') || child.name.includes('AMPLIF') || child.name.includes('HINGE')) {
-    const parentName = child.parent?.name || 'none';
-    const parentRotation = child.parent ? (child.parent.rotation.y * 180 / Math.PI).toFixed(1) : '0';
-    console.log(`[DOOR NODE] ${child.name}:`, {
-      parent: parentName,
-      parentRotation: `${parentRotation}°`,
-      rootScale: `${rootScale.x.toFixed(2)}, ${rootScale.y.toFixed(2)}, ${rootScale.z.toFixed(2)}`,
-      effScale: `${effScale.x.toFixed(2)}, ${effScale.y.toFixed(2)}, ${effScale.z.toFixed(2)}`,
-      parentScale: `${parentScale.x.toFixed(2)}, ${parentScale.y.toFixed(2)}, ${parentScale.z.toFixed(2)}`,
-      sizeDelta: `${sizeDelta.x.toFixed(2)}, ${sizeDelta.y.toFixed(2)}, ${sizeDelta.z.toFixed(2)}`,
-      rules: `resize_x=${rules.resize_x}, anchor_x=${rules.anchor_x}`
-    });
-  }
   
   // --- Компенсация геометрии (child.scale) ---
   // Если resize !== 'scale', компенсируем растяжение, которое реально дошло до узла
@@ -630,20 +552,6 @@ function processNode(
   // --- Применяем ---
   child.scale.copy(newScale);
   child.position.copy(newPos);
-  
-  // Логируем итоговые размеры для элементов двери после обработки
-  if (child.name.includes('DOOR') || child.name.includes('AMPLIF') || child.name.includes('HINGE')) {
-    child.updateMatrixWorld(true);
-    const box = new THREE.Box3().setFromObject(child);
-    const worldSize = box.getSize(new THREE.Vector3());
-    const worldCenter = box.getCenter(new THREE.Vector3());
-    console.log(`[DOOR NODE RESULT] ${child.name}:`, {
-      worldSize: `${(worldSize.x * 1000).toFixed(1)} x ${(worldSize.y * 1000).toFixed(1)} x ${(worldSize.z * 1000).toFixed(1)} mm`,
-      worldCenter: `${worldCenter.x.toFixed(3)}, ${worldCenter.y.toFixed(3)}, ${worldCenter.z.toFixed(3)}`,
-      localScale: `${newScale.x.toFixed(3)}, ${newScale.y.toFixed(3)}, ${newScale.z.toFixed(3)}`,
-      localPos: `${newPos.x.toFixed(3)}, ${newPos.y.toFixed(3)}, ${newPos.z.toFixed(3)}`
-    });
-  }
 }
 
 /**
@@ -829,6 +737,4 @@ function validateSize(size: THREE.Vector3): boolean {
          isFinite(size.x) && isFinite(size.y) && isFinite(size.z) &&
          !isNaN(size.x) && !isNaN(size.y) && !isNaN(size.z);
 }
-
-
 
