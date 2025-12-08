@@ -514,23 +514,6 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
                 >
                   🔄 Сбросить размеры
                 </button>
-                
-                {/* Информация о найденных правилах */}
-                {nodesOriginalData.size > 0 && (
-                  <div style={{ marginTop: '12px', fontSize: '11px', color: '#666' }}>
-                    <div style={{ fontWeight: 600, marginBottom: '4px' }}>Найдено узлов с правилами:</div>
-                    {Array.from(nodesOriginalData.entries())
-                      .filter(([_, data]) => data.rules.resize_x !== 'scale' || data.rules.resize_y !== 'scale' || data.rules.resize_z !== 'scale')
-                      .map(([name, data]) => (
-                        <div key={name} style={{ padding: '2px 0', borderBottom: '1px solid #eee' }}>
-                          <strong>{name}</strong>: {data.rules.resize_x}/{data.rules.resize_y}/{data.rules.resize_z}
-                          {data.rules.anchor_x !== 'center' && ` anchor_x:${data.rules.anchor_x}`}
-                          {data.rules.anchor_y !== 'bottom' && ` anchor_y:${data.rules.anchor_y}`}
-                        </div>
-                      ))
-                    }
-                  </div>
-                )}
               </div>
             )}
           </div>
