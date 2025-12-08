@@ -236,8 +236,6 @@ export function collectOriginalData(model: THREE.Object3D): {
     center: modelCenter.clone()
   };
   
-  console.log(`📦 CabinetResizer: Модель ${formatSize(modelSize)}`);
-  
   // Собираем данные узлов
   model.traverse((child) => {
     if (!child.name || child === model) return;
@@ -257,16 +255,6 @@ export function collectOriginalData(model: THREE.Object3D): {
       rules,
       parentName: child.parent?.name || null
     });
-    
-    // Логируем узлы с кастомными правилами
-    if (needsProcessing(rules)) {
-      console.log(
-        `   🔧 ${child.name}: ` +
-        `resize=(${rules.resize_x},${rules.resize_y},${rules.resize_z}) ` +
-        `anchor=(${rules.anchor_x},${rules.anchor_y},${rules.anchor_z}) ` +
-        `pos=(${formatVec(child.position)})`
-      );
-    }
   });
   
   return { nodes, model: modelData };
@@ -305,17 +293,7 @@ export function applyParametricResize(
     safeDiv(newSizeMm.z, originalSizeMm.z)
   );
   
-  // sizeDelta в метрах (для формул anchor)
-  const sizeDelta = new THREE.Vector3(
-    (newSizeMm.x - originalSizeMm.x) / 1000,
-    (newSizeMm.y - originalSizeMm.y) / 1000,
-    (newSizeMm.z - originalSizeMm.z) / 1000
-  );
-  
-  console.log(
-    `📐 CabinetResizer: ${formatSizeMm(originalSizeMm)} → ${formatSizeMm(newSizeMm)}\n` +
-    `   scale=(${formatVec(scale)}) sizeDelta=(${formatVec(sizeDelta)})`
-  );
+
   
   // --- 3. Применяем scale к корню модели ---
   model.scale.copy(scale);
@@ -406,19 +384,6 @@ function processNode(
   // --- Применяем ---
   child.scale.copy(newScale);
   child.position.copy(newPos);
-  
-  // Debug log для ключевых объектов
-  if (shouldLogNode(child.name)) {
-    console.log(
-      `   🎯 ${child.name}:\n` +
-      `      rules: (${rules.resize_x},${rules.resize_y},${rules.resize_z}) ` +
-      `anchor=(${rules.anchor_x},${rules.anchor_y},${rules.anchor_z})\n` +
-      `      effScale: (${formatVec(effScale)})\n` +
-      `      sizeDelta: (${formatVec(sizeDelta)})\n` +
-      `      pos: (${formatVec(origPos)}) → (${formatVec(newPos)})\n` +
-      `      scale: (${formatVec(origScale)}) → (${formatVec(newScale)})`
-    );
-  }
 }
 
 /**
@@ -562,7 +527,6 @@ export function resetToOriginal(
   });
   
   model.updateMatrixWorld(true);
-  console.log('🔄 CabinetResizer: Модель сброшена');
 }
 
 /**
@@ -604,24 +568,5 @@ function validateSize(size: THREE.Vector3): boolean {
          !isNaN(size.x) && !isNaN(size.y) && !isNaN(size.z);
 }
 
-/** Форматирование размера в мм */
-function formatSizeMm(v: THREE.Vector3): string {
-  return `${v.x.toFixed(0)}×${v.y.toFixed(0)}×${v.z.toFixed(0)}мм`;
-}
 
-/** Форматирование размера в метрах → мм */
-function formatSize(v: THREE.Vector3): string {
-  return `${(v.x * 1000).toFixed(0)}×${(v.y * 1000).toFixed(0)}×${(v.z * 1000).toFixed(0)}мм`;
-}
-
-/** Форматирование вектора */
-function formatVec(v: THREE.Vector3): string {
-  return `${v.x.toFixed(4)},${v.y.toFixed(4)},${v.z.toFixed(4)}`;
-}
-
-/** Определяет, нужно ли логировать узел (для отладки) */
-function shouldLogNode(name: string): boolean {
-  const keywords = ['LOCK', 'WALLS_LEFT', 'WALLS_RIGHT', 'DOOR', 'ROOF', 'BOTTOM'];
-  return keywords.some(kw => name.includes(kw));
-}
 
