@@ -3,6 +3,7 @@ import { CabinetBase } from './CabinetBase.ts';
 import { getAssetLoader } from '../loaders/AssetLoader.ts';
 import { collectOriginalData, applyParametricResize } from '../utils/CabinetResizer.ts';
 import type { NodeOriginalData, ModelOriginalData } from '../utils/CabinetResizer.ts';
+import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 /**
  * Опции для метода assemble
@@ -74,11 +75,89 @@ export abstract class GLTFCabinetBase extends CabinetBase {
 
             console.log(`🔄 Загрузка шкафа из GLTF: ${modelPath}`);
             
-            // Загружаем GLTF модель
-            const model = await this.assetLoader.load(modelPath, {
-                useCache: true,
-                clone: false
-            }) as THREE.Group;
+            // Загружаем GLTF модель через AssetLoader, но получаем доступ к полному GLTF объекту
+            // для чтения extras из исходной структуры
+            const assetLoader = this.assetLoader as any;
+            
+            // Используем внутренний gltfLoader из AssetLoader (он уже настроен с DRACO)
+            const gltf = await new Promise<GLTF>((resolve, reject) => {
+                assetLoader.gltfLoader.load(
+                    modelPath,
+                    resolve,
+                    undefined,
+                    reject
+                );
+            });
+            
+            const model = gltf.scene as THREE.Group;
+
+            // GLTFLoader НЕ копирует extras в userData автоматически
+            // Нужно явно скопировать extras из GLTF структуры в userData узлов
+            if (gltf.parser && (gltf.parser as any).json) {
+                const json = (gltf.parser as any).json;
+                const nodes = json.nodes as Array<{ name?: string; extras?: Record<string, unknown>; mesh?: number }> | undefined;
+                const meshes = json.meshes as Array<{ extras?: Record<string, unknown> }> | undefined;
+                
+                // Функция нормализации имён (Three.js может удалять точки из имён)
+                const normalizeName = (name: string) => name.replace(/\./g, '');
+                
+                model.traverse((child) => {
+                    if (!child.name) return;
+                    
+                    // Находим соответствующий узел в JSON
+                    // Сравниваем как точное совпадение, так и нормализованные имена
+                    const childNameNormalized = normalizeName(child.name);
+                    const nodeDef = nodes?.find((n) => {
+                        if (!n.name) return false;
+                        return n.name === child.name || normalizeName(n.name) === childNameNormalized;
+                    });
+                    
+                    // Отладка для DIN-реек
+                    if (child.name.includes('DIN_RAIL')) {
+                        console.log(`🔍 [GLTFCabinetBase] Поиск узла для ${child.name}:`);
+                        console.log('   childNameNormalized:', childNameNormalized);
+                        console.log('   nodeDef найден:', !!nodeDef);
+                        if (nodeDef) {
+                            console.log('   nodeDef.name:', nodeDef.name);
+                            console.log('   nodeDef.extras:', nodeDef.extras);
+                        }
+                    }
+                    
+                    if (nodeDef) {
+                        // Копируем extras из node
+                        if (nodeDef.extras) {
+                            if (!child.userData) {
+                                child.userData = {};
+                            }
+                            Object.assign(child.userData, nodeDef.extras);
+                            
+                            // Отладка для DIN-реек
+                            if (child.name.includes('DIN_RAIL')) {
+                                console.log(`   ✅ Extras скопированы в userData для ${child.name}:`, child.userData);
+                            }
+                        }
+                        
+                        // Также проверяем extras в mesh, если узел ссылается на mesh
+                        if (nodeDef.mesh !== undefined && meshes && meshes[nodeDef.mesh]) {
+                            const meshExtras = meshes[nodeDef.mesh].extras;
+                            if (meshExtras) {
+                                if (!child.userData) {
+                                    child.userData = {};
+                                }
+                                Object.assign(child.userData, meshExtras);
+                            }
+                            
+                            // Также копируем в geometry.userData, если это Mesh
+                            if (child instanceof THREE.Mesh && child.geometry) {
+                                if (!child.geometry.userData) {
+                                    child.geometry.userData = {};
+                                }
+                                Object.assign(child.geometry.userData, meshExtras);
+                            }
+                        }
+                    }
+                });
+            }
 
             // Сохраняем оригинальные данные для параметрического ресайза
             const { nodes: nodesData, model: modelData } = collectOriginalData(model);
@@ -193,8 +272,6 @@ export abstract class GLTFCabinetBase extends CabinetBase {
         
         // НЕ обновляем originalCabinetSize - он должен оставаться неизменным!
         // this.originalCabinetSize = newSize; // УДАЛЕНО!
-        
-        console.log(`✅ [GLTFCabinetBase] Ресайз применён: ${Math.round(newWidth)}×${Math.round(newHeight)}×${Math.round(newDepth)} мм`);
     }
 
     /**

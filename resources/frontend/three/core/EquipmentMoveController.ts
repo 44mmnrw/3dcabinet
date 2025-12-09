@@ -230,7 +230,7 @@ export class EquipmentMoveController {
 
         // Подсвечиваем рейку
         const getRails = (strategy as { _getRails?: () => THREE.Object3D[] })._getRails;
-        const rails = getRails ? getRails() : [];
+        const rails = getRails ? getRails.call(strategy) : [];
         if (rails.length > 0 && this.moveState.railIndex !== null && this.moveState.railIndex < rails.length) {
             // Преобразуем массив реек в формат для RailHighlighter
             const railMeshes = rails.map((rail: THREE.Object3D, index: number) => ({ 
@@ -258,6 +258,21 @@ export class EquipmentMoveController {
      */
     private _createGhostMesh(originalMesh: THREE.Group): void {
         const ghost = originalMesh.clone();
+        
+        // Удаляем Box3Helper и другие helpers, которые могут вызвать ошибки
+        const helpersToRemove: THREE.Object3D[] = [];
+        ghost.traverse((child) => {
+            if (child.type === 'Box3Helper' || child.type === 'AxesHelper' || 
+                child.type === 'GridHelper' || child.type === 'ArrowHelper') {
+                helpersToRemove.push(child);
+            }
+        });
+        helpersToRemove.forEach(helper => {
+            if (helper.parent) {
+                helper.parent.remove(helper);
+            }
+        });
+        
         ghost.traverse((child) => {
             if ((child as THREE.Mesh).isMesh) {
                 const mesh = child as THREE.Mesh;
@@ -312,7 +327,7 @@ export class EquipmentMoveController {
                 if (!equipmentItem || !strategy) return;
                 
                 const getRails = (strategy as { _getRails?: () => THREE.Object3D[] })._getRails;
-                const rails = getRails ? getRails() : [];
+                const rails = getRails ? getRails.call(strategy) : [];
                 if (railIndex !== null && railIndex < rails.length) {
                     const rail = rails[railIndex] as THREE.Object3D;
                     const railBBox = new THREE.Box3().setFromObject(rail);
@@ -405,7 +420,7 @@ export class EquipmentMoveController {
         if (!strategy) return null;
         
         const getRails = (strategy as { _getRails?: () => THREE.Object3D[] })._getRails;
-        const rails = getRails ? getRails() : [];
+        const rails = getRails ? getRails.call(strategy) : [];
         
         if (railIndex === null || railIndex >= rails.length) return null;
 
@@ -490,7 +505,7 @@ export class EquipmentMoveController {
         if (!equipmentItem || !strategy) return false;
         
         const getRails = (strategy as { _getRails?: () => THREE.Object3D[] })._getRails;
-        const rails = getRails ? getRails() : [];
+        const rails = getRails ? getRails.call(strategy) : [];
         
         if (newPosition.railIndex >= rails.length) return false;
 
@@ -515,7 +530,8 @@ export class EquipmentMoveController {
         // Проверяем коллизии через стратегию
         const canPlaceAt = (strategy as { _canPlaceAt?: (railIndex: number, startX: number, endX: number, excludeId: string | null) => boolean })._canPlaceAt;
         if (typeof canPlaceAt === 'function') {
-            return canPlaceAt(
+            return canPlaceAt.call(
+                strategy,
                 newPosition.railIndex,
                 newStartX,
                 newEndX,
@@ -594,7 +610,7 @@ export class EquipmentMoveController {
         // Убираем подсветку рейки
         if (this.moveState.strategy) {
             const getRails = (this.moveState.strategy as { _getRails?: () => THREE.Object3D[] })._getRails;
-            const rails = getRails ? getRails() : [];
+            const rails = getRails ? getRails.call(this.moveState.strategy) : [];
             if (rails.length > 0) {
                 const railMeshes = rails.map((rail: THREE.Object3D, index: number) => ({ 
                     mesh: rail as THREE.Mesh, 

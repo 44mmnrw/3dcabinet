@@ -590,7 +590,8 @@ export class EquipmentManager {
         };
 
         try {
-            const success = moveEquipment(
+            const success = moveEquipment.call(
+                strategy,
                 item.mesh,
                 item.config,
                 oldPosition,

@@ -134,8 +134,20 @@ export function getResizeRules(obj: THREE.Object3D): ResizeRules {
     meshUserData = obj.geometry.userData;
   }
   
-  // Node extras имеют приоритет над mesh extras
-  const userData = { ...meshUserData, ...nodeUserData };
+  // GLTFLoader может копировать extras в userData.extras или напрямую в userData
+  // Проверяем оба варианта
+  const nodeExtras = (nodeUserData.extras as Record<string, unknown>) || {};
+  const meshExtras = (meshUserData.extras as Record<string, unknown>) || {};
+  
+  // Объединяем: mesh extras -> node extras -> mesh userData -> node userData
+  // (node имеет приоритет)
+  const userData = {
+    ...meshExtras,
+    ...nodeExtras,
+    ...meshUserData,
+    ...nodeUserData
+  };
+  
   const rules: ResizeRules = { ...DEFAULT_RULES };
   
   // Shorthand: resize_xyz / presize_xyz применяется ко всем осям
@@ -241,6 +253,16 @@ export function collectOriginalData(model: THREE.Object3D): {
     if (!child.name || child === model) return;
     
     const rules = getResizeRules(child);
+    
+    // Отладка для DIN-реек и LOCK_SET для сравнения
+    if (child.name.includes('DIN_RAIL') || child.name.includes('LOCK_SET')) {
+      console.log(`🔍 [CabinetResizer] ${child.name} при collectOriginalData:`);
+      console.log('   child.userData:', child.userData);
+      console.log('   rules:', rules);
+      console.log('   needsProcessing:', needsProcessing(rules));
+      console.log('   resize_y:', rules.resize_y, 'anchor_y:', rules.anchor_y);
+    }
+    
     const worldPos = new THREE.Vector3();
     child.getWorldPosition(worldPos);
     const nodeBox = new THREE.Box3().setFromObject(child);
@@ -425,7 +447,12 @@ export function applyParametricResize(
     for (const child of model.children) {
       const childData = nodesData.get(child.name);
       
-      // Применяем scale к дочернему узлу
+      // Пропускаем узлы с кастомными правилами - они будут обработаны в processNode
+      if (childData && needsProcessing(childData.rules)) {
+        continue;
+      }
+      
+      // Применяем scale к дочернему узлу (только для узлов без кастомных правил)
       // Умножаем оригинальный scale на новый scale
       if (childData) {
         child.scale.set(
@@ -505,7 +532,34 @@ export function applyParametricResize(
   // --- 6. Обрабатываем узлы с кастомными правилами ---
   model.traverse((node) => {
     const data = nodesData.get(node.name);
-    if (!data || !needsProcessing(data.rules)) return;
+    
+    // Отладка для DIN-реек и LOCK_SET
+    if (node.name.includes('DIN_RAIL') || node.name.includes('LOCK_SET')) {
+      console.log(`🔍 [CabinetResizer] ${node.name} в applyParametricResize:`);
+      console.log('   data найден:', !!data);
+      if (data) {
+        console.log('   data.rules:', data.rules);
+        console.log('   needsProcessing:', needsProcessing(data.rules));
+      }
+    }
+    
+    if (!data || !needsProcessing(data.rules)) {
+      // Отладка: почему узел не обрабатывается
+      if (node.name.includes('DIN_RAIL')) {
+        if (!data) {
+          console.log(`   ❌ ${node.name}: data не найден в nodesData`);
+        } else if (!needsProcessing(data.rules)) {
+          console.log(`   ❌ ${node.name}: needsProcessing вернул false, rules:`, data.rules);
+        }
+      }
+      return;
+    }
+    
+    // Отладка для DIN-реек
+    if (node.name.includes('DIN_RAIL') || node.name.includes('LOCK_SET')) {
+      console.log(`   ✅ ${node.name} обрабатывается в processNode`);
+      console.log('   scale:', scale);
+    }
     
     processNode(node, data, scale, nodesData, modelData);
   });
@@ -539,6 +593,14 @@ function processNode(
     parentSize.z * (parentScale.z - 1)
   );
   
+  // Отладка для DIN-реек
+  if (child.name.includes('DIN_RAIL')) {
+    console.log(`   📐 [processNode] ${child.name}:`);
+    console.log('      rules.resize_y:', rules.resize_y);
+    console.log('      origScale:', origScale);
+    console.log('      effScale:', effScale);
+  }
+  
   // --- Компенсация геометрии (child.scale) ---
   // Если resize !== 'scale', компенсируем растяжение, которое реально дошло до узла
   const newScale = new THREE.Vector3(
@@ -546,6 +608,12 @@ function processNode(
     rules.resize_y !== 'scale' ? safeDiv(origScale.y, effScale.y) : origScale.y,
     rules.resize_z !== 'scale' ? safeDiv(origScale.z, effScale.z) : origScale.z
   );
+  
+  // Отладка для DIN-реек
+  if (child.name.includes('DIN_RAIL')) {
+    console.log('      newScale после компенсации:', newScale);
+    console.log('      Правило для Y: resize_y =', rules.resize_y, ', должно быть origScale.y / effScale.y =', safeDiv(origScale.y, effScale.y));
+  }
   
   // --- Компенсация позиции ---
   const newPos = new THREE.Vector3();
