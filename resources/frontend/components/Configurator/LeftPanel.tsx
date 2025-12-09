@@ -1,16 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import type { Step, ConfiguratorState } from '@/types/configurator';
-import { getAssetLoader } from '@/three/loaders/AssetLoader';
-import * as THREE from 'three';
+import { useCabinetController } from '@/hooks/useCabinetController';
 import './LeftPanel.css';
-
-// Импорт утилит параметрического ресайза
-import {
-  type NodeOriginalData,
-  type ModelOriginalData,
-  collectOriginalData,
-  applyParametricResize as applyResize
-} from '@/three/utils/CabinetResizer';
 
 export type CabinetCategory = 'thermal' | 'telecom-wall' | 'telecom-floor';
 
@@ -34,29 +25,13 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
   managers,
   managersRef,
 }) => {
+  // Универсальный контроллер шкафа
+  const cabinet = useCabinetController(managers, managersRef);
+  
   // По умолчанию никакая категория не выбрана
   const [activeCategory, setActiveCategory] = useState<CabinetCategory | null>(null);
   const [activeAssemblyType, setActiveAssemblyType] = useState<string | null>(null);
   const [showAssemblyTypes, setShowAssemblyTypes] = useState(false);
-  const [cabinetLoaded, setCabinetLoaded] = useState(false); // Состояние загрузки модели
-  
-  // Стейт для тестовой модели
-  const [testModelLoaded, setTestModelLoaded] = useState(false);
-  const [testModelObject, setTestModelObject] = useState<THREE.Object3D | null>(null);
-  
-  // Стейт для вращения двери (DOOR_SET)
-  const [doorRotation, setDoorRotation] = useState(0); // Угол в градусах (0-120)
-  
-  // Стейт для отображения граней
-  const [showEdges, setShowEdges] = useState(false);
-  
-  // Стейт для параметрического ресайза
-  const [cabinetWidth, setCabinetWidth] = useState(800);   // мм
-  const [cabinetHeight, setCabinetHeight] = useState(600); // мм
-  const [cabinetDepth, setCabinetDepth] = useState(250);   // мм
-  const [originalCabinetSize, setOriginalCabinetSize] = useState<THREE.Vector3 | null>(null);
-  const [nodesOriginalData, setNodesOriginalData] = useState<Map<string, NodeOriginalData>>(new Map());
-  const [modelOriginalData, setModelOriginalData] = useState<ModelOriginalData | null>(null);
 
   const handleCategoryChange = (category: CabinetCategory) => {
     // Если кликнули на ту же категорию - скрываем assemblyTypes
@@ -104,126 +79,15 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
     return assemblyTypesMap[category] || [];
   };
 
-  // Обработчик добавления/удаления модели tsh_700_500_250
-  const handleToggleCabinet = async () => {
-    const m = managersRef?.current || managers;
-    
-    if (!m?.cabinet) {
-      console.error('❌ CabinetManager не инициализирован');
-      return;
-    }
-
-    try {
-      if (cabinetLoaded) {
-        // Удалить шкаф
-        const cabinets = m.cabinet.getAllCabinets();
-        if (cabinets.length > 0) {
-          const cabinetId = cabinets[0].id;
-          m.cabinet.removeCabinet(cabinetId);
-          setCabinetLoaded(false);
-        }
-      } else {
-        // Добавить шкаф
-        await m.cabinet.loadCatalog();
-        await m.cabinet.addCabinetById('tsh_800_600_260');
-        setCabinetLoaded(true);
-      }
-    } catch (error) {
-      console.error('❌ Ошибка при добавлении/удалении шкафа:', error);
-    }
-  };
-
-  // Обработчик загрузки/удаления тестовой модели test.gltf
+  // Обработчик загрузки/удаления шкафа (через универсальный контроллер)
   const handleToggleTestModel = async () => {
-    const scene = (window as any).scene as THREE.Scene | undefined;
-    
-    if (!scene) {
-      console.error('❌ Сцена не найдена в window.scene');
-      return;
-    }
-
     try {
-      if (testModelLoaded && testModelObject) {
-        // Удалить тестовую модель
-        scene.remove(testModelObject);
-        testModelObject.traverse((child) => {
-          if ((child as THREE.Mesh).isMesh) {
-            const mesh = child as THREE.Mesh;
-            mesh.geometry?.dispose();
-            if (Array.isArray(mesh.material)) {
-              mesh.material.forEach(m => m.dispose());
-            } else {
-              mesh.material?.dispose();
-            }
-          }
-        });
-        setTestModelObject(null);
-        setTestModelLoaded(false);
-        console.log('✅ Тестовая модель удалена');
-      } else {
-        // Загрузить тестовую модель
-        console.log('📦 Загрузка test.gltf...');
-        const loader = getAssetLoader();
-        const model = await loader.load('/assets/models/freecad/webGL/test.gltf');
-        
-        // === Сохраняем оригинальные данные ДО любых трансформаций ===
-        const { nodes: nodesData, model: modelData } = collectOriginalData(model);
-        
-        const sizeInMm = new THREE.Vector3(
-          modelData.size.x * 1000,
-          modelData.size.y * 1000,
-          modelData.size.z * 1000
-        );
-        setOriginalCabinetSize(sizeInMm);
-        setCabinetWidth(Math.round(sizeInMm.x));
-        setCabinetHeight(Math.round(sizeInMm.y));
-        setCabinetDepth(Math.round(sizeInMm.z));
-        
-        // Установить модель на "пол" (ПОСЛЕ сохранения оригинальных данных)
-        const minY = modelData.min.y;
-        if (minY < 0) {
-          model.position.y -= minY;
-        }
-        setNodesOriginalData(nodesData);
-        setModelOriginalData(modelData);
-        
-        scene.add(model);
-        setTestModelObject(model);
-        setTestModelLoaded(true);
-      }
+      await cabinet.toggleCabinet('tshm');
     } catch (error) {
-      console.error('❌ Ошибка при загрузке/удалении тестовой модели:', error);
+      console.error('❌ Ошибка при загрузке/удалении шкафа:', error);
+      alert(`⚠️ Ошибка: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
-
-  // Применить параметрический ресайз ко всем узлам модели
-  const handleParametricResize = useCallback((newWidth: number, newHeight: number, newDepth: number) => {
-    if (!testModelObject || !originalCabinetSize || !modelOriginalData || nodesOriginalData.size === 0) {
-      return;
-    }
-    
-    const newSize = new THREE.Vector3(newWidth, newHeight, newDepth);
-    applyResize(testModelObject, nodesOriginalData, modelOriginalData, originalCabinetSize, newSize);
-  }, [testModelObject, originalCabinetSize, modelOriginalData, nodesOriginalData]);
-
-  // Обработчики изменения размеров с применением параметрического ресайза
-  const handleWidthChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseInt(e.target.value, 10);
-    setCabinetWidth(val);
-    handleParametricResize(val, cabinetHeight, cabinetDepth);
-  }, [handleParametricResize, cabinetHeight, cabinetDepth]);
-
-  const handleHeightChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseInt(e.target.value, 10);
-    setCabinetHeight(val);
-    handleParametricResize(cabinetWidth, val, cabinetDepth);
-  }, [handleParametricResize, cabinetWidth, cabinetDepth]);
-
-  const handleDepthChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseInt(e.target.value, 10);
-    setCabinetDepth(val);
-    handleParametricResize(cabinetWidth, cabinetHeight, val);
-  }, [handleParametricResize, cabinetWidth, cabinetHeight]);
 
   return (
     <div className="configurator-left-panel">
@@ -280,27 +144,116 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
         )}
       </div>
 
-      {/* Кнопка добавления/удаления модели tsh_700_500_250 */}
+        {/* Кнопки оборудования */}
+        <div className="equipment-section" style={{ marginTop: '16px', padding: '12px', background: '#f9f9f9', borderRadius: '8px' }}>
+          <div style={{ marginBottom: '12px', fontWeight: 600, fontSize: '14px', color: '#2c3e50' }}>
+            🔌 Оборудование
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <button
+              className="equipment-button"
+              onClick={async () => {
+                const m = managersRef?.current || managers;
+                if (!m?.equipment) {
+                  console.error('❌ EquipmentManager не инициализирован');
+                  alert('⚠️ Менеджер оборудования не найден. Убедитесь, что 3D сцена загружена.');
+                  return;
+                }
+                
+                try {
+                  const equipmentId = await m.equipment.addEquipment('circuit_breaker');
+                  if (equipmentId) {
+                    console.log(`✅ Оборудование добавлено: ${equipmentId}`);
+                  } else {
+                    console.error('❌ Не удалось добавить оборудование');
+                    alert('⚠️ Не удалось добавить оборудование. Убедитесь, что шкаф загружен.');
+                  }
+                } catch (error) {
+                  console.error('❌ Ошибка при добавлении оборудования:', error);
+                  alert(`⚠️ Ошибка: ${error instanceof Error ? error.message : String(error)}`);
+                }
+              }}
+              style={{
+                padding: '10px 16px',
+                fontSize: '13px',
+                background: '#3498db',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 500,
+                transition: 'background 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#2980b9';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#3498db';
+              }}
+            >
+              ⚡ Автоматический выключатель
+            </button>
+            
+            <button
+              className="equipment-button"
+              onClick={async () => {
+                const m = managersRef?.current || managers;
+                if (!m?.equipment) {
+                  console.error('❌ EquipmentManager не инициализирован');
+                  alert('⚠️ Менеджер оборудования не найден. Убедитесь, что 3D сцена загружена.');
+                  return;
+                }
+                
+                try {
+                  const equipmentId = await m.equipment.addEquipment('socket_g');
+                  if (equipmentId) {
+                    console.log(`✅ Оборудование добавлено: ${equipmentId}`);
+                  } else {
+                    console.error('❌ Не удалось добавить оборудование');
+                    alert('⚠️ Не удалось добавить оборудование. Убедитесь, что шкаф загружен.');
+                  }
+                } catch (error) {
+                  console.error('❌ Ошибка при добавлении оборудования:', error);
+                  alert(`⚠️ Ошибка: ${error instanceof Error ? error.message : String(error)}`);
+                }
+              }}
+              style={{
+                padding: '10px 16px',
+                fontSize: '13px',
+                background: '#27ae60',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 500,
+                transition: 'background 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#229954';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#27ae60';
+              }}
+            >
+              🔌 Розетка 220В
+            </button>
+          </div>
+        </div>
+
+        {/* Кнопка загрузки/удаления шкафа */}
       <div className="left-panel-footer">
         <button
-          className={`toggle-cabinet-button ${cabinetLoaded ? 'loaded' : ''}`}
-          onClick={handleToggleCabinet}
-          disabled={!managers && !managersRef?.current}
-        >
-          {cabinetLoaded ? '🗑️ Удалить шкаф' : '➕ Загрузить шкаф TSH 700×500×250'}
-        </button>
-        <button
-          className={`toggle-cabinet-button test-model-button ${testModelLoaded ? 'loaded' : ''}`}
+          className={`toggle-cabinet-button test-model-button ${cabinet.isLoaded ? 'loaded' : ''}`}
           onClick={handleToggleTestModel}
-          title="Загрузить тестовую модель test.gltf"
+          title="Загрузить/удалить шкаф"
         >
-          {testModelLoaded ? '🗑️ Удалить test.gltf' : '📦 Загрузить test.gltf'}
+          {cabinet.isLoaded ? '🗑️ Удалить шкаф' : '📦 Загрузить шкаф'}
         </button>
         
-        {/* Управление тестовой моделью */}
-        {testModelLoaded && (
+        {/* Управление шкафом */}
+        {cabinet.isLoaded && (
           <div className="material-controls" style={{ marginTop: '12px', padding: '12px', background: '#f5f5f5', borderRadius: '8px' }}>
-            {/* Вращение двери (DOOR_SET) */}
+            {/* Вращение двери */}
             <div>
               <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: '14px' }}>🚪 Вращение двери</div>
               
@@ -311,46 +264,16 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
                   min="0"
                   max="120"
                   step="1"
-                  value={doorRotation}
-                  onChange={(e) => {
-                    const angle = parseFloat(e.target.value);
-                    setDoorRotation(angle);
-                    if (testModelObject) {
-                      // Ищем узел для вращения: DOOR_HINGE > DOOR_SET > DOOR_FRAME
-                      const doorNode = testModelObject.getObjectByName('DOOR_HINGE') ||
-                                       testModelObject.getObjectByName('DOOR_SET') ||
-                                       testModelObject.getObjectByName('DOOR_FRAME');
-                      if (doorNode) {
-                        // Преобразуем градусы в радианы и вращаем вокруг Y
-                        doorNode.rotation.y = (angle * Math.PI) / 180;
-                        
-                        // Пересчитываем compensatedScale для нового угла поворота
-                        handleParametricResize(cabinetWidth, cabinetHeight, cabinetDepth);
-                      } else {
-                        console.warn('⚠️ Узел двери (DOOR_HINGE/DOOR_SET/DOOR_FRAME) не найден в модели');
-                      }
-                    }
-                  }}
+                  value={cabinet.doorRotation}
+                  onChange={(e) => cabinet.setDoorRotation(parseFloat(e.target.value))}
                   style={{ flex: 1 }}
                 />
-                <span style={{ fontSize: '12px', color: '#666', minWidth: '35px' }}>{doorRotation}°</span>
+                <span style={{ fontSize: '12px', color: '#666', minWidth: '35px' }}>{cabinet.doorRotation}°</span>
               </div>
               
               <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                 <button
-                  onClick={() => {
-                    setDoorRotation(0);
-                    if (testModelObject) {
-                      const doorNode = testModelObject.getObjectByName('DOOR_HINGE') ||
-                                       testModelObject.getObjectByName('DOOR_SET') ||
-                                       testModelObject.getObjectByName('DOOR_FRAME');
-                      if (doorNode) {
-                        doorNode.rotation.y = 0;
-                        // Пересчитываем compensatedScale после изменения угла
-                        handleParametricResize(cabinetWidth, cabinetHeight, cabinetDepth);
-                      }
-                    }
-                  }}
+                  onClick={() => cabinet.closeDoor()}
                   style={{ 
                     padding: '4px 12px', 
                     fontSize: '12px', 
@@ -363,19 +286,7 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
                   Закрыто (0°)
                 </button>
                 <button
-                  onClick={() => {
-                    setDoorRotation(90);
-                    if (testModelObject) {
-                      const doorNode = testModelObject.getObjectByName('DOOR_HINGE') ||
-                                       testModelObject.getObjectByName('DOOR_SET') ||
-                                       testModelObject.getObjectByName('DOOR_FRAME');
-                      if (doorNode) {
-                        doorNode.rotation.y = Math.PI / 2;
-                        // Пересчитываем compensatedScale после изменения угла
-                        handleParametricResize(cabinetWidth, cabinetHeight, cabinetDepth);
-                      }
-                    }
-                  }}
+                  onClick={() => cabinet.openDoor()}
                   style={{ 
                     padding: '4px 12px', 
                     fontSize: '12px', 
@@ -398,36 +309,8 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
                 <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '13px' }}>
                   <input 
                     type="checkbox"
-                    checked={showEdges}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setShowEdges(checked);
-                      if (testModelObject) {
-                        testModelObject.traverse((child) => {
-                          if ((child as THREE.Mesh).isMesh) {
-                            const mesh = child as THREE.Mesh;
-                            
-                            // Удаляем существующие грани
-                            const existingEdges = mesh.children.find(c => c.type === 'LineSegments');
-                            if (existingEdges) {
-                              mesh.remove(existingEdges);
-                              (existingEdges as THREE.LineSegments).geometry.dispose();
-                              ((existingEdges as THREE.LineSegments).material as THREE.Material).dispose();
-                            }
-                            
-                            // Добавляем новые грани если включено
-                            if (checked && mesh.geometry) {
-                              const edges = new THREE.EdgesGeometry(mesh.geometry, 15);
-                              const line = new THREE.LineSegments(
-                                edges, 
-                                new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 1 })
-                              );
-                              mesh.add(line);
-                            }
-                          }
-                        });
-                      }
-                    }}
+                    checked={cabinet.showEdges}
+                    onChange={(e) => cabinet.setShowEdges(e.target.checked)}
                     style={{ marginRight: '8px' }}
                   />
                   <span>Показать грани (edges)</span>
@@ -440,67 +323,57 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
             </div>
             
             {/* === ПАРАМЕТРИЧЕСКИЙ РЕСАЙЗ === */}
-            {originalCabinetSize && (
+            {cabinet.originalSize && (
               <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #ddd' }}>
                 <div style={{ marginBottom: '8px', fontWeight: 600, fontSize: '14px' }}>📐 Параметрический ресайз</div>
                 <div style={{ fontSize: '11px', color: '#888', marginBottom: '8px' }}>
-                  Оригинал: {Math.round(originalCabinetSize.x)}×{Math.round(originalCabinetSize.y)}×{Math.round(originalCabinetSize.z)} мм
+                  Оригинал: {Math.round(cabinet.originalSize.x)}×{Math.round(cabinet.originalSize.y)}×{Math.round(cabinet.originalSize.z)} мм
                 </div>
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                   <label style={{ fontSize: '13px', minWidth: '65px', color: '#e74c3c' }}>Ширина:</label>
                   <input 
                     type="range"
-                    min={Math.round(originalCabinetSize.x * 0.5)}
-                    max={Math.round(originalCabinetSize.x * 1.5)}
+                    min={Math.round(cabinet.originalSize.x * 0.5)}
+                    max={Math.round(cabinet.originalSize.x * 1.5)}
                     step="10"
-                    value={cabinetWidth}
-                    onChange={handleWidthChange}
+                    value={cabinet.currentSize.width}
+                    onChange={(e) => cabinet.setWidth(parseInt(e.target.value, 10))}
                     style={{ flex: 1 }}
                   />
-                  <span style={{ fontSize: '12px', color: '#666', minWidth: '55px' }}>{cabinetWidth} мм</span>
+                  <span style={{ fontSize: '12px', color: '#666', minWidth: '55px' }}>{cabinet.currentSize.width} мм</span>
                 </div>
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                   <label style={{ fontSize: '13px', minWidth: '65px', color: '#27ae60' }}>Высота:</label>
                   <input 
                     type="range"
-                    min={Math.round(originalCabinetSize.y * 0.5)}
-                    max={Math.round(originalCabinetSize.y * 1.5)}
+                    min={Math.round(cabinet.originalSize.y * 0.5)}
+                    max={Math.round(cabinet.originalSize.y * 1.5)}
                     step="10"
-                    value={cabinetHeight}
-                    onChange={handleHeightChange}
+                    value={cabinet.currentSize.height}
+                    onChange={(e) => cabinet.setHeight(parseInt(e.target.value, 10))}
                     style={{ flex: 1 }}
                   />
-                  <span style={{ fontSize: '12px', color: '#666', minWidth: '55px' }}>{cabinetHeight} мм</span>
+                  <span style={{ fontSize: '12px', color: '#666', minWidth: '55px' }}>{cabinet.currentSize.height} мм</span>
                 </div>
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                   <label style={{ fontSize: '13px', minWidth: '65px', color: '#3498db' }}>Глубина:</label>
                   <input 
                     type="range"
-                    min={Math.round(originalCabinetSize.z * 0.5)}
-                    max={Math.round(originalCabinetSize.z * 1.5)}
+                    min={Math.round(cabinet.originalSize.z * 0.5)}
+                    max={Math.round(cabinet.originalSize.z * 1.5)}
                     step="10"
-                    value={cabinetDepth}
-                    onChange={handleDepthChange}
+                    value={cabinet.currentSize.depth}
+                    onChange={(e) => cabinet.setDepth(parseInt(e.target.value, 10))}
                     style={{ flex: 1 }}
                   />
-                  <span style={{ fontSize: '12px', color: '#666', minWidth: '55px' }}>{cabinetDepth} мм</span>
+                  <span style={{ fontSize: '12px', color: '#666', minWidth: '55px' }}>{cabinet.currentSize.depth} мм</span>
                 </div>
                 
                 <button
-                  onClick={() => {
-                    if (originalCabinetSize) {
-                      const w = Math.round(originalCabinetSize.x);
-                      const h = Math.round(originalCabinetSize.y);
-                      const d = Math.round(originalCabinetSize.z);
-                      setCabinetWidth(w);
-                      setCabinetHeight(h);
-                      setCabinetDepth(d);
-                      handleParametricResize(w, h, d);
-                    }
-                  }}
+                  onClick={() => cabinet.resetSize()}
                   style={{ 
                     marginTop: '8px', 
                     padding: '6px 16px', 
@@ -524,4 +397,3 @@ const LeftPanel: React.FC<LeftPanelProps> = ({
 };
 
 export default LeftPanel;
-

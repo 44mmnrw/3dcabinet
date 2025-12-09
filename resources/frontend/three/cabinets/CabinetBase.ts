@@ -206,17 +206,12 @@ export class CabinetBase {
 
     /**
      * Открыть дверь (удобный метод)
+     * @param angle - угол в радианах (по умолчанию π/2 = 90°)
      */
-    openDoor(angle: number = -MATH.DEG_90_RAD): void {
+    openDoor(angle: number = MATH.DEG_90_RAD): void {
         this.setDoorRotation(angle);
         const door = this.doorComponentName ? this.components[this.doorComponentName] : null;
-        if (door) {
-            console.log('🚪 Дверь открыта:', {
-                doorName: this.doorComponentName,
-                rotation: door.rotation.toArray(),
-                position: door.position.toArray()
-            });
-        } else {
+        if (!door) {
             console.warn('⚠️ Дверь не найдена для openDoor()');
         }
     }

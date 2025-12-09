@@ -83,6 +83,11 @@ export interface ClimateSpecs {
 }
 
 /**
+ * Тип модели шкафа
+ */
+export type CabinetModelType = 'freecad' | 'gltf' | 'glb';
+
+/**
  * Определение шкафа из каталога
  */
 export interface CabinetDefinition {
@@ -101,6 +106,9 @@ export interface CabinetDefinition {
     thermal?: ThermalSpecs;
     climate?: ClimateSpecs;
     thumbnail?: string;
+    // Новые поля для поддержки GLTF/GLB
+    modelType?: CabinetModelType;  // Тип модели: 'freecad' (по умолчанию) или 'gltf'/'glb'
+    modelPath?: string;             // Путь к GLTF/GLB файлу (относительно /assets/models/cabinets/)
     [key: string]: unknown;  // Для дополнительных полей
 }
 

@@ -118,9 +118,18 @@ export class DINRailStrategy extends MountingStrategy {
 
     /**
      * Получить список DIN-реек через CabinetType или fallback на компоненты
+     * 
+     * Работает с обоими типами шкафов:
+     * - FreeCAD шкафы: компоненты регистрируются вручную в классе шкафа
+     * - GLTF/GLB шкафы: компоненты автоматически регистрируются в GLTFCabinetBase
+     * 
+     * Приоритет поиска:
+     * 1. Через mountingZones из каталога (если указаны в CabinetDefinition)
+     * 2. Fallback: поиск по именам компонентов (dinRail*, din_rail*, rail*)
      */
     _getRails(): THREE.Object3D[] {
         // Новый путь: через CabinetType.getMountingZones() (если есть)
+        // Это работает для GLTF/GLB шкафов, если в каталоге указаны mountingZones
         if (this.cabinetType && typeof this.cabinetType.getMountingZones === 'function') {
             const zones = this.cabinetType.getMountingZones('din_rail');
             if (zones && zones.length > 0) {
@@ -131,7 +140,11 @@ export class DINRailStrategy extends MountingStrategy {
                     if (zone.componentNames && Array.isArray(zone.componentNames)) {
                         zone.componentNames.forEach(name => {
                             const rail = components[name];
-                            if (rail) rails.push(rail);
+                            if (rail) {
+                                rails.push(rail);
+                            } else {
+                                console.warn(`⚠️ Компонент "${name}" не найден в шкафу. Проверьте регистрацию компонентов.`);
+                            }
                         });
                     }
                 });
@@ -144,6 +157,8 @@ export class DINRailStrategy extends MountingStrategy {
         }
         
         // Fallback: ищем все компоненты, которые выглядят как DIN-рейки
+        // Работает для обоих типов шкафов (FreeCAD и GLTF/GLB)
+        // GLTFCabinetBase регистрирует рейки как din_rail_0, din_rail_1 и т.д.
         const components = this.cabinet.getComponents();
         const rails = Object.entries(components)
             .filter(([name, component]) => {

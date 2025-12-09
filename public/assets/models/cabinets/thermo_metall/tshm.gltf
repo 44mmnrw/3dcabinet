@@ -502,11 +502,11 @@
 			"extras":{
 				"poliigon_props":{},
 				"anchor_x":"left",
-				"resize_x":"move",
 				"anchor_y":"top",
 				"resize_y":"move",
 				"resize_z":"move",
-				"anchor_z":"front"
+				"anchor_z":"front",
+				"resize_x":"move"
 			},
 			"name":"LOCK_SET_01",
 			"translation":[
@@ -559,7 +559,13 @@
 				41
 			],
 			"extras":{
-				"poliigon_props":{}
+				"poliigon_props":{},
+				"anchor_x":"left",
+				"anchor_y":"bottom",
+				"anchor_z":"front",
+				"resize_x":"move",
+				"resize_y":"move",
+				"resize_z":"move"
 			},
 			"name":"LOCK_SET_02",
 			"translation":[
@@ -2936,6 +2942,9 @@
 				44,
 				170
 			],
+			"extras":{
+				"poliigon_props":{}
+			},
 			"name":"TSHM_WRAPPER",
 			"translation":[
 				0.47943559288978577,
@@ -3750,7 +3759,7 @@
 						}
 					},
 					"indices":92,
-					"material":0,
+					"material":1,
 					"mode":4
 				}
 			]
@@ -3773,7 +3782,7 @@
 						}
 					},
 					"indices":80,
-					"material":0,
+					"material":1,
 					"mode":4
 				}
 			]
@@ -3796,7 +3805,7 @@
 						}
 					},
 					"indices":83,
-					"material":0,
+					"material":1,
 					"mode":4
 				}
 			]
@@ -3819,7 +3828,7 @@
 						}
 					},
 					"indices":99,
-					"material":0,
+					"material":1,
 					"mode":4
 				}
 			]
@@ -3842,7 +3851,7 @@
 						}
 					},
 					"indices":89,
-					"material":0,
+					"material":1,
 					"mode":4
 				}
 			]
@@ -10857,7 +10866,7 @@
 	"buffers":[
 		{
 			"byteLength":831472,
-			"uri":"test.bin"
+			"uri":"tshm.bin"
 		}
 	]
 }

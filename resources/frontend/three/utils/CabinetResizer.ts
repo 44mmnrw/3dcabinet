@@ -398,28 +398,57 @@ export function applyParametricResize(
   );
   
   // --- 3. Применяем scale к каждому дочернему узлу первого уровня ---
+  // ВАЖНО: Сначала сбрасываем scale всех дочерних узлов до оригинальных значений
+  // Это необходимо, чтобы избежать накопления scale при повторных вызовах
   for (const child of model.children) {
     const childData = nodesData.get(child.name);
-    
-    // ВАЖНО: Сбрасываем scale до (1,1,1) перед применением нового,
-    // чтобы избежать накопления scale при повторных вызовах функции
-    // Мы всегда применяем scale относительно оригинального размера модели
-    child.scale.set(1, 1, 1);
-    
-    // Обычный узел: применяем scale напрямую
-    child.scale.copy(scale);
-    
-    // Компенсируем позицию относительно точки масштабирования
     if (childData) {
-      const origPos = childData.localPosition;
-      const offsetX = modelData.center.x * (1 - scale.x);
-      const offsetY = modelData.min.y * (1 - scale.y);
-      const offsetZ = modelData.min.z * (1 - scale.z);
-      child.position.set(
-        origPos.x * scale.x + offsetX,
-        origPos.y * scale.y + offsetY,
-        origPos.z * scale.z + offsetZ
-      );
+      // Сбрасываем scale до оригинального значения из nodesData
+      child.scale.copy(childData.localScale);
+      // Сбрасываем позицию до оригинальной
+      child.position.copy(childData.localPosition);
+    } else {
+      // Если данных нет, сбрасываем до (1,1,1)
+      child.scale.set(1, 1, 1);
+    }
+  }
+  
+  // Обновляем матрицы после сброса
+  model.updateMatrixWorld(true);
+  
+  // Теперь применяем новый scale
+  if (model.children.length === 0) {
+    // Если нет дочерних узлов, применяем scale напрямую к модели
+    console.warn('⚠️ [CabinetResizer] Модель не имеет дочерних узлов, применяем scale напрямую к корню');
+    model.scale.copy(scale);
+  } else {
+    for (const child of model.children) {
+      const childData = nodesData.get(child.name);
+      
+      // Применяем scale к дочернему узлу
+      // Умножаем оригинальный scale на новый scale
+      if (childData) {
+        child.scale.set(
+          childData.localScale.x * scale.x,
+          childData.localScale.y * scale.y,
+          childData.localScale.z * scale.z
+        );
+      } else {
+        child.scale.copy(scale);
+      }
+      
+      // Компенсируем позицию относительно точки масштабирования
+      if (childData) {
+        const origPos = childData.localPosition;
+        const offsetX = modelData.center.x * (1 - scale.x);
+        const offsetY = modelData.min.y * (1 - scale.y);
+        const offsetZ = modelData.min.z * (1 - scale.z);
+        child.position.set(
+          origPos.x * scale.x + offsetX,
+          origPos.y * scale.y + offsetY,
+          origPos.z * scale.z + offsetZ
+        );
+      }
     }
   }
   

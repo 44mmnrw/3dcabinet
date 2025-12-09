@@ -57,22 +57,43 @@ export class CabinetFactory {
             throw new Error('Некорректное определение шкафа: отсутствует className');
         }
 
-        const { className, modulePath } = cabinetDef;
-        const basePath = options.basePath || (window.location.origin + '/assets/models/freecad');
+        const { className, modulePath, modelType = 'freecad', modelPath } = cabinetDef;
 
         // 1. Загрузить класс шкафа
         const cabinetInstance = await this._loadCabinetClass(className, modulePath);
 
         // 2. Собрать 3D-модель
-        // Не передаём config, чтобы использовался встроенный конфиг из модуля
-        // cabinetDef из каталога не содержит структуру components/rails
-        // Метод assemble может быть в конкретных реализациях, но не в базовом классе
-        const cabinetWithAssemble = cabinetInstance as CabinetBase & { assemble?: (options?: { basePath?: string; config?: unknown }) => Promise<THREE.Group> };
+        // Определяем тип модели и передаём соответствующие опции
+        const cabinetWithAssemble = cabinetInstance as CabinetBase & { 
+            assemble?: (options?: { basePath?: string; modelPath?: string; config?: unknown }) => Promise<THREE.Group> 
+        };
+        
         if (!cabinetWithAssemble.assemble || typeof cabinetWithAssemble.assemble !== 'function') {
             throw new Error(`Класс ${className} не имеет метода assemble()`);
         }
+
+        // Подготавливаем опции в зависимости от типа модели
+        let assembleOptions: { basePath?: string; modelPath?: string; config?: unknown } = {};
+        
+        if (modelType === 'gltf' || modelType === 'glb') {
+            // Для GLTF/GLB моделей передаём путь к модели
+            if (modelPath) {
+                // Если путь относительный, добавляем базовый путь
+                const fullModelPath = modelPath.startsWith('/') 
+                    ? modelPath 
+                    : `/assets/models/cabinets/${modelPath}`;
+                assembleOptions.modelPath = fullModelPath;
+            } else {
+                console.warn(`⚠️ Для шкафа ${className} указан тип ${modelType}, но не указан modelPath`);
+            }
+        } else {
+            // Для FreeCAD моделей используем basePath
+            const basePath = options.basePath || (window.location.origin + '/assets/models/freecad');
+            assembleOptions.basePath = basePath;
+        }
+
         // Важно: вызываем метод напрямую на объекте, чтобы сохранить контекст this
-        const assembly = await cabinetWithAssemble.assemble({ basePath });
+        const assembly = await cabinetWithAssemble.assemble(assembleOptions);
 
         // 3. Создать тип через TypeRegistry
         const cabinetType = await this._createCabinetType(cabinetDef);

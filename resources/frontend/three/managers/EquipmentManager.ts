@@ -343,24 +343,16 @@ export class EquipmentManager {
             
             // Авто-открытие двери при первом добавлении оборудования
             if (!this.doorAutoOpened) {
-                console.log('🔍 [EquipmentManager] Проверка авто-открытия двери...');
                 const cabinetObj = this.cabinetManager.getCabinet(cabinetId);
-                console.log('🔍 [EquipmentManager] cabinetObj:', cabinetObj);
                 const cabinetInstance = cabinetObj?.instance;
-                console.log('🔍 [EquipmentManager] cabinetInstance:', cabinetInstance);
-                console.log('🔍 [EquipmentManager] typeof openDoor:', typeof cabinetInstance?.openDoor);
                 
                 if (cabinetInstance && typeof cabinetInstance.openDoor === 'function') {
                     try {
-                        console.log('🚪 Вызов openDoor() для шкафа', cabinetId);
                         cabinetInstance.openDoor();
                         this.doorAutoOpened = true;
-                        console.log('✅ Авто-открытие двери выполнено для шкафа', cabinetId);
                     } catch (doorErr) {
                         console.warn('⚠️ Не удалось автоматически открыть дверь:', doorErr);
                     }
-                } else {
-                    console.warn('⚠️ openDoor не найден или не является функцией');
                 }
             }
 
