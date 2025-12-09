@@ -4,7 +4,7 @@ import { CabinetFactory } from '../utils/CabinetFactory.ts';
 import { eventBus, ConfiguratorEvents, type IEventBus } from '../events/EventBus.ts';
 import { createDefaultLogicEngine } from '../logic/index.ts';
 import type { LogicEngine } from '../logic/LogicEngine.ts';
-import type { CabinetDefinition, CabinetInstance, CabinetInfo } from '../types/cabinet.types.js';
+import type { CabinetDefinition, CabinetInstance, CabinetInfo, ResizableCabinet } from '../types/cabinet.types.js';
 import type { CabinetManagerOptions } from '../types/managers.types.js';
 import type { EquipmentConfig } from '../types/equipment.types.js';
 import type { MountingStrategy } from '../strategies/MountingStrategies.ts';
@@ -408,6 +408,213 @@ export class CabinetManager {
             }
         }
         return `${baseId}_${index}`;
+    }
+
+    // ============================================================================
+    // ПАРАМЕТРИЧЕСКИЙ РЕСАЙЗ
+    // ============================================================================
+
+    /**
+     * Изменить размеры активного шкафа
+     * @param width - ширина в мм
+     * @param height - высота в мм
+     * @param depth - глубина в мм
+     * @returns true если ресайз успешен
+     */
+    resize(width: number, height: number, depth: number): boolean {
+        const cabinet = this.getActiveCabinet();
+        if (!cabinet?.instance) {
+            console.warn('⚠️ [CabinetManager] Нет активного шкафа для ресайза');
+            return false;
+        }
+        
+        const instance = cabinet.instance as ResizableCabinet;
+        if (typeof instance.applyResize !== 'function') {
+            console.warn('⚠️ [CabinetManager] applyResize не доступен для этого шкафа');
+            return false;
+        }
+        
+        // Проверяем готовность данных
+        const hasData = instance.originalCabinetSize && 
+                        instance.modelOriginalData && 
+                        instance.nodesOriginalData?.size && instance.nodesOriginalData.size > 0;
+        
+        if (!hasData) {
+            console.warn('⚠️ [CabinetManager] Данные для ресайза не готовы');
+            return false;
+        }
+        
+        try {
+            instance.applyResize(width, height, depth);
+            
+            // Emit событие о изменении размеров
+            this.eventBus.emit(ConfiguratorEvents.CABINET_CHANGED, {
+                cabinetId: this.activeCabinetId,
+                action: 'resize',
+                size: { width, height, depth }
+            });
+            
+            console.log(`📐 [CabinetManager] Размер изменён: ${width}x${height}x${depth}`);
+            return true;
+        } catch (error) {
+            console.error('❌ [CabinetManager] Ошибка ресайза:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Получить оригинальные размеры активного шкафа
+     * @returns Vector3 с размерами или null
+     */
+    getOriginalSize(): THREE.Vector3 | null {
+        const cabinet = this.getActiveCabinet();
+        if (!cabinet?.instance) return null;
+        
+        const instance = cabinet.instance as ResizableCabinet;
+        
+        if (typeof instance.getOriginalSize === 'function') {
+            return instance.getOriginalSize();
+        }
+        
+        if (instance.originalCabinetSize) {
+            return instance.originalCabinetSize.clone();
+        }
+        
+        return null;
+    }
+
+    // ============================================================================
+    // УПРАВЛЕНИЕ ДВЕРЬЮ
+    // ============================================================================
+
+    /**
+     * Установить угол поворота двери активного шкафа
+     * @param degrees - угол в градусах (0-120)
+     * @returns true если операция успешна
+     */
+    setDoorRotation(degrees: number): boolean {
+        const cabinet = this.getActiveCabinet();
+        if (!cabinet?.instance) {
+            console.warn('⚠️ [CabinetManager] Нет активного шкафа для поворота двери');
+            return false;
+        }
+        
+        if (typeof cabinet.instance.setDoorRotation !== 'function') {
+            console.warn('⚠️ [CabinetManager] setDoorRotation не доступен для этого шкафа');
+            return false;
+        }
+        
+        try {
+            // Ограничиваем угол
+            const clampedDegrees = Math.max(0, Math.min(120, degrees));
+            const radians = (clampedDegrees * Math.PI) / 180;
+            
+            cabinet.instance.setDoorRotation(radians);
+            
+            // Emit событие
+            this.eventBus.emit(ConfiguratorEvents.CABINET_CHANGED, {
+                cabinetId: this.activeCabinetId,
+                action: 'doorRotation',
+                degrees: clampedDegrees
+            });
+            
+            console.log(`🚪 [CabinetManager] Дверь повёрнута на ${clampedDegrees}°`);
+            return true;
+        } catch (error) {
+            console.error('❌ [CabinetManager] Ошибка поворота двери:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Открыть дверь (90°)
+     */
+    openDoor(): boolean {
+        return this.setDoorRotation(90);
+    }
+
+    /**
+     * Закрыть дверь (0°)
+     */
+    closeDoor(): boolean {
+        return this.setDoorRotation(0);
+    }
+
+    // ============================================================================
+    // ОТОБРАЖЕНИЕ ГРАНЕЙ (EDGES)
+    // ============================================================================
+
+    /**
+     * Включить/выключить отображение граней активного шкафа
+     * @param show - true для отображения граней
+     * @returns true если операция успешна
+     */
+    setShowEdges(show: boolean): boolean {
+        const cabinet = this.getActiveCabinet();
+        if (!cabinet?.assembly) {
+            console.warn('⚠️ [CabinetManager] Нет активного шкафа для отображения граней');
+            return false;
+        }
+        
+        try {
+            cabinet.assembly.traverse((child: THREE.Object3D) => {
+                if ((child as THREE.Mesh).isMesh) {
+                    const mesh = child as THREE.Mesh;
+                    
+                    // Удаляем существующие грани
+                    const existingEdges = mesh.children.find(c => c.type === 'LineSegments');
+                    if (existingEdges) {
+                        mesh.remove(existingEdges);
+                        (existingEdges as THREE.LineSegments).geometry.dispose();
+                        ((existingEdges as THREE.LineSegments).material as THREE.Material).dispose();
+                    }
+                    
+                    // Добавляем новые грани если включено
+                    if (show && mesh.geometry) {
+                        const edges = new THREE.EdgesGeometry(mesh.geometry, 15);
+                        const line = new THREE.LineSegments(
+                            edges,
+                            new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 1 })
+                        );
+                        mesh.add(line);
+                    }
+                }
+            });
+            
+            // Emit событие
+            this.eventBus.emit(ConfiguratorEvents.CABINET_CHANGED, {
+                cabinetId: this.activeCabinetId,
+                action: 'showEdges',
+                show
+            });
+            
+            console.log(`📏 [CabinetManager] Грани ${show ? 'включены' : 'выключены'}`);
+            return true;
+        } catch (error) {
+            console.error('❌ [CabinetManager] Ошибка отображения граней:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Переключить отображение граней
+     */
+    toggleEdges(): boolean {
+        // Проверяем текущее состояние по наличию LineSegments
+        const cabinet = this.getActiveCabinet();
+        if (!cabinet?.assembly) return false;
+        
+        let hasEdges = false;
+        cabinet.assembly.traverse((child: THREE.Object3D) => {
+            if ((child as THREE.Mesh).isMesh) {
+                const mesh = child as THREE.Mesh;
+                if (mesh.children.find(c => c.type === 'LineSegments')) {
+                    hasEdges = true;
+                }
+            }
+        });
+        
+        return this.setShowEdges(!hasEdges);
     }
 }
 

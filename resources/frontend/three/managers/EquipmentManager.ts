@@ -425,7 +425,7 @@ export class EquipmentManager {
             const strategy = cabinet.strategies.get(mountType);
             const unmount = (strategy as { unmount?: (id: string, railIndex: number) => void }).unmount;
             if (unmount && typeof unmount === 'function' && item.railIndex !== undefined) {
-                unmount(id, item.railIndex);
+                unmount.call(strategy, id, item.railIndex);
             }
         }
 

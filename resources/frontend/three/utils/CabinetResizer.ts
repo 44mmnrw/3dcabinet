@@ -136,8 +136,8 @@ export function getResizeRules(obj: THREE.Object3D): ResizeRules {
   
   // GLTFLoader может копировать extras в userData.extras или напрямую в userData
   // Проверяем оба варианта
-  const nodeExtras = (nodeUserData.extras as Record<string, unknown>) || {};
-  const meshExtras = (meshUserData.extras as Record<string, unknown>) || {};
+  const nodeExtras = (nodeUserData["extras"] as Record<string, unknown>) || {};
+  const meshExtras = (meshUserData["extras"] as Record<string, unknown>) || {};
   
   // Объединяем: mesh extras -> node extras -> mesh userData -> node userData
   // (node имеет приоритет)

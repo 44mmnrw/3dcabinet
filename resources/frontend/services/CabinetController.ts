@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import type { CabinetManager } from '../three/managers/CabinetManager';
+import type { EquipmentManager } from '../three/managers/EquipmentManager';
+import type { ResizableCabinet } from '../three/types/cabinet.types';
 
 /**
  * CabinetController - Универсальный контроллер для управления шкафом
@@ -22,8 +25,8 @@ export interface CabinetState {
 }
 
 export interface CabinetManagers {
-  cabinet: any;
-  equipment?: any;
+  cabinet: CabinetManager;
+  equipment?: EquipmentManager;
 }
 
 type StateChangeCallback = (state: CabinetState) => void;
@@ -119,7 +122,7 @@ class CabinetControllerClass {
       // Получаем данные о шкафе
       const cabinet = this.managers.cabinet.getCabinet(cabinetId);
       if (cabinet?.instance) {
-        const instance = cabinet.instance as any;
+        const instance = cabinet.instance as ResizableCabinet;
         
         // Получаем оригинальные размеры
         let originalSize: THREE.Vector3 | null = null;
@@ -198,42 +201,22 @@ class CabinetControllerClass {
   // ============================================================================
   
   /**
-   * Изменить размеры шкафа (универсальный метод)
+   * Изменить размеры шкафа (делегирует в CabinetManager)
    * @param width - ширина в мм
    * @param height - высота в мм
    * @param depth - глубина в мм
    */
   resize(width: number, height: number, depth: number): boolean {
-    const cabinet = this.getActiveCabinetInstance();
-    if (!cabinet) return false;
+    if (!this.managers?.cabinet) return false;
     
-    const instance = cabinet.instance as any;
-    if (typeof instance.applyResize !== 'function') {
-      console.warn('⚠️ [CabinetController] applyResize не доступен');
-      return false;
-    }
+    const success = this.managers.cabinet.resize(width, height, depth);
     
-    // Проверяем готовность данных
-    const hasData = instance.originalCabinetSize && 
-                    instance.modelOriginalData && 
-                    instance.nodesOriginalData?.size > 0;
-    
-    if (!hasData) {
-      console.warn('⚠️ [CabinetController] Данные для ресайза не готовы');
-      return false;
-    }
-    
-    try {
-      instance.applyResize(width, height, depth);
-      
+    if (success) {
       this.state.currentSize = { width, height, depth };
       this.notifyListeners();
-      
-      return true;
-    } catch (error) {
-      console.error('❌ [CabinetController] Ошибка ресайза:', error);
-      return false;
     }
+    
+    return success;
   }
   
   /**
@@ -275,34 +258,21 @@ class CabinetControllerClass {
   // ============================================================================
   
   /**
-   * Установить угол поворота двери
+   * Установить угол поворота двери (делегирует в CabinetManager)
    * @param degrees - угол в градусах (0-120)
    */
   setDoorRotation(degrees: number): boolean {
-    const cabinet = this.getActiveCabinetInstance();
-    if (!cabinet) return false;
+    if (!this.managers?.cabinet) return false;
     
-    const instance = cabinet.instance as any;
-    if (typeof instance.setDoorRotation !== 'function') {
-      console.warn('⚠️ [CabinetController] setDoorRotation не доступен');
-      return false;
-    }
+    const clampedDegrees = Math.max(0, Math.min(120, degrees));
+    const success = this.managers.cabinet.setDoorRotation(clampedDegrees);
     
-    try {
-      // Ограничиваем угол
-      const clampedDegrees = Math.max(0, Math.min(120, degrees));
-      const radians = (clampedDegrees * Math.PI) / 180;
-      
-      instance.setDoorRotation(radians);
-      
+    if (success) {
       this.state.doorRotation = clampedDegrees;
       this.notifyListeners();
-      
-      return true;
-    } catch (error) {
-      console.error('❌ [CabinetController] Ошибка поворота двери:', error);
-      return false;
     }
+    
+    return success;
   }
   
   /**
@@ -324,69 +294,40 @@ class CabinetControllerClass {
   // ============================================================================
   
   /**
-   * Включить/выключить отображение граней
+   * Включить/выключить отображение граней (делегирует в CabinetManager)
    */
   setShowEdges(show: boolean): boolean {
-    const cabinet = this.getActiveCabinetInstance();
-    if (!cabinet?.assembly) return false;
+    if (!this.managers?.cabinet) return false;
     
-    try {
-      cabinet.assembly.traverse((child: THREE.Object3D) => {
-        if ((child as THREE.Mesh).isMesh) {
-          const mesh = child as THREE.Mesh;
-          
-          // Удаляем существующие грани
-          const existingEdges = mesh.children.find(c => c.type === 'LineSegments');
-          if (existingEdges) {
-            mesh.remove(existingEdges);
-            (existingEdges as THREE.LineSegments).geometry.dispose();
-            ((existingEdges as THREE.LineSegments).material as THREE.Material).dispose();
-          }
-          
-          // Добавляем новые грани если включено
-          if (show && mesh.geometry) {
-            const edges = new THREE.EdgesGeometry(mesh.geometry, 15);
-            const line = new THREE.LineSegments(
-              edges,
-              new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 1 })
-            );
-            mesh.add(line);
-          }
-        }
-      });
-      
+    const success = this.managers.cabinet.setShowEdges(show);
+    
+    if (success) {
       this.state.showEdges = show;
       this.notifyListeners();
-      
-      return true;
-    } catch (error) {
-      console.error('❌ [CabinetController] Ошибка отображения граней:', error);
-      return false;
     }
+    
+    return success;
   }
   
   /**
-   * Переключить отображение граней
+   * Переключить отображение граней (делегирует в CabinetManager)
    */
   toggleEdges(): boolean {
-    return this.setShowEdges(!this.state.showEdges);
+    if (!this.managers?.cabinet) return false;
+    
+    const success = this.managers.cabinet.toggleEdges();
+    
+    if (success) {
+      this.state.showEdges = !this.state.showEdges;
+      this.notifyListeners();
+    }
+    
+    return success;
   }
   
   // ============================================================================
   // ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ
   // ============================================================================
-  
-  /**
-   * Получить активный экземпляр шкафа
-   */
-  private getActiveCabinetInstance(): { instance: any; assembly: THREE.Object3D } | null {
-    if (!this.managers?.cabinet) return null;
-    
-    const cabinet = this.managers.cabinet.getActiveCabinet();
-    if (!cabinet?.instance) return null;
-    
-    return cabinet;
-  }
   
   /**
    * Проверить, загружен ли шкаф

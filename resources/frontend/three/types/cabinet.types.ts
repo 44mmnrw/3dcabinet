@@ -138,3 +138,15 @@ export interface CabinetInfo {
     position: THREE.Vector3;
 }
 
+/**
+ * Интерфейс для шкафа с методами ресайза (GLTFCabinetBase)
+ * Расширяет CabinetBase дополнительными методами для параметрического масштабирования
+ */
+export interface ResizableCabinet extends CabinetBase {
+    applyResize?(width: number, height: number, depth: number): void;
+    getOriginalSize?(): THREE.Vector3 | null;
+    originalCabinetSize?: THREE.Vector3;
+    modelOriginalData?: unknown;
+    nodesOriginalData?: Map<string, unknown>;
+}
+

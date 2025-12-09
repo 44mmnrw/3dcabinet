@@ -93,8 +93,12 @@ export abstract class GLTFCabinetBase extends CabinetBase {
 
             // GLTFLoader НЕ копирует extras в userData автоматически
             // Нужно явно скопировать extras из GLTF структуры в userData узлов
+            console.log('🔍 [GLTFCabinetBase] gltf.parser:', !!gltf.parser);
+            console.log('🔍 [GLTFCabinetBase] gltf.parser.json:', !!(gltf.parser as any)?.json);
+            
             if (gltf.parser && (gltf.parser as any).json) {
                 const json = (gltf.parser as any).json;
+                console.log('🔍 [GLTFCabinetBase] json.nodes count:', json.nodes?.length);
                 const nodes = json.nodes as Array<{ name?: string; extras?: Record<string, unknown>; mesh?: number }> | undefined;
                 const meshes = json.meshes as Array<{ extras?: Record<string, unknown> }> | undefined;
                 
@@ -112,17 +116,6 @@ export abstract class GLTFCabinetBase extends CabinetBase {
                         return n.name === child.name || normalizeName(n.name) === childNameNormalized;
                     });
                     
-                    // Отладка для DIN-реек
-                    if (child.name.includes('DIN_RAIL')) {
-                        console.log(`🔍 [GLTFCabinetBase] Поиск узла для ${child.name}:`);
-                        console.log('   childNameNormalized:', childNameNormalized);
-                        console.log('   nodeDef найден:', !!nodeDef);
-                        if (nodeDef) {
-                            console.log('   nodeDef.name:', nodeDef.name);
-                            console.log('   nodeDef.extras:', nodeDef.extras);
-                        }
-                    }
-                    
                     if (nodeDef) {
                         // Копируем extras из node
                         if (nodeDef.extras) {
@@ -131,28 +124,31 @@ export abstract class GLTFCabinetBase extends CabinetBase {
                             }
                             Object.assign(child.userData, nodeDef.extras);
                             
-                            // Отладка для DIN-реек
+                            // Отладка для DIN_RAIL
                             if (child.name.includes('DIN_RAIL')) {
-                                console.log(`   ✅ Extras скопированы в userData для ${child.name}:`, child.userData);
+                                console.log(`🔍 [GLTFCabinetBase] ${child.name} extras скопированы:`, nodeDef.extras);
                             }
                         }
                         
                         // Также проверяем extras в mesh, если узел ссылается на mesh
-                        if (nodeDef.mesh !== undefined && meshes && meshes[nodeDef.mesh]) {
-                            const meshExtras = meshes[nodeDef.mesh].extras;
-                            if (meshExtras) {
-                                if (!child.userData) {
-                                    child.userData = {};
+                        if (nodeDef.mesh !== undefined && meshes) {
+                            const meshDef = meshes[nodeDef.mesh];
+                            if (meshDef) {
+                                const meshExtras = meshDef.extras;
+                                if (meshExtras) {
+                                    if (!child.userData) {
+                                        child.userData = {};
+                                    }
+                                    Object.assign(child.userData, meshExtras);
                                 }
-                                Object.assign(child.userData, meshExtras);
-                            }
-                            
-                            // Также копируем в geometry.userData, если это Mesh
-                            if (child instanceof THREE.Mesh && child.geometry) {
-                                if (!child.geometry.userData) {
-                                    child.geometry.userData = {};
+                                
+                                // Также копируем в geometry.userData, если это Mesh
+                                if (child instanceof THREE.Mesh && child.geometry && meshExtras) {
+                                    if (!child.geometry.userData) {
+                                        child.geometry.userData = {};
+                                    }
+                                    Object.assign(child.geometry.userData, meshExtras);
                                 }
-                                Object.assign(child.geometry.userData, meshExtras);
                             }
                         }
                     }
