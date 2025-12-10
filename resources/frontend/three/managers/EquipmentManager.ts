@@ -3,6 +3,7 @@ import type { EquipmentConfig, EquipmentInstance } from '../types/equipment.type
 import { CabinetManager } from './CabinetManager';
 import type { AssetLoader } from '../loaders/AssetLoader.ts';
 import type { MountingPosition } from '../strategies/MountingStrategies.ts';
+import { eventBus, ConfiguratorEvents } from '../events/EventBus.ts';
 
 /**
  * Менеджер оборудования на 3D-сцене
@@ -39,6 +40,26 @@ export class EquipmentManager {
         
         // Callback для React (синхронизация счётчика)
         this.onUpdate = null;
+        
+        // Подписка на события ресайза шкафа
+        this._subscribeToResizeEvents();
+    }
+
+    /**
+     * Подписка на события изменения шкафа для синхронизации позиций оборудования
+     * @private
+     */
+    private _subscribeToResizeEvents(): void {
+        eventBus.on(ConfiguratorEvents.CABINET_CHANGED, (event) => {
+            const detail = (event as CustomEvent).detail || (event as { detail: unknown }).detail;
+            
+            // Проверяем что это событие ресайза
+            if (detail && typeof detail === 'object' && 'action' in detail && detail.action === 'resize') {
+                const cabinetId = 'cabinetId' in detail ? (detail.cabinetId as string) : null;
+                console.log('🔔 [EquipmentManager] Получено событие resize, обновляем позиции оборудования');
+                this.updateEquipmentPositions(cabinetId);
+            }
+        });
     }
 
     /**
@@ -656,6 +677,105 @@ export class EquipmentManager {
             }
         });
         console.log(`🌟 Массовая подсветка выполнена. Всего: ${this.equipment.size}`);
+    }
+
+    /**
+     * Обновить позиции всего оборудования после ресайза шкафа
+     * 
+     * Вызывается из CabinetManager.resize() после изменения размеров шкафа.
+     * Пересчитывает абсолютные позиции оборудования на основе:
+     * - Новых позиций DIN-реек
+     * - Сохранённых относительных координат в mountingData
+     * 
+     * @param cabinetId - ID шкафа (null = активный)
+     */
+    updateEquipmentPositions(cabinetId: string | null = null): void {
+        // Определяем шкаф
+        if (!cabinetId) {
+            cabinetId = this.cabinetManager.activeCabinetId;
+        }
+        if (!cabinetId) {
+            console.warn('⚠️ [EquipmentManager] Нет активного шкафа для обновления позиций');
+            return;
+        }
+
+        const cabinet = this.cabinetManager.getCabinet(cabinetId);
+        if (!cabinet) {
+            console.warn(`⚠️ [EquipmentManager] Шкаф ${cabinetId} не найден`);
+            return;
+        }
+
+        // Получаем стратегию DIN-рейки для доступа к рейкам
+        const dinStrategy = cabinet.strategies.get('din_rail');
+        if (!dinStrategy) {
+            console.warn('⚠️ [EquipmentManager] Стратегия din_rail не найдена');
+            return;
+        }
+
+        // Получаем рейки через _getRails()
+        // @ts-expect-error - доступ к protected методу
+        const rails: THREE.Object3D[] = dinStrategy._getRails?.() || [];
+        if (rails.length === 0) {
+            console.warn('⚠️ [EquipmentManager] DIN-рейки не найдены');
+            return;
+        }
+
+        // Обновляем позиции всего оборудования этого шкафа
+        const equipmentList = this.getEquipmentByCabinet(cabinetId);
+        let updated = 0;
+
+        for (const item of equipmentList) {
+            const mountingData = item.mesh.userData['mountingData'];
+            if (!mountingData) {
+                console.warn(`⚠️ [EquipmentManager] Нет mountingData для ${item.id}`);
+                continue;
+            }
+
+            // Находим рейку по индексу
+            const railIndex = mountingData.railIndex ?? item.railIndex;
+            const rail = rails[railIndex];
+            if (!rail) {
+                console.warn(`⚠️ [EquipmentManager] Рейка ${railIndex} не найдена`);
+                continue;
+            }
+
+            // Получаем НОВЫЙ bbox рейки после ресайза
+            const railBBox = new THREE.Box3().setFromObject(rail);
+
+            // Вычисляем новую абсолютную позицию
+            const relativeX = mountingData.relativeX ?? 0;
+            const equipmentAnchorX = mountingData.equipmentAnchorX ?? 0;
+            const equipmentAnchorY = mountingData.equipmentAnchorY ?? 0;
+            const equipmentAnchorZ = mountingData.equipmentAnchorZ ?? 0;
+
+            // Anchor point на рейке (НОВЫЕ координаты после ресайза)
+            const railAnchorX = railBBox.min.x + relativeX;
+            const railAnchorY = (railBBox.min.y + railBBox.max.y) / 2;
+            const railAnchorZ = railBBox.max.z;
+
+            // Новая позиция оборудования
+            const newX = railAnchorX - equipmentAnchorX;
+            const newY = railAnchorY - equipmentAnchorY;
+            const newZ = railAnchorZ - equipmentAnchorZ;
+
+            // Применяем новую позицию
+            const oldPos = item.mesh.position.clone();
+            item.mesh.position.set(newX, newY, newZ);
+            item.mesh.updateMatrixWorld(true);
+
+            console.log(`🔄 [EquipmentManager] Обновлена позиция ${item.id}:`, {
+                old: oldPos.toArray().map(v => v.toFixed(4)),
+                new: [newX.toFixed(4), newY.toFixed(4), newZ.toFixed(4)],
+                railBBox: {
+                    min: railBBox.min.toArray().map(v => v.toFixed(4)),
+                    max: railBBox.max.toArray().map(v => v.toFixed(4))
+                }
+            });
+
+            updated++;
+        }
+
+        console.log(`✅ [EquipmentManager] Обновлено позиций: ${updated}/${equipmentList.length}`);
     }
 }
 

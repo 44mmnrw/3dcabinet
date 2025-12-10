@@ -382,6 +382,26 @@ export class DINRailStrategy extends MountingStrategy {
             console.warn('   Попробуйте временно установить: equipmentMesh.position.y = 0.5');
         }
 
+        // Сохраняем данные привязки для синхронизации при ресайзе шкафа
+        // Относительные координаты вычисляются относительно текущей позиции рейки
+        const relativeX = targetX - railBBox.min.x;  // Смещение от левого края рейки
+        const relativeY = 0;  // Оборудование всегда по центру рейки по Y
+        const relativeZ = 0;  // Оборудование всегда на передней грани рейки по Z
+        
+        equipmentMesh.userData['mountingData'] = {
+            railName: rail.name,
+            railIndex: railIndex,
+            relativeX: relativeX,
+            relativeY: relativeY,
+            relativeZ: relativeZ,
+            // Сохраняем anchor offsets для пересчёта
+            equipmentAnchorX: equipmentAnchorX,
+            equipmentAnchorY: equipmentAnchorY,
+            equipmentAnchorZ: equipmentAnchorZ
+        };
+        
+        console.log('📌 [MountingStrategy] Сохранены данные привязки:', equipmentMesh.userData['mountingData']);
+
         // Регистрируем занятое место на рейке (АБСОЛЮТНЫЕ координаты в assembly)
         this._registerOccupiedSpace(railIndex, targetX, targetX + equipmentWidth, equipmentMesh.name);
     }

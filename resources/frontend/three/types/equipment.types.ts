@@ -102,6 +102,17 @@ export interface EquipmentConfig {
 }
 
 /**
+ * Данные привязки оборудования к монтажной поверхности
+ * Используется для пересчёта позиции при ресайзе шкафа
+ */
+export interface EquipmentMountingData {
+    railName: string;           // Имя рейки (din_rail_0, din_rail_1...)
+    relativeX: number;          // Смещение от левого края рейки по X
+    relativeY: number;          // Смещение от центра рейки по Y (обычно 0)
+    relativeZ: number;          // Смещение от передней грани рейки по Z
+}
+
+/**
  * Экземпляр оборудования в сцене
  * 
  * Структура данных, которая хранится в EquipmentManager.equipment Map
@@ -119,5 +130,8 @@ export interface EquipmentInstance {
     depth?: number;                  // Глубина установки (rack / монтажная плата)
     cabinetId: string;               // ID шкафа, в котором установлено
     position?: THREE.Vector3;        // Позиция в сцене
+    
+    /** Данные привязки к рейке для синхронизации при ресайзе */
+    mountingData?: EquipmentMountingData;
 }
 
