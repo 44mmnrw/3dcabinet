@@ -259,6 +259,12 @@ export class EquipmentMoveController {
     private _createGhostMesh(originalMesh: THREE.Group): void {
         const ghost = originalMesh.clone();
         
+        // Важно: сбросить позицию, поворот и масштаб ghost на значения по умолчанию
+        // т.к. при клонировании копируются трансформации оригинального меша
+        ghost.position.set(0, 0, 0);
+        ghost.quaternion.set(0, 0, 0, 1);  // Identity quaternion
+        ghost.scale.set(1, 1, 1);
+        
         // Удаляем Box3Helper и другие helpers, которые могут вызвать ошибки
         const helpersToRemove: THREE.Object3D[] = [];
         ghost.traverse((child) => {
